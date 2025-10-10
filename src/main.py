@@ -13,7 +13,7 @@ preproc = Preprocessor(
 
 # 2. Preprocessa dataset tiri
 shots_df = preproc.preproc_shots_dataset(
-    input_path="shots_2025.csv", 
+    input_path=r"C:\Users\simon\Documents\GitHub\fantamodel\dataset\shots_2025.csv", 
     df_to_merge_path="players_all_seasons.csv"
 )
 

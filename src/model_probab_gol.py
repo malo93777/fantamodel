@@ -1,3 +1,4 @@
+from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -32,23 +33,16 @@ map_strength_dict = {
 }
 
 # stagione corrente (es. 2025)
-current_season = 2025
+current_season = CURRENT_SEASON
 
 # colonne da pesare
 cols_to_weight = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5"]
 
-boosts = {#boostare sumxg è stata chiave per tenere bassi difensori ma alzare attaccanti
-    "sum_xG": 2.5,
-    "xG_last5": 2.5,
-    "shots_last5": 1.0,
-    "goals_last5": 1.0,
-    "opponent_xGA_90min": 1.0,
-    "team_xG_90min": 1.0,
-}
+boosts = BOOST_FACTORS
 
-players = ["Lautaro", "Christian Pulisic", "Pavlovic", "Orsolini", "barella"]
-teams = ["Inter", "AC Milan", "Inter", "Bologna", "inter"]
-opponents = ["Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo"]
+players = INPUT["players"]
+teams = INPUT["teams"]
+opponents = INPUT["opponents"]
 ### *** END  GLOBALS ***
 
 def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, scaler, boosts, pos_dummies, numeric_features):
@@ -82,11 +76,11 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         #n_shots_new = player_df["n_shots"].mean()
 
         #Media ultime 5 partite del giocatore (status giocatore ultimi 2 mesi, utile per il Fanta)
-        sum_xG_new = (player_df["sum_xG"].tail(10).mean())
+        sum_xG_new = (player_df["sum_xG"].tail(12).mean())
 
         sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)
 
-        n_shots_new = (player_df["n_shots"].tail(10).mean())
+        n_shots_new = (player_df["n_shots"].tail(12).mean())
 
         #print(f" {player} sum_xG_new: {sum_xG_new:.2f}\n")
         #print(f" {player} n_shots_new: {n_shots_new:.2f}\n")
@@ -265,8 +259,8 @@ def get_shot_conversion_mean(df):
 
     return df
 
-df_orig = pd.read_csv(".\PROD_shots_2025_preproc_Serie_A.csv")
-df_teams = pd.read_csv("teams_2014_2025.csv")
+df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE)
+df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
 
 #PREPROCESSING
 
