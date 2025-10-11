@@ -23,7 +23,17 @@ BOOST_FACTORS = {
 }
 
 INPUT = {
-    "players": ["Lautaro", "Christian Pulisic", "Pavlovic", "Orsolini", "barella", "acerbi", "Martín", "Pinamonti"],
-    "teams" : ["Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo"],
-    "opponents" : ["Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Juventus"]
+    "players": ["kuhn","sanabria","Castellanos","Lautaro", "Christian Pulisic", "Pavlovic", "Orsolini", "barella", "acerbi", "Martín", "Pinamonti", "Dimarco"],
+    "teams" : ["como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter"],
+    "opponents" : ["juventus","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna"]
+}
+
+top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]
+mid_teams = ["Fiorentina", "Torino", "Bologna", "Sassuolo", "Udinese"]
+weak_teams = ["Empoli", "Verona", "Cagliari", "Lecce", "Salernitana", "Frosinone", "Monza", "Genoa", "Sampdoria", "Spezia", "Pisa", "Cremonese", "Benevento"]
+
+map_strength_dict = {
+    'top': 3,
+    'mid': 2,
+    'weak': 1
 }
