@@ -5,6 +5,7 @@ import pandas as pd
 import re
 from understatapi import UnderstatClient
 from teamscraper import TeamsXGAScraper
+import config
 
 class Scraper:
 
@@ -52,7 +53,7 @@ class Scraper:
                         #aaggiungo player_shot_data_df senza header a shots_df
                         shots_df = pd.concat([shots_df, player_shot_data_df], ignore_index=True)
 
-            shots_df.to_csv("shots_2025.csv", index=False)
+            shots_df.to_csv(config.DATASET_DATA_DIR / config.SHOTS_DATA_FILE, index=False)
             print("Dati salvati in shots_2025.csv")           
 
             #Get overall data for a player in a season          
@@ -69,8 +70,13 @@ class Scraper:
                 else:                 
                     players_seasons_df = pd.concat([players_seasons_df, league_player_data_for_season_df], ignore_index=True)
             
-            players_seasons_df.to_csv("players_all_seasons.csv", index=False)
+            players_seasons_df.to_csv(config.DATASET_DATA_DIR / config.PLAYERS_ALL_SEASON_FILE, index=False)
             print("Dati salvati in players_all_seasons.csv")
+
+            #*****  scraping classifiche stagioni per squadra*******
+            teams_scraper = TeamsXGAScraper()
+            seasons = [str(year) for year in range(2014, 2026)]
+            teams_scraper.run(seasons) 
         else:
                      
             teams_scraper = TeamsXGAScraper()

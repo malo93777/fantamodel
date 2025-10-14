@@ -1,16 +1,31 @@
 import pandas as pd
 import ast  # per convertire le stringhe tipo "{'id':...}" in dict 
+import config 
+import unicodedata
 
 class Preprocessor:
-    def __init__(self, serie_a_teams=None, top_teams=None, mid_teams=None, weak_teams=None):
+    def __init__(self, serie_a_teams=None):
         self.serie_a_teams = serie_a_teams or []
-        self.top_teams = top_teams or []
-        self.mid_teams = mid_teams or []
-        self.weak_teams = weak_teams or []
 
     # ========================
     # Funzioni di supporto
     # ========================
+    
+    def normalize_name(self, name):
+        if pd.isna(name):
+            return ""
+        # Converti in stringa
+        name = str(name).strip()
+        # Normalizza caratteri accentati (ü -> u)
+        name = unicodedata.normalize("NFKD", name)
+        name = name.encode("ascii", "ignore").decode("utf-8")
+        # Pulisci spazi e porta in minuscolo
+        name = name.lower().strip()
+        # Se dopo tutto è vuoto, restituisci il nome originale lowercase
+        if name == "":
+            return str(name).lower()
+        return name
+
     def extract_team_name(self, team_str):
         """Estrae solo il nome della squadra dal campo di understat."""
         if isinstance(team_str, str):
@@ -30,20 +45,6 @@ class Preprocessor:
         if any(sa.lower() in team_lower for sa in self.serie_a_teams):
             return "Serie A"
         return "Other"
-
-    def map_strength(self, team: str) -> str:
-        """Classifica la forza della squadra (top, mid, weak, other)."""
-        if not isinstance(team, str):
-            return "unknown"
-        team_lower = team.lower().strip()
-        if any(sa.lower() in team_lower for sa in self.top_teams):
-            return "top"
-        elif any(sa.lower() in team_lower for sa in self.mid_teams):
-            return "mid"
-        elif any(sa.lower() in team_lower for sa in self.weak_teams):
-            return "weak"
-        else:
-            return "other"
         
     def calculate_players_data(self, df): 
 
@@ -65,37 +66,81 @@ class Preprocessor:
     # Preprocessing dei tiri
     # ========================
 
-    def add_missing_games(self, shots_df, matches_df):
+    def add_missing_games(self, shots_df, matches_df, all_season_players):
+    
         all_players = []
 
         # Pulisci prima i campi h e a del matches_df
-        matches_df = matches_df.copy()
         matches_df["h_team"] = matches_df["h"].apply(self.extract_team_name)
         matches_df["a_team"] = matches_df["a"].apply(self.extract_team_name)
-        matches_df["datetime"] = pd.to_datetime(matches_df["datetime"])
+        matches_df["datetime"] = pd.to_datetime(matches_df["datetime"], errors="coerce")
 
-        for player, group in shots_df.groupby(["player", "season"]):
-            player_name, season = player
+        # Conversioni base
+        matches_df = matches_df.copy()
+        matches_df["datetime"] = pd.to_datetime(matches_df["datetime"], errors="coerce")
+        now = pd.Timestamp.now()
+        matches_df = matches_df[matches_df["datetime"] <= now]
+
+        matches_df["id"] = matches_df["id"].astype(str)
+        shots_df["match_id"] = shots_df["match_id"].astype(str)
+
+        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
+
+           # --- Itera su ciascun giocatore per stagione ---
+        for (player_name, season), group in shots_df.groupby(["player", "season"]):
             player_team = group["player_team"].iloc[0]
 
-            # tutte le partite della squadra in quella stagione
+            # --- Tutte le partite giocate dalla squadra in quella stagione ---
             team_matches = matches_df[
-                (matches_df["team"] == player_team) &
-                (matches_df["season"] == season)
+                (matches_df["team"] == player_team)
+                & (matches_df["season"] == season)
             ]
-            
             team_match_ids = team_matches["id"].astype(str).unique()
             player_match_ids = group["match_id"].astype(str).unique()
 
-            # id partite mancanti
-            missing_ids = set(team_match_ids) - set(player_match_ids)
+            # --- Numero ufficiale di presenze del giocatore ---
+            season_row = all_season_players[
+                (all_season_players["player_name"].str.lower() == player_name.lower())
+                & (all_season_players["season"] == season)
+            ]
 
-            # costruisco righe dummy per partite senza tiri
+            # --- Numero ufficiale di presenze del giocatore ---
+            print(f"\n🔍 Confronto per il giocatore: {player_name} | stagione: {season}")
+            print("👉 player_name.lower() =", player_name.lower())     
+
+            season_row = all_season_players[
+                (all_season_players["player_name"].str.lower() == player_name.lower())
+                & (all_season_players["season"] == season)
+            ]
+
+            if season_row.empty:
+                print(f"⚠️ Nessun dato di presenze per {player_name} ({season})")
+                all_players.append(group)
+                continue
+
+            n_appearances = int(season_row["games"].iloc[0])
+
+            # --- Partite mancanti (in cui non ha tirato ma ha giocato) ---
+            n_current = len(player_match_ids)
+            n_missing = max(0, n_appearances - n_current)
+
+            if n_missing == 0:
+                all_players.append(group)
+                continue
+
+            available_matches = list(set(team_match_ids) - set(player_match_ids))
+            if len(available_matches) < n_missing:
+                n_missing = len(available_matches)
+
+            # --- Crea righe dummy per le partite senza tiri ---
             dummy_rows = []
-            for mid in missing_ids:
+            for mid in available_matches[:n_missing]:
                 match_row = team_matches[team_matches["id"].astype(str) == mid].iloc[0]
-                opponent = match_row["a_team"] if match_row["side"] == "h" else match_row["h_team"]
-                dummy = {
+                opponent = (
+                    match_row["a_team"] if match_row["side"] == "h" else match_row["h_team"]
+                )
+
+                dummy_rows.append({
                     "player": player_name,
                     "season": season,
                     "match_id": mid,
@@ -106,25 +151,20 @@ class Preprocessor:
                     "n_shots": 0,
                     "goals": 0,
                     "date": match_row["datetime"]
-                }
-                dummy_rows.append(dummy)
+                })
 
-            # combino righe originali + dummy
-            group["date"] = pd.to_datetime(group["date"])
+            # --- Combina originali + dummy ---
+            group = group.copy()
+            group["date"] = pd.to_datetime(group["date"], errors="coerce")
             combined = pd.concat([group, pd.DataFrame(dummy_rows)], ignore_index=True)
 
-            # ordina per data
+            # --- Ordina e pulisci date ---
+            combined["date"] = pd.to_datetime(combined["date"], errors="coerce")
             combined = combined.sort_values("date").reset_index(drop=True)
-
-            #*** DROP PARTITE FUTURE ***
-            now = pd.Timestamp.now()
-            # converto in datetime se non lo è già
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df[df["date"] <= now].reset_index(drop=True)
 
             all_players.append(combined)
 
-        # dataframe finale ordinato globalmente
+        # --- Output finale ordinato globalmente ---
         result = pd.concat(all_players, ignore_index=True)
         result = result.sort_values(["player", "season", "date"]).reset_index(drop=True)
         return result
@@ -183,26 +223,12 @@ class Preprocessor:
 
         # Ordino cronologicamente
         df = df.sort_values(["player", "date"])
-
-        '''
-        # Rolling features (ultime 5 partite)
-        df["xG_last5"] = df.groupby("player")["sum_xG"].transform(
-            lambda x: x.shift().rolling(5, min_periods=1).mean()
-        )
-        df["shots_last5"] = df.groupby("player")["n_shots"].transform(
-            lambda x: x.shift().rolling(5, min_periods=1).mean()
-        )
-        df["goals_last5"] = df.groupby("player")["goals"].transform(
-            lambda x: x.shift().rolling(5, min_periods=1).mean()
-        )
-
-        # Statistiche cumulative
-        df["xG_cummean"] = df.groupby("player")["sum_xG"].transform(
-            lambda x: x.shift().expanding().mean()
-        )
-        '''
         
         all_season_players = pd.read_csv(df_to_merge_path)
+
+        #normalizzazione nomi unicode, per non perdersi alcuni giocatori
+        df["player"] = df["player"].apply(self.normalize_name)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
 
         merged_df = df.merge(
         all_season_players,
@@ -210,6 +236,10 @@ class Preprocessor:
         right_on=["player_name", "season"],
         how="left"
         )     
+
+        missing_players = merged_df[merged_df["games"].isna()]["player"].unique()
+        print(f"⚠️ {len(missing_players)} giocatori senza match nel file all_season_players:")
+        print(missing_players)
 
         #rinomino colonne doppie
         merged_df = merged_df.rename(columns={  "goals_x": "goals",
@@ -222,7 +252,7 @@ class Preprocessor:
         merged_df = merged_df.drop(columns={"player_name", "id", "yellow_cards", "red_cards", "team_title"})
 
         merged_df.head()
-        merged_df.to_csv("shots_2025.csv", index=False)
+        merged_df.to_csv(config.DATASET_DATA_DIR / config.SHOTS_DATA_FILE, index=False)
 
         return merged_df
     

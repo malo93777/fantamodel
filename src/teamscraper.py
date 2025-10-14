@@ -4,6 +4,7 @@ import json
 import pandas as pd
 import numpy as np
 import re
+import config
 
 class TeamsXGAScraper:
 
@@ -117,7 +118,7 @@ class TeamsXGAScraper:
             teams_df['season'] = season  # Aggiungi colonna stagione
             all_teams_df = pd.concat([all_teams_df, teams_df], ignore_index=True)
         
-        all_teams_df.to_csv("teams_2014_2025.csv", index=False)
+        all_teams_df.to_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE, index=False)
         print("Data saved to teams_2014_2025.csv")
 
 if __name__ == "__main__":

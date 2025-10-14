@@ -1,4 +1,5 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT
+from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER
+import utils
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -15,7 +16,6 @@ from sklearn.metrics import precision_recall_curve,average_precision_score
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.api as sm
 import imblearn
 from imblearn.over_sampling import SMOTE
@@ -38,6 +38,8 @@ opponents = INPUT["opponents"]
 
 def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, scaler, boosts, pos_dummies, numeric_features):
     results = []
+
+    df_records = pd.DataFrame()
 
     for player, team, opponent in zip(players, teams, opponents):
         print(f"\n➡️ {player} ({team} vs {opponent})")
@@ -69,17 +71,17 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         #n_shots_new = player_df["n_shots"].mean()
 
         #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
-        sum_xG_new = (player_df["sum_xG"].tail(12).mean())
+        #sum_xG_new = (player_df["sum_xG"].tail(12).mean())
 
         sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)
 
-        n_shots_new = (player_df["n_shots"].tail(12).mean())
+        n_shots_new = (player_df["n_shots"].tail(18).mean())
 
         #print(f" {player} sum_xG_new: {sum_xG_new:.2f}\n")
         #print(f" {player} n_shots_new: {n_shots_new:.2f}\n")
 
         # 6️⃣ Posizioni (dummy)
-        pos_dummy_df = get_positions(player_df, pos_dummies.columns)
+        #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
         # 7️⃣ Costruisci feature row
         X_new = [[sum_xG_new, n_shots_new,
@@ -91,6 +93,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
 
         feature_names = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5", "team_xG_90min", "opponent_xGA_90min"]
         X_new_df = pd.DataFrame(X_new, columns=feature_names)
+
+        df_records = pd.concat([df_records, X_new_df], axis=0)
 
         # 8️⃣ Applica boost
         for feature, factor in boosts.items():
@@ -113,11 +117,11 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
             "team": team,
             "opponent": opponent,
             "prob_goal": prob_goal
-        })
+        })     
 
     for boost in boosts.items():
         print(boost)
-
+    df_records.to_csv("records.csv")
     return pd.DataFrame(results)
 
 def get_player_data(df: pd.DataFrame, player_name: str):
@@ -170,10 +174,10 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
     """
     # media xG del giocatore nelle ultime 10 partite
-    base_xG = (player_df["sum_xG"].tail(12).mean()) 
+    base_xG = (player_df["sum_xG"].tail(18).mean()) 
 
     # forza media degli avversari affrontati nelle ultime 10 partite
-    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(18).mean()
 
     # se mancano valori, fallback alla media
     if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
@@ -191,32 +195,6 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     weighted_xG = base_xG * factor
     return weighted_xG
 
-# funzione per applicare i pesi stagionali per ogni giocatore
-def weight_last_3_seasons(group):
-    # ordina le stagioni del giocatore in ordine crescente
-    group = group.sort_values("season")
-    
-    # stagioni da pesare: le 3 precedenti rispetto alla stagione corrente
-    for offset, weight in zip([3, 2, 1], [1.5, 2, 3]):
-        target_season = current_season - offset
-        mask = group["season"] == target_season
-        group.loc[mask, cols_to_weight] = group.loc[mask, cols_to_weight] * weight
-        
-    return group
-
-def map_strength(team: str) -> str:
-    if not isinstance(team, str):
-        return "unknown"
-    team_lower = team.lower().strip()
-    if any(sa.lower() in team_lower for sa in top_teams):
-        return 3
-    elif any(sa.lower() in team_lower for sa in mid_teams):
-        return 2
-    elif any(sa.lower() in team_lower for sa in weak_teams):
-        return 1
-    else:
-        return 0
-
 def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
     row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
     if not row.empty:
@@ -229,73 +207,7 @@ def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
     if not row.empty:
         return row["XG_90min"].values[0]
     else:
-        return np.nan
-    
-# trasformazione che moltiplica (usata dopo lo StandardScaler)
-def multiply_by_factor(X, factor=2.0):
-    return X * factor
-
-def clean_position(pos):
-    # Restituisce "D", "M" o "F" in base al ruolo principale, altrimenti "None"
-    roles = re.findall(r"[DMF]", str(pos).upper())
-    if "F" in roles:
-        return "F"
-    elif "M" in roles:
-        return "M"
-    elif "D" in roles:
-        return "D"
-    else:
-        return "None"
-
-def get_positions(player_df, pos_dummies_index):
-    # 1. Prendo l'ultima posizione nota del giocatore
-    player_pos = player_df["position"].iloc[-1]
-
-    # 2. Creo le dummies con le stesse colonne usate nel training
-    player_pos = clean_position(player_df["position"].iloc[-1])
-    pos_dummies = pd.get_dummies([f"pos_{player_pos}"], dtype=int)
-
-    # Se nel training c'erano più colonne, devo riallinearle:
-    pos_feature_names = pos_dummies_index  # <- quelle usate nel train
-    for col in pos_feature_names:
-        if col not in pos_dummies:
-            pos_dummies[col] = 0
-
-    # Riordino le colonne come nel training
-    pos_dummies = pos_dummies[pos_feature_names]
-
-    return pos_dummies
-
-def multicoll_check(X, features):
-
-    X = X[features].dropna()
-
-    vif = pd.DataFrame()
-    vif["feature"] = X.columns
-    vif["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
-    print(vif)
-
-# calcolo media stagionale per giocatore
-def get_shot_conversion_mean(df):
-
-    df["n_shots"] = df["n_shots"].replace(0, np.nan)  # evitiamo div/0
-    df["shot_conversion_rate"] = df["goals"] / df["n_shots"]
-
-    conversion_mean = (
-        df.groupby(["player", "season"], as_index=False)["shot_conversion_rate"]
-        .mean()
-        .rename(columns={"shot_conversion_rate": "shot_conversion_rate_mean"})
-    )
-
-    # uniamo al df principale
-    df = df.merge(conversion_mean, on=["player", "season"], how="left")
-
-    # eventuali NaN (es. giocatori senza tiri in una stagione) → 0
-    df["shot_conversion_rate_mean"] = df["shot_conversion_rate_mean"].fillna(0)
-
-    df = df.drop(columns=["shot_conversion_rate"])
-
-    return df
+        return np.nan 
 
 df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE)
 df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -354,7 +266,7 @@ df[cols_to_check] = df[cols_to_check].fillna(0)
 print(df["position"].unique())
 
 # applica al dataset
-df["position"] = df["position"].apply(clean_position)
+df["position"] = df["position"].apply(utils.clean_position)
 
 # controlla i valori unici
 print(df["position"].unique())
@@ -395,7 +307,7 @@ mask = X["season"] == 2025
 print("Prima:", X.loc[mask, "xG_last5"].head())
 
 for feature, factor in boosts.items():
-    X.loc[mask, feature] = multiply_by_factor(X.loc[mask, feature], factor=factor)
+    X.loc[mask, feature] = utils.multiply_by_factor(X.loc[mask, feature], factor=factor)
 
 # dopo
 print("Dopo:", X.loc[mask, "xG_last5"].head())
@@ -557,3 +469,5 @@ pred_df = predict_goal_probabilities(players, teams, opponents,
                                      pos_dummies, numeric_features)
 
 
+
+utils.save_models(calib_model, scaler)

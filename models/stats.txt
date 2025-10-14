@@ -1,0 +1,10 @@
+Train Precision: 0.6059
+Train Recall: 0.3091
+Train F1 Score: 0.4093
+Train Log Loss: 5.3096
+
+Test Precision: 0.5796
+Test Recall: 0.2918
+Test F1 Score: 0.3881
+Baseline (freq. reali di goal>0): 0.16605029585798817
+Brier score: 0.11056027649271252
