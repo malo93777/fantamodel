@@ -1,4 +1,4 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT
+from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, PROD_DATA_FILE_ASSIST
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -27,7 +27,7 @@ from unidecode import unidecode
 current_season = CURRENT_SEASON
 
 # colonne da pesare
-cols_to_weight = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5"]
+cols_to_weight = ["sum_xG", "xA_last5", "assist_last5"]
 
 boosts = BOOST_FACTORS
 
@@ -36,7 +36,7 @@ teams = INPUT["teams"]
 opponents = INPUT["opponents"]
 ### *** END  GLOBALS ***
 
-def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, numeric_features, scaler):
+def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, features, numeric_features, scaler):
     """
     Calcola la probabilità che ciascun giocatore fornisca un assist nella prossima partita.
 
@@ -63,6 +63,8 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
         # 1️⃣ Filtra il dataframe del giocatore
         player_df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
 
+        player_df = get_player_data(df_orig, player)
+
         if player_df.empty:
             print(f"⚠️ Nessun dato trovato per {player}")
             continue
@@ -77,24 +79,26 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
             continue
 
         # 3️⃣ Riempi i NaN
-        cols_to_check = ["xA", "xGChain", "xGBuildup", "opponent_xGA_90min", "team_xG_90min"]
+        cols_to_check = features
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
         # 4️⃣ Recupera dati della squadra e avversario
         season = player_df["season"].iloc[-1]
         opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
-        team_xG_90min = get_Xg_90min_team(team, season, df_teams)
+        #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
 
         # 5️⃣ Calcola statistiche base del giocatore
-        xA_mean = player_df["xA"].mean()
-        xGChain_mean = player_df["xGChain"].mean()
-        xGBuildup_mean = player_df["xGBuildup"].mean()
+        sum_xA = player_df["sum_xA"].tail(18).mean()
+
+        sum_xG_new = weighted_xg_vs_opponent(sum_xA, player_df, opponent_xGA_90min)
 
         # 6️⃣ Costruisci vettore di input
-        X_new = [[xA_mean, xGChain_mean, xGBuildup_mean, opponent_xGA_90min, team_xG_90min]]
-        feature_names = ["xA", "xGChain", "xGBuildup", "opponent_xGA_90min", "team_xG_90min" ]
+        X_new = [[sum_xG_new, player_df["xA_last5"].iloc[-1],player_df["key_passes_last5"].iloc[-1]]]
+    
+        X_new_df = pd.DataFrame(X_new, columns=features)
 
-        X_new_df = pd.DataFrame(X_new, columns=feature_names)
+        #elimino eventuali types obj
+        X_new_df[numeric_features] = X_new_df[numeric_features].apply(pd.to_numeric, errors="coerce").fillna(0)
 
         # 7️⃣ Scaling numeriche
         X_new_df[numeric_features] = scaler.transform(X_new_df[numeric_features])
@@ -103,17 +107,7 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
         prob_assist = calib_model.predict_proba(X_new_df)[0, 1]
 
         # 9️⃣ Stampa risultato
-        print(f"✅ Probabilità che {player} faccia un assist contro {opponent}: {prob_assist:.2f} (xGA avversaria: {opponent_xGA_90min:.2f})")
-
-        results.append({
-            "player": player,
-            "team": team,
-            "opponent": opponent,
-            "season": season,
-            "assist_probability": prob_assist,
-            "team_xG_90min": team_xG_90min,
-            "opponent_xGA_90min": opponent_xGA_90min
-        })
+        print(f"✅ Probabilità che {player} faccia un assist contro {opponent}: {prob_assist:.2f})")
 
     return pd.DataFrame(results)
 
@@ -162,19 +156,16 @@ def get_player_data(df: pd.DataFrame, player_name: str):
 
     return player_df.sort_values("date").reset_index(drop=True)
 
-def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
+def weighted_xg_vs_opponent(base_xA, player_df, opponent_xGA_90min):
     """
     Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
     """
-    # media xG del giocatore nelle ultime 10 partite
-    base_xG = (player_df["sum_xG"].tail(12).mean()) 
-
     # forza media degli avversari affrontati nelle ultime 10 partite
-    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(18).mean()
 
     # se mancano valori, fallback alla media
-    if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
-        return base_xG
+    if pd.isna(base_xA) or pd.isna(avg_opponent_xGA):
+        return base_xA
 
     # calcola fattore di correzione
     # se l’avversario concede più del normale → boost
@@ -182,12 +173,11 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.5, 1.5)
+    factor = np.clip(factor, 0.7, 1.3)
 
     # xG pesato
-    weighted_xG = base_xG * factor
-    return weighted_xG
-
+    weighted_xA = base_xA * factor
+    return weighted_xA
 
 def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
     row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
@@ -217,28 +207,6 @@ def multicoll_check(X, features):
     vif["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
     print(vif)
 
-# calcolo media stagionale per giocatore
-def get_shot_conversion_mean(df):
-
-    df["n_shots"] = df["n_shots"].replace(0, np.nan)  # evitiamo div/0
-    df["shot_conversion_rate"] = df["goals"] / df["n_shots"]
-
-    conversion_mean = (
-        df.groupby(["player", "season"], as_index=False)["shot_conversion_rate"]
-        .mean()
-        .rename(columns={"shot_conversion_rate": "shot_conversion_rate_mean"})
-    )
-
-    # uniamo al df principale
-    df = df.merge(conversion_mean, on=["player", "season"], how="left")
-
-    # eventuali NaN (es. giocatori senza tiri in una stagione) → 0
-    df["shot_conversion_rate_mean"] = df["shot_conversion_rate_mean"].fillna(0)
-
-    df = df.drop(columns=["shot_conversion_rate"])
-
-    return df
-
 def remove_nan(X):
     #*********    trovo i nan in X  *********
     if X.isnull().values.any():
@@ -250,7 +218,7 @@ def remove_nan(X):
 
     return X
 
-df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE)
+df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_ASSIST)
 df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
 
 #PREPROCESSING
@@ -267,7 +235,7 @@ df = df[df["date"] <= now].reset_index(drop=True)
 #df = get_shot_conversion_mean(df)
 
 #drop nome giocatori e squadre
-df= df.drop(columns=[ "sum_xG","xG_per90","player", "match_id", "player_team", "opponent_team", "date", "xG_cummean", "is_home","games","time","goals_total","xG","shots","npg","npxG", "goals_per90", "shots_per90"])
+#df= df.drop(columns=[ "sum_xG","player", "match_id", "player_team", "opponent_team", "date", "is_home","games","time","xG","shots","npg","npxG"])
 
 #analisi statistica
 #correlazione tra variabili numeriche
@@ -279,11 +247,9 @@ plt.show(block=True)
 
 #droppo righe con nan
 cols_to_check = [
-    "xA",
-    "xGChain",
-    "xGBuildup",
-    "opponent_xGA_90min",
-    "team_xG_90min"
+    "sum_xA",
+    "xA_last5",
+    "key_passes_last5"
 ]
 
 #df = df.dropna(subset=cols_to_check)
@@ -292,7 +258,7 @@ df[cols_to_check] = df[cols_to_check].fillna(0)
 #multicoll_check(df,["sum_xG", "n_shots"])
 
 #gestisco la y, ossia i goal trasformandola in booleana, se gol>0 allora 1, altrimenti 0
-df["assists"] = (df["assists"] > 0).astype(int)
+#df["assists"] = (df["assists"] > 0).astype(int)
 
 # Seleziona le features (X) e target (y)
 y = df["assists"]
@@ -307,32 +273,35 @@ X = df[cols_to_check]
 #********** Standardizzazione feature numeriche, tolgo se uso xgboost o random forest(non lineari) *********
 
 numeric_features = [   
-    "xA",
-    "xGChain",
-    "xGBuildup",
-    "opponent_xGA_90min",
-    "team_xG_90min"
+    "sum_xA",
+    "xA_last5",
+    "key_passes_last5"
+    
 ]
 
 scaler = StandardScaler()
 X[numeric_features] = scaler.fit_transform(X[numeric_features])
 
-# Dividi il dataset in set di addestramento e di test
-X_train, X_test, y_train, y_test = train_test_split(X, y_binary, test_size=0.2, random_state=42)
+# --- Split train / test ---
+X_train_full, X_test, y_train_full, y_test = train_test_split(
+    X, y_binary, test_size=0.2, random_state=42, stratify=y_binary
+)
 
-#BILANCIO CON SMOTE
-smote = SMOTE(random_state=42)
-X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
+# --- Split train / validation ---
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train_full, y_train_full, test_size=0.2, random_state=42, stratify=y_train_full
+)
 
-# Crea e addestra il modello di regressione logistica
-model = LogisticRegression(random_state=42)                #class_weight="balanced"
+# --- Addestramento modello base ---
+model = LogisticRegression(random_state=42, class_weight="balanced")
+model.fit(X_train, y_train)
 
-model.fit(X_train_res, y_train_res)
+# --- Calibrazione su validation ---
+calib_model = CalibratedClassifierCV(model, method='sigmoid', cv="prefit")
+calib_model.fit(X_val, y_val)
 
-calib_model = CalibratedClassifierCV(model, method='isotonic', cv=10)
-calib_model.fit(X_train_res, y_train_res)
-
-from sklearn.model_selection import RandomizedSearchCV
+# --- Valutazione su test set (mai visto) ---
+y_pred_proba = calib_model.predict_proba(X_test)[:, 1]
 
 #calib_model=model
 # **************   metrics on train   ***************
@@ -357,10 +326,12 @@ y_prob = calib_model.predict_proba(X_test)[:, 1]
 precision = precision_score(y_test, y_pred)
 recall = recall_score(y_test, y_pred)
 f1 = f1_score(y_test, y_pred)
+test_log_loss = log_loss(y_test, y_pred)
 
 print(f"Test Precision: {precision:.4f}")
 print(f"Test Recall: {recall:.4f}")
 print(f"Test F1 Score: {f1:.4f}")
+print(f"Test Log Loss: {test_log_loss:.4f}")
 
 # **************   Confusion Matrix   ***************
 
@@ -381,7 +352,7 @@ for i in range(20):
 
 X_test = X_test.drop(columns=["probabilità"])
 
-base_rate = y_test.mean()   # y_val binario: 1 se ha segnato almeno 1 gol
+base_rate = y_test.mean()   # y_val binario: 1 se ha segnato almeno 1 assist
 print("Baseline (freq. reali di assist>0):", base_rate)
 
 prob_true, prob_pred = calibration_curve(y_test, y_prob, n_bins=5)
@@ -449,7 +420,7 @@ results_df = predict_assist_probabilities(
     INPUT["players"], 
     INPUT["teams"], 
     INPUT["opponents"],
-    df_orig, df_teams, calib_model, numeric_features, scaler
+    df_orig, df_teams, calib_model, cols_to_check, numeric_features, scaler
 )
 
 print(results_df)

@@ -57,8 +57,14 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         player_df["date"] = pd.to_datetime(player_df["date"], errors="coerce")
         player_df = player_df[player_df["date"] <= now].reset_index(drop=True)
 
+        # Log-transform per ridurre impatto valori estremi
+        player_df["sum_xG_log"] = np.log1p(player_df["sum_xG"])   # log(1+xG)
+
+        # Differenza tra xG giocatore e media squadra (normalizzazione)
+        player_df["xG_team_diff"] = player_df["sum_xG"] - player_df["team_xG_90min"]
+
         # 3️⃣ Fill NaN con 0
-        cols_to_check = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5", "team_xG_90min", "opponent_xGA_90min"]
+        cols_to_check = ["sum_xG",  "xG_last5", "goals_last5","opponent_xGA_90min"]
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
         # 4️⃣ Ottieni info squadre
@@ -70,12 +76,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         #sum_xG_new = player_df["sum_xG"].mean()
         #n_shots_new = player_df["n_shots"].mean()
 
-        #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
-        #sum_xG_new = (player_df["sum_xG"].tail(12).mean())
+        #Media ultime 12 partite del giocatore (status giocatore ultimi 4 mesi, utile per il Fanta)
+        sum_xG_new = (player_df["sum_xG"].tail(18).mean())
 
-        sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)
+        #sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)
 
-        n_shots_new = (player_df["n_shots"].tail(18).mean())
+        #n_shots_new = (player_df["n_shots"].tail(18).mean())
 
         #print(f" {player} sum_xG_new: {sum_xG_new:.2f}\n")
         #print(f" {player} n_shots_new: {n_shots_new:.2f}\n")
@@ -84,14 +90,15 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
         # 7️⃣ Costruisci feature row
-        X_new = [[sum_xG_new, n_shots_new,
+        X_new = [[sum_xG_new, #n_shots_new,
                   player_df["xG_last5"].iloc[-1],
-                  player_df["shots_last5"].iloc[-1],
+                  #player_df["shots_last5"].iloc[-1],
                   player_df["goals_last5"].iloc[-1],
-                  player_team_xG_90min,
-                  opponent_xGA_90min]]
+                  opponent_xGA_90min,
+                  #player_df["xG_team_diff"].iloc[-1]
+                  ]]
 
-        feature_names = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5", "team_xG_90min", "opponent_xGA_90min"]
+        feature_names = ["sum_xG", "xG_last5", "goals_last5","opponent_xGA_90min"]
         X_new_df = pd.DataFrame(X_new, columns=feature_names)
 
         df_records = pd.concat([df_records, X_new_df], axis=0)
@@ -189,7 +196,7 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.7, 1.3)
+    factor = np.clip(factor, 0.5, 1.5)
 
     # xG pesato
     weighted_xG = base_xG * factor
@@ -249,9 +256,9 @@ df["team_xG_90min"] = df["team_xG_90min"].fillna(df["team_xG_90min"].mean())
 '''
 #droppo righe con nan
 cols_to_check = [
-    "n_shots",
+    #"n_shots",
     "xG_last5",
-    "shots_last5",
+    #"shots_last5",
     "goals_last5",
     "opponent_xGA_90min",
     "team_xG_90min"
@@ -291,6 +298,30 @@ df = df.drop(columns=["position"])
 #plt.title("Correlation Matrix")
 #plt.show(block=True)
 
+# ======================================================
+# PREPARAZIONE FEATURES
+# ======================================================
+
+# Log-transform per ridurre impatto valori estremi
+df["sum_xG_log"] = np.log1p(df["sum_xG"])   # log(1+xG)
+
+# Differenza tra xG giocatore e media squadra (normalizzazione) quanto è centrale il giocatore nella produzione xG squadra
+df["xG_team_diff"] = df["sum_xG"] - df["team_xG_90min"]
+
+# Se mancano valori in alcune colonne, li rimpiazziamo con 0
+cols_to_check = [
+    "sum_xG", "goals_last5",
+     "xG_last5", "opponent_xGA_90min"
+]
+
+df[cols_to_check] = df[cols_to_check].fillna(0)
+
+corr = df[cols_to_check].corr(numeric_only=True)
+plt.figure(figsize=(12, 10))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
+plt.title("Correlation Matrix")
+#plt.show(block=True)
+
 #gestisco la y, ossia i goal trasformandola in booleana, se gol>0 allora 1, altrimenti 0
 df["goals"] = (df["goals"] > 0).astype(int)
 
@@ -316,9 +347,8 @@ X = X.drop(columns=["season"])
 
 #********** Standardizzazione feature numeriche, tolgo se uso xgboost o random forest(non lineari) *********
 
-numeric_features = ["sum_xG", "n_shots", "xG_last5", "shots_last5",
-                    "goals_last5","opponent_xGA_90min",
-                    "team_xG_90min"]
+numeric_features = ["sum_xG", "xG_last5", #"shots_last5",
+                    "goals_last5", "opponent_xGA_90min"]
 
 scaler = StandardScaler()
 X[numeric_features] = scaler.fit_transform(X[numeric_features])
@@ -331,33 +361,28 @@ if X.isnull().values.any():
     print("Dopo il fillna:")
     print(X[X.isnull().any(axis=1)])
 
-# Dividi il dataset in set di addestramento e di test
-X_train, X_test, y_train, y_test = train_test_split(X, y_binary, test_size=0.2, random_state=42)
+X = X[numeric_features]
 
-#BILANCIO CON SMOTE
-smote = SMOTE(random_state=42)
-X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
-
-# Crea e addestra il modello di regressione logistica
-
-model = LogisticRegression(random_state=42)                #class_weight="balanced"
-
-# modello base
-'''
-model = RandomForestClassifier(
-    n_estimators= 500,
-    min_samples_split= 5,
-    min_samples_leaf= 1,
-    max_features= 'sqrt',
-    max_depth= 5,
-    #class_weight='balanced_subsample'
+# --- Split train / test ---
+X_train_full, X_test, y_train_full, y_test = train_test_split(
+    X, y_binary, test_size=0.2, random_state=42, stratify=y_binary
 )
-'''
 
-model.fit(X_train_res, y_train_res)
+# --- Split train / validation ---
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train_full, y_train_full, test_size=0.2, random_state=42, stratify=y_train_full
+)
 
+# --- Addestramento modello base ---
+model = LogisticRegression(random_state=42, class_weight="balanced")
+model.fit(X_train, y_train)
+
+# --- Calibrazione su validation ---
 calib_model = CalibratedClassifierCV(model, method='isotonic', cv=5)
-calib_model.fit(X_train, y_train)
+calib_model.fit(X_val, y_val)
+
+# --- Valutazione su test set (mai visto) ---
+y_pred_proba = calib_model.predict_proba(X_test)[:, 1]
 
 #calib_model=model
 # **************   metrics on train   ***************
@@ -433,7 +458,7 @@ avg_prec = average_precision_score(y_test, y_prob)
 
 # Aggiungiamo anche F1-score per ogni soglia
 f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-
+'''
 # Plot Precision-Recall
 plt.figure(figsize=(8,6))
 plt.plot(recalls, precisions, label=f'PR curve (AP={avg_prec:.2f})')
@@ -455,11 +480,32 @@ plt.title("Precision, Recall & F1 vs Threshold")
 plt.legend()
 plt.grid(True)
 #plt.show()
+'''
+coef_df = pd.DataFrame({
+    "Feature": X.columns,
+    "Coefficient": model.coef_[0]
+}).sort_values("Coefficient", ascending=False)
 
-# Trova soglia che massimizza recall (senza azzerare la precisione)
-#best_idx = np.argmax(f1_scores)
-#print(f"Soglia migliore per F1: {thresholds[best_idx]:.3f}")
+plt.figure(figsize=(8,5))
+plt.barh(coef_df["Feature"].head(15), coef_df["Coefficient"].head(15))
+plt.gca().invert_yaxis()
+plt.title("Coefficiente (effetto positivo) - Gol")
+plt.xlabel("Peso del coefficiente")
+#plt.show()
 
+from sklearn.inspection import permutation_importance
+import matplotlib.pyplot as plt
+
+result = permutation_importance(
+    model, X_test, y_test, n_repeats=30, random_state=42
+)
+
+importance = pd.Series(result.importances_mean, index=X_test.columns).sort_values(ascending=True)
+
+plt.barh(importance.index, importance.values)
+plt.title("Importanza feature (Permutation Importance)")
+plt.xlabel("Riduzione media di accuratezza")
+#plt.show()
 
 #input utente
 

@@ -11,6 +11,28 @@ class Preprocessor:
     # Funzioni di supporto
     # ========================
     
+    def add_opponent_team_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Aggiunge una colonna 'opponent_team' al dataframe.
+        Usa 'player_team', 'h_team' e 'a_team' per determinare la squadra avversaria.
+        """
+
+        def get_opponent(row):
+            # Gioca in casa → avversario è away
+            if row["player_team"] == row["h_team"]:
+                return row["a_team"]
+            # Gioca in trasferta → avversario è home
+            elif row["player_team"] == row["a_team"]:
+                return row["h_team"]
+            # Non combacia (possibile errore di dati)
+            else:
+                return None
+
+        df = df.copy()
+        df["opponent_team"] = df.apply(get_opponent, axis=1)
+
+        return df
+
     def normalize_name(self, name):
         if pd.isna(name):
             return ""
@@ -38,15 +60,17 @@ class Preprocessor:
         return str(team_str)
 
     def assign_league(self, team: str) -> str:
-        """Assegna la lega a una squadra (Serie A o Other)."""
+        """Assegna la lega a una squadra (Serie A o Other), basandosi su substring."""
         if not isinstance(team, str):
             return "Other"
+        
         team_lower = team.lower()
-        if any(sa.lower() in team_lower for sa in self.serie_a_teams):
+        if any(sa_team.lower() in team_lower or team_lower in sa_team.lower() for sa_team in self.serie_a_teams):
             return "Serie A"
+        
         return "Other"
         
-    def calculate_players_data(self, df): 
+    def calculate_players_data_shots(self, df): 
 
         #funzione per aggiungere al dataset dei tiri (già unito con quello dei giocatori per stagione)
         #le info su quanto tira per partita
@@ -59,6 +83,20 @@ class Preprocessor:
         df["shots_per90"] = round(df["shots"] / df["time"] * 90, 2)
         df["xG_per90"] = round(df["xG"] / df["time"] * 90, 2)
         df["goals_per90"] = round(df["goals_total"] / df["time"] * 90, 2)
+
+        return df 
+    
+    def calculate_players_data_assists(self, df): 
+
+        #funzione per aggiungere al dataset dei assist (già unito con quello dei giocatori per stagione)
+        #le info su quanto assiste per partita
+
+        df["time"] = df["time"].astype(float)  
+        df["xA"] = df["xA"].astype(float)
+        df["assists"] = df["assists"].astype(float)
+
+        df["xA_per90"] = round(df["xA"] / df["time"] * 90, 2)
+        df["assists_per90"] = round(df["assists_total"] / df["time"] * 90, 2)
 
         return df 
 
@@ -181,9 +219,6 @@ class Preprocessor:
         """
         df = pd.read_csv(input_path)
 
-        # Rimuovi i valori nulli
-        df = df.dropna()
-
         # Crea colonna 'is_goal'
         df["is_goal"] = (df["result"] == "Goal").astype(int)
 
@@ -245,8 +280,8 @@ class Preprocessor:
         merged_df = merged_df.rename(columns={  "goals_x": "goals",
                                     "goals_y": "goals_total"})
         
-                #aggiungo info su quanto tira il giocatore per partita sulla base della sua carriera in Serie A
-        merged_df = self.calculate_players_data(merged_df)
+        #aggiungo info su quanto tira il giocatore per partita sulla base della sua carriera in Serie A
+        merged_df = self.calculate_players_data_shots(merged_df)
 
         #drop colonne inutili
         merged_df = merged_df.drop(columns={"player_name", "id", "yellow_cards", "red_cards", "team_title"})
@@ -256,8 +291,82 @@ class Preprocessor:
 
         return merged_df
     
+    def preproc_assists_dataset(self, input_path: str, df_to_merge_path: str) -> pd.DataFrame:
+        """
+        Preprocessa il dataset degli assist:
+        - rimuove NaN
+        - crea is_assist
+        - raggruppa per player+match
+        - crea rolling features (ultime 5 partite)
+        - filtra Serie A
+        """
+        df = pd.read_csv(input_path)
+
+         # =======================
+        # 4️⃣ Raggruppamento per match id
+        # =======================
+        df = (
+            df.groupby(["player", "id"])
+            .agg(
+                sum_xA=("xA", "sum"), 
+                assists=("assists", "sum"),         
+                season=("season", "first"),                         
+                date=("date", "first"),
+                h_team=("h_team", "first"),
+                a_team=("a_team", "first")
+            )
+            .reset_index()
+        )
+
+        # Assegna lega
+        df["league"] = df["h_team"].apply(self.assign_league)
+        df = df[df["league"] == "Serie A"]
+
+        # Ordino cronologicamente
+        df = df.sort_values(["player", "date"])
+        
+        all_season_players = pd.read_csv(df_to_merge_path)
+
+        #normalizzazione nomi unicode, per non perdersi alcuni giocatori
+        df["player"] = df["player"].apply(self.normalize_name)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
+
+        merged_df = df.merge(
+        all_season_players,
+        left_on=["player", "season"],
+        right_on=["player_name", "season"],
+        how="left"
+        )     
+
+        missing_players = merged_df[merged_df["games"].isna()]["player"].unique()
+        print(f"⚠️ {len(missing_players)} giocatori senza match nel file all_season_players:")
+        print(missing_players)
+
+        #rinomino colonne doppie
+        merged_df = merged_df.rename(columns={  "assists_x": "assists",
+                                    "assists_y": "assists_total",
+                                    "id_x" : "match_id",
+                                    "id_y" : "player_id",
+                                    "team_title": "player_team"})
+        
+        #aggiungo colonna opponent team
+        merged_df = self.add_opponent_team_column(merged_df)
+
+        #aggiungo info per partita sulla base della sua carriera in Serie A
+        merged_df = self.calculate_players_data_assists(merged_df)
+
+        #drop colonne inutili
+        merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
+
+        merged_df
+
+        merged_df.head()
+        merged_df.to_csv(config.DATASET_DATA_DIR / config.ASSIST_DATA_FILE, index=False)
+
+        return merged_df
+    
     # Rolling Features
-    def calculare_roll_features(self, df):
+    def calculate_roll_features(self, df):
         '''
         Fun che prende in input un df e calcola media xG, tiri e gol delle ultime 5 partite 
         '''
@@ -276,6 +385,25 @@ class Preprocessor:
         df["xG_cummean"] = df.groupby("player")["sum_xG"].transform(
             lambda x: x.shift().expanding().mean()
         )
+        return df
+    
+    def calculate_roll_features_assist(self, df):
+        '''
+        Fun che prende in input un df e calcola media xG, tiri e gol delle ultime 5 partite 
+        '''
+        # Rolling features (ultime 5 partite)
+        df["xA_last5"] = df.groupby("player")["sum_xA"].transform(
+            lambda x: x.shift().rolling(5, min_periods=1).mean()
+        )
+
+        df["assist_last5"] = df.groupby("player")["assists"].transform(
+            lambda x: x.shift().rolling(5, min_periods=1).mean()
+        )
+
+        df["key_passes_last5"] = df.groupby("player")["key_passes"].transform(
+            lambda x: x.shift().rolling(5, min_periods=1).mean()
+        )
+
         return df
 
     # ========================

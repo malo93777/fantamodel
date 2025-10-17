@@ -9,22 +9,6 @@ import config
 
 class Scraper:
 
-    def create_XG90min_player_team(self, teams_df, players_df):
-        #creo colonna XG_90min per ogni squadra arrondando a 2 decimali e salvo in nuovo csv    
-        teams_df["XG_90min"] = round(teams_df["xG"] / (teams_df["M"]), 2)
-        # Unisco il DataFrame dei giocatori con il DataFrame delle squadre per ottenere l'XG_90min della squadra del giocatore
-        players_df = players_df.merge(
-            teams_df.rename(columns={"Team": "player_team"})[["player_team", "season", "XG_90min"]],
-            on=["player_team", "season"],
-            how="left"
-        )
-
-        players_df.rename(columns={"XG_90min": "team_xG_90min"}, inplace=True)
-
-        print(players_df.head(5))
-
-        return players_df       
-
     def run(self, debug):
 
         if debug == False:
