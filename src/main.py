@@ -17,25 +17,43 @@ preproc = Preprocessor(
 
 def get_goals_data():
 
-    shots_df_path = config.DATASET_DATA_DIR / config.SHOTS_DATA_FILE
+    raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
 
     # 1. Scraping
     scraper = Scraper()
     scraper.run(debug=False)
 
     # 3. Preprocessa dataset tiri
-    shots_df = preproc.preproc_shots_dataset(
-        input_path=shots_df_path, 
+    goals_df = preproc.preproc_goals_dataset(
+        input_path=raw_df_path, 
         df_to_merge_path=all_season_player_df_path
     )
 
-    print("Preprocessed shots dataset:")
-    print(shots_df.head())
+    print("Preprocessed goals dataset:")
+    print(goals_df.head())
+
+    # 5. Calcolo rolling features (XG, shots, gol mean)
+    goals_df = preproc.calculate_roll_features(goals_df)
+
+    # 6. Carica dataset squadre (da understat scraper)
+    teams_df = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
+
+    # 7. Crea feature XG per 90 min e unisci ai giocatori
+    teams_df, goals_df = preproc.create_Xg_90min_teams(teams_df, goals_df)
+
+    # 8. Crea feature XGA per 90 min della squadra avversaria
+    teams_df, goals_df = preproc.create_XgA_90min_opponent(teams_df, goals_df)
+
+    print("Dataset con team_xG_90min aggiunto:")
+    print(goals_df.head())
+
+    #to csv
+    goals_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS, index=False)
 
     # 4.
     # fase del recuper partite mancanti
-    teams = shots_df["player_team"].unique().tolist()
-
+   # teams = shots_df["player_team"].unique().tolist()
+'''
     matches_df = pd.DataFrame()
 
     with UnderstatClient() as understat:
@@ -47,24 +65,7 @@ def get_goals_data():
 
     all_season_player_df = pd.read_csv(all_season_player_df_path)
     shots_df_completed = preproc.add_missing_games(shots_df, matches_df, all_season_player_df)
-
-    # 5. Calcolo rolling features (XG, shots, gol mean)
-    shots_df_completed = preproc.calculate_roll_features(shots_df_completed)
-
-    # 6. Carica dataset squadre (da understat scraper)
-    teams_df = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
-
-    # 7. Crea feature XG per 90 min e unisci ai giocatori
-    teams_df, shots_df_completed = preproc.create_Xg_90min_teams(teams_df, shots_df_completed)
-
-    # 8. Crea feature XGA per 90 min della squadra avversaria
-    teams_df, shots_df_completed = preproc.create_XgA_90min_opponent(teams_df, shots_df_completed)
-
-    print("Dataset con team_xG_90min aggiunto:")
-    print(shots_df_completed.head())
-
-    #to csv
-    shots_df_completed.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE, index=False)
+'''
 
 def get_assists_data():
 

@@ -27,18 +27,20 @@ class Scraper:
                     # Get the name and id of one of the player
                     player_id, player_name = league_player_data[index]["id"], league_player_data[index]["player_name"]
                     
-                    # Get data for every shot this player has taken in a league match (for all seasons)
-                    player_shot_data = understat.player(player=player_id).get_shot_data()
-                    player_shot_data_df = pd.DataFrame(player_shot_data)       
+                    # Get data for every match this player has taken in a league match (for all seasons)
+                    player_match_data = understat.player(player=player_id).get_match_data()
+                    player_match_data_df = pd.DataFrame(player_match_data)
+                    #creo colonna player
+                    player_match_data_df.insert(0, "player", player_name)    
 
                     if shots_df.empty:
-                        shots_df = player_shot_data_df
+                        shots_df = player_match_data_df
                     else:
-                        #aaggiungo player_shot_data_df senza header a shots_df
-                        shots_df = pd.concat([shots_df, player_shot_data_df], ignore_index=True)
+                        #aaggiungo player_match_data_df senza header a shots_df
+                        shots_df = pd.concat([shots_df, player_match_data_df], ignore_index=True)
 
-            shots_df.to_csv(config.DATASET_DATA_DIR / config.SHOTS_DATA_FILE, index=False)
-            print("Dati salvati in shots_2025.csv")           
+            shots_df.to_csv(config.DATASET_DATA_DIR / config.RAW_DATA_FILE, index=False)
+            print("Dati salvati in raw_data.csv")
 
             #Get overall data for a player in a season          
             players_seasons_df = pd.DataFrame()

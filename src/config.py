@@ -11,12 +11,13 @@ SCALER_DIR = BASE_DIR / "scaler"
 
 # File
 MATCH_DATA_FILE = "matches_df.csv"
-PROD_DATA_FILE = "PROD_shots_2025_preproc_Serie_A.csv"
+PROD_DATA_FILE_GOALS = "PROD_goals_2025_preproc_Serie_A.csv"
 PLAYERS_ALL_SEASON_FILE = "players_all_seasons.csv"
-SHOTS_DATA_FILE = "shots_2025.csv"
+GOALS_DATA_FILE = "goals_2025.csv"
 TEAMS_DATA_FILE = "teams_2014_2025.csv"
 ASSIST_DATA_FILE = "assists_2025.csv"
 PROD_DATA_FILE_ASSIST = "PROD_assists_2025_preproc_Serie_A.csv"
+RAW_DATA_FILE = "raw_data.csv"
 
 # Modelli
 CALIB_LOGISTIC_REG = "calibrated_lr.pkl"
@@ -25,16 +26,15 @@ SCALER = "scaler.pkl"
 # Costanti varie
 CURRENT_SEASON = 2025
 BOOST_FACTORS = {
-    "sum_xG": 1.0,
-    "xG_last5": 1.0,
-    #"shots_last5": 1.0,
-    "goals_last5": 1.0
+    "sum_xG": 1.3,
+    "xG_last5": 2,
+    "goals_last5": 2
 }
 
 INPUT = {
-    "players": ["paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane"],
-    "teams" : ["como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona"],
-    "opponents" : ["juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan"]
+    "players": ["vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
 }
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]

@@ -1,7 +1,8 @@
 from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, PROD_DATA_FILE_ASSIST
+import utils
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
 import seaborn as sns
 from seaborn import heatmap
 import matplotlib.pyplot as plt
@@ -88,12 +89,23 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
         #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
 
         # 5️⃣ Calcola statistiche base del giocatore
-        sum_xA = player_df["sum_xA"].tail(18).mean()
+        sum_xA = player_df["sum_xA"].mean()
 
-        sum_xG_new = weighted_xg_vs_opponent(sum_xA, player_df, opponent_xGA_90min)
+        sum_xA_new = weighted_xg_vs_opponent(sum_xA, player_df, opponent_xGA_90min)
+
+         # Calcolo goals_last5 per la riga da prevedere
+        if len(player_df) >= 5:
+            # Prendi le ultime 5 partite, includendo l'ultima
+            xA_last5 = player_df["sum_xA"].iloc[-5:].mean()
+        else:
+            # Se ci sono meno di 5 partite, usa tutte le partite disponibili
+            xA_last5 = player_df["sum_xA"].mean()
 
         # 6️⃣ Costruisci vettore di input
-        X_new = [[sum_xG_new, player_df["xA_last5"].iloc[-1],player_df["key_passes_last5"].iloc[-1]]]
+        X_new = [[sum_xA_new, 
+                xA_last5,
+                #player_df["key_passes_per90"].iloc[-1], 
+                ]]
     
         X_new_df = pd.DataFrame(X_new, columns=features)
 
@@ -160,7 +172,7 @@ def weighted_xg_vs_opponent(base_xA, player_df, opponent_xGA_90min):
     """
     Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
     """
-    # forza media degli avversari affrontati nelle ultime 10 partite
+    # forza media degli avversari affrontati nelle ultime 18 partite (quanto sta concedendo l'avversario)
     avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(18).mean()
 
     # se mancano valori, fallback alla media
@@ -243,22 +255,21 @@ corr = df.corr(numeric_only=True)
 plt.figure(figsize=(12, 10))
 sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
 plt.title("Correlation Matrix")
-plt.show(block=True)
+#plt.show(block=True)
 
-#droppo righe con nan
 cols_to_check = [
     "sum_xA",
-    "xA_last5",
-    "key_passes_last5"
+    "xA_last5"
+    #"key_passes_per90",
 ]
 
 #df = df.dropna(subset=cols_to_check)
 df[cols_to_check] = df[cols_to_check].fillna(0)
 
-#multicoll_check(df,["sum_xG", "n_shots"])
-
-#gestisco la y, ossia i goal trasformandola in booleana, se gol>0 allora 1, altrimenti 0
-#df["assists"] = (df["assists"] > 0).astype(int)
+#****** CONTROLLI STATISTICI  *******
+#utils.analyze_feature_skewness(df, cols_to_check)
+#utils.get_stat_desc(df, cols_to_check,"assists")
+#multicoll_check(df,["sum_xA", "xA_last5"])
 
 # Seleziona le features (X) e target (y)
 y = df["assists"]
@@ -274,10 +285,14 @@ X = df[cols_to_check]
 
 numeric_features = [   
     "sum_xA",
-    "xA_last5",
-    "key_passes_last5"
-    
+    "xA_last5"
+    #"key_passes_per90",
 ]
+
+print("Skew originale:", df["xA_last5"].skew())
+X[numeric_features] = np.log1p(X[numeric_features])
+
+print("Skew log1p:", X["xA_last5"].skew())
 
 scaler = StandardScaler()
 X[numeric_features] = scaler.fit_transform(X[numeric_features])
@@ -297,7 +312,7 @@ model = LogisticRegression(random_state=42, class_weight="balanced")
 model.fit(X_train, y_train)
 
 # --- Calibrazione su validation ---
-calib_model = CalibratedClassifierCV(model, method='sigmoid', cv="prefit")
+calib_model = CalibratedClassifierCV(model, method='isotonic', cv="prefit")
 calib_model.fit(X_val, y_val)
 
 # --- Valutazione su test set (mai visto) ---
@@ -373,7 +388,7 @@ avg_prec = average_precision_score(y_test, y_prob)
 
 # Aggiungiamo anche F1-score per ogni soglia
 f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-
+'''
 # Plot Precision-Recall
 plt.figure(figsize=(8,6))
 plt.plot(recalls, precisions, label=f'PR curve (AP={avg_prec:.2f})')
@@ -407,14 +422,8 @@ plt.gca().invert_yaxis()
 plt.title("Coefficiente (effetto positivo) - Assist")
 plt.xlabel("Peso del coefficiente")
 plt.show()
-
+'''
 #input utente
-
-INPUT = {
-    "players": ["Lautaro", "Christian Pulisic", "Barella"],
-    "teams": ["Inter", "AC Milan", "Inter"],
-    "opponents": ["Verona", "Torino", "Sassuolo"]
-}
 
 results_df = predict_assist_probabilities(
     INPUT["players"], 

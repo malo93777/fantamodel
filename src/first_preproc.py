@@ -2,6 +2,8 @@ import pandas as pd
 import ast  # per convertire le stringhe tipo "{'id':...}" in dict 
 import config 
 import unicodedata
+import numpy as np
+from sklearn.preprocessing import StandardScaler 
 
 class Preprocessor:
     def __init__(self, serie_a_teams=None):
@@ -69,8 +71,119 @@ class Preprocessor:
             return "Serie A"
         
         return "Other"
-        
-    def calculate_players_data_shots(self, df): 
+
+    def add_finishing_efficiency_hist(self, df, window=20):
+        """
+        Calcola una metrica storica di efficienza di finalizzazione ('finishing_efficiency_hist')
+        per ciascun giocatore sulle ultime `window` partite.
+
+        Formula:
+            finishing_eff = (rolling_goals / rolling_xG) * weight(shots)
+
+        Dove:
+        - rolling_* sono somme mobili sulle ultime `window` partite (shiftate per escludere la partita corrente)
+        - weight(shots) è una funzione logaritmica che penalizza i giocatori con pochi tiri
+
+        Parametri:
+            df (pd.DataFrame): dataframe contenente almeno ['player', 'date', 'goals', 'sum_xG', 'shots']
+            window (int): numero di partite considerate nella media mobile
+
+        Ritorna:
+            pd.DataFrame: con nuova colonna 'finishing_efficiency_hist'
+        """
+        df = df.sort_values(["player", "date"]).copy()
+        eps = 1e-5
+
+        # Calcolo cumulativo goals/xG
+        df["finishing_efficiency"] = df["goals"] / (df["sum_xG"] + eps)
+
+        # EMA per ogni giocatore
+        df["finishing_efficiency_hist"] = (
+            df.groupby("player")["finishing_efficiency"]
+            .apply(lambda x: x.shift().ewm(span=window, min_periods=3).mean())
+            .reset_index(level=0, drop=True)
+        )
+
+        # Clipping per outlier
+        max_clip = df["finishing_efficiency_hist"].quantile(0.99)
+        df["finishing_efficiency_hist"] = df["finishing_efficiency_hist"].clip(0, max_clip)
+
+        # Fill iniziali
+        df["finishing_efficiency_hist"] = df["finishing_efficiency_hist"].fillna(
+            df["finishing_efficiency_hist"].median()
+        )
+
+        return df
+
+    def weight_efficiency_shots(self, df):
+        """
+        Aggiunge una colonna 'finishing_eff_weighted' che combina
+        l'efficienza di finalizzazione con l'esperienza (numero totale di tiri storici).
+
+        Formula:
+            finishing_eff_weighted = finishing_efficiency_hist * weight(shots_hist)
+
+        Dove:
+        - shots_hist è il cumulativo di tiri fino alla partita precedente
+        - weight(shots_hist) è una funzione logaritmica che cresce lentamente con i tiri
+
+        Parametri:
+            df (pd.DataFrame): dataframe con colonne 'player', 'shots', 'finishing_efficiency_hist'
+
+        Ritorna:
+            pd.DataFrame: con colonne 'shots_hist' e 'finishing_eff_weighted'
+        """
+        df = df.copy()
+
+        df["shots_hist"] = df.groupby("player")["shots"].cumsum().shift(1)
+        df["shots_hist"] = df["shots_hist"].fillna(0)
+
+        # Peso logaritmico più realistico
+        weight = np.log1p(df["shots_hist"]) / np.log1p(20)
+        weight = np.clip(weight, 0, 1)
+
+        df["finishing_eff_weighted"] = df["finishing_efficiency_hist"] * weight
+        return df
+
+    # ---------------------------------------------------------------
+
+    def combine_sumxg_efficiency(self, df, use_rank=False):
+        """
+        Combina la pericolosità (xG generato) e l'efficienza (finishing_eff_weighted)
+        in un unico indice 'finishing_form'.
+
+        Due opzioni di normalizzazione:
+        - use_rank=True → usa rank percentuali (0-1), robusti a outlier ma perdono scala metrica
+        - use_rank=False → usa z-score (StandardScaler), più informativi per modelli lineari
+
+        Formula:
+            finishing_form = 0.5 * norm(sum_xG) + 0.5 * norm(finishing_eff_weighted)
+
+        Parametri:
+            df (pd.DataFrame)
+            use_rank (bool): se True usa rank percentuali, altrimenti z-score
+
+        Ritorna:
+            pd.DataFrame: con nuova colonna 'finishing_form'
+        """
+        df = df.copy()
+
+        if use_rank:
+            # Versione rank percentuale
+            df["finishing_form"] = (
+                0.5 * df["sum_xG"].rank(pct=True) +
+                0.5 * df["finishing_eff_weighted"].rank(pct=True)
+            )
+        else:
+            # Versione z-score (mantiene informazione metrica)
+            scaler = StandardScaler()
+            z_sumxg = scaler.fit_transform(df[["sum_xG"]])
+            z_eff = scaler.fit_transform(df[["finishing_eff_weighted"]])
+            df["finishing_form"] = 0.5 * z_sumxg.flatten() + 0.5 * z_eff.flatten()
+
+        return df
+
+    def calculate_players_data_shots(self, df):
 
         #funzione per aggiungere al dataset dei tiri (già unito con quello dei giocatori per stagione)
         #le info su quanto tira per partita
@@ -207,87 +320,79 @@ class Preprocessor:
         result = result.sort_values(["player", "season", "date"]).reset_index(drop=True)
         return result
 
-    def preproc_shots_dataset(self, input_path: str, df_to_merge_path: str) -> pd.DataFrame:
+    def preproc_goals_dataset(self, input_path: str, df_to_merge_path: str) -> pd.DataFrame:
         """
-        Preprocessa il dataset dei tiri:
-        - rimuove NaN
-        - crea is_goal
+        Preprocessa il dataset dei goals (analogo a preproc_assists_dataset, ma per i gol):
         - raggruppa per player+match
-        - crea rolling features (ultime 5 partite)
-        - crea cumulative mean
+        - calcola sum_xG e goals per match
         - filtra Serie A
+        - unisce con file all_season_players
+        - calcola statistiche per partita basate sulla carriera (shots/goals/xG per90)
         """
         df = pd.read_csv(input_path)
-
-        # Crea colonna 'is_goal'
-        df["is_goal"] = (df["result"] == "Goal").astype(int)
-
-        # Raggruppa per giocatore e partita
+        #creo colonna is_goal
+        # Raggruppamento per player + match id
         df = (
-            df.groupby(["player", "match_id"])
+            df.groupby(["player", "id"])
             .agg(
                 sum_xG=("xG", "sum"),
-                n_shots=("id", "count"),
-                goals=("is_goal", "sum"),
-                h_a=("h_a", "first"),
+                goals=("goals", "sum"),
+                season=("season", "first"),
+                date=("date", "first"),
                 h_team=("h_team", "first"),
                 a_team=("a_team", "first"),
-                season=("season", "first"),
-                date=("date", "first")
             )
             .reset_index()
         )
 
-        # Assegna lega
+        # Assegna lega e filtra Serie A
         df["league"] = df["h_team"].apply(self.assign_league)
         df = df[df["league"] == "Serie A"]
 
-        # Trova squadra e avversario del giocatore
-        df["player_team"] = df.apply(
-                    lambda row: row["h_team"] if row["h_a"] == "h" else row["a_team"], axis=1
-        )
-        df["opponent_team"] = df.apply(
-              lambda row: row["a_team"] if row["h_a"] == "h" else row["h_team"], axis=1
-        )
-
-        # Colonna booleana is_home
-        df["is_home"] = df["h_a"].apply(lambda x: 1 if x == "h" else 0)
-
-        # Rimuovo colonne inutili
-        df = df.drop(columns=["h_a", "h_team", "a_team", "league"])
-
         # Ordino cronologicamente
         df = df.sort_values(["player", "date"])
-        
+
         all_season_players = pd.read_csv(df_to_merge_path)
 
-        #normalizzazione nomi unicode, per non perdersi alcuni giocatori
+        # Normalizzazione nomi
         df["player"] = df["player"].apply(self.normalize_name)
         all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
 
         merged_df = df.merge(
-        all_season_players,
-        left_on=["player", "season"],
-        right_on=["player_name", "season"],
-        how="left"
-        )     
+            all_season_players,
+            left_on=["player", "season"],
+            right_on=["player_name", "season"],
+            how="left"
+        )
 
         missing_players = merged_df[merged_df["games"].isna()]["player"].unique()
         print(f"⚠️ {len(missing_players)} giocatori senza match nel file all_season_players:")
         print(missing_players)
 
-        #rinomino colonne doppie
-        merged_df = merged_df.rename(columns={  "goals_x": "goals",
-                                    "goals_y": "goals_total"})
-        
-        #aggiungo info su quanto tira il giocatore per partita sulla base della sua carriera in Serie A
-        merged_df = self.calculate_players_data_shots(merged_df)
+        # Rinomino colonne doppie come fatto per gli altri preprocess
+        merged_df = merged_df.rename(columns={
+            "goals_x": "goals",
+            "goals_y": "goals_total",
+            "id_x": "match_id",
+            "id_y": "player_id",
+            "team_title": "player_team"
+        })
 
-        #drop colonne inutili
-        merged_df = merged_df.drop(columns={"player_name", "id", "yellow_cards", "red_cards", "team_title"})
+        # Aggiungo colonna opponent team
+        merged_df = self.add_opponent_team_column(merged_df)
+
+        # Aggiungo info per partita sulla base della carriera (shots/xG/goals per90)
+        merged_df = self.calculate_players_data_shots(merged_df)
+        
+        # Creo colonna booleana is_goals
+        merged_df["is_goals"] = (merged_df["goals"] > 0).astype(int)
+
+        # Drop colonne inutili
+        merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
 
         merged_df.head()
-        merged_df.to_csv(config.DATASET_DATA_DIR / config.SHOTS_DATA_FILE, index=False)
+        # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
+        merged_df.to_csv(config.DATASET_DATA_DIR / config.GOALS_DATA_FILE, index=False)
 
         return merged_df
     
@@ -374,7 +479,7 @@ class Preprocessor:
         df["xG_last5"] = df.groupby("player")["sum_xG"].transform(
             lambda x: x.shift().rolling(5, min_periods=1).mean()
         )
-        df["shots_last5"] = df.groupby("player")["n_shots"].transform(
+        df["shots_last5"] = df.groupby("player")["shots"].transform(
             lambda x: x.shift().rolling(5, min_periods=1).mean()
         )
         df["goals_last5"] = df.groupby("player")["goals"].transform(
@@ -400,9 +505,8 @@ class Preprocessor:
             lambda x: x.shift().rolling(5, min_periods=1).mean()
         )
 
-        df["key_passes_last5"] = df.groupby("player")["key_passes"].transform(
-            lambda x: x.shift().rolling(5, min_periods=1).mean()
-        )
+        #divido key passes totali per 90 minuti giocati
+        df["key_passes_per90"] = round(df["key_passes"] / df["time"] * 90, 2)
 
         return df
 
