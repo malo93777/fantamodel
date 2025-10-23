@@ -1,0 +1,14 @@
+,player,team,opponent,prob_goal,sum_xG,xG_last5,goals_last5,finishing_form_resid
+0,simeone,torino,sassuolo,0.3254858762025833,,,,
+1,vlahovic,juventus,como,0.21202781945466995,,,,
+2,paz,como,juventus,0.19373618811368942,,,,
+3,paz,como,lecce,0.22618563920259477,,,,
+4,sanabria,cremonese,udinese,0.035625943914055824,,,,
+5,Castellanos,lazio,atalanta,0.2325240358710289,,,,
+6,Lautaro,Inter,Verona,0.29059176445007323,,,,
+7,Leao,AC Milan,Torino,0.2356003373861313,,,,
+8,Pavlovic,ac Milan,Fiorentina,0.1276652455329895,,,,
+9,Orsolini,Bologna,Juventus,0.22673502042889596,,,,
+10,barella,inter,Sassuolo,0.15452837198972702,,,,
+11,acerbi,inter,Fiorentina,0.0,,,,
+0,,,,,-0.4546609210429429,-0.7416057724011126,-0.5803139741813899,-0.718817371034394

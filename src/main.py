@@ -32,9 +32,6 @@ def get_goals_data():
     print("Preprocessed goals dataset:")
     print(goals_df.head())
 
-    # 5. Calcolo rolling features (XG, shots, gol mean)
-    goals_df = preproc.calculate_roll_features(goals_df)
-
     # 6. Carica dataset squadre (da understat scraper)
     teams_df = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
 
@@ -49,23 +46,6 @@ def get_goals_data():
 
     #to csv
     goals_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS, index=False)
-
-    # 4.
-    # fase del recuper partite mancanti
-   # teams = shots_df["player_team"].unique().tolist()
-'''
-    matches_df = pd.DataFrame()
-
-    with UnderstatClient() as understat:
-        scraper = MatchScraper(understat)
-                    
-        # scarico tutte le partite
-        matches_df = scraper.get_all_teams_matches(teams, 2014, 2025)
-        match_df_path = matches_df.to_csv(config.DATASET_DATA_DIR / config.MATCH_DATA_FILE)
-
-    all_season_player_df = pd.read_csv(all_season_player_df_path)
-    shots_df_completed = preproc.add_missing_games(shots_df, matches_df, all_season_player_df)
-'''
 
 def get_assists_data():
 

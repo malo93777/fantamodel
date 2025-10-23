@@ -391,6 +391,19 @@ class Preprocessor:
         merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
 
         merged_df.head()
+
+        #  Calcolo rolling features (XG, shots, gol mean)
+        merged_df = self.calculate_roll_features(merged_df)
+
+        # Calcolo finishing efficiency storico
+        merged_df = self.add_finishing_efficiency_hist(merged_df, window=20)
+
+        # Calcolo finishing_eff_weighted
+        merged_df = self.weight_efficiency_shots(merged_df)
+
+        # Calcolo finishing_form
+        merged_df = self.combine_sumxg_efficiency(merged_df, use_rank=True)
+
         # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
         merged_df.to_csv(config.DATASET_DATA_DIR / config.GOALS_DATA_FILE, index=False)
 

@@ -22,19 +22,28 @@ RAW_DATA_FILE = "raw_data.csv"
 # Modelli
 CALIB_LOGISTIC_REG = "calibrated_lr.pkl"
 SCALER = "scaler.pkl"
+SCALER_XG = "scaler_xg.pkl"
+POLY_TRANSFORMER = "poly.pkl"
+LIN_POLY = "lin_poly.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
 BOOST_FACTORS = {
-    "sum_xG": 1.3,
-    "xG_last5": 2,
-    "goals_last5": 2
+    "sum_xG": 1.0,
+    "xG_last5": 1.0,
+    "goals_last5": 1.5,
+}
+
+BOOST_FACTORS_XGB = {
+    "sum_xG": 1.0,
+    "xG_last5": 1.0,
+    "goals_last5": 1.0,
 }
 
 INPUT = {
-    "players": ["vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
-    "teams" : ["juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
+    "players": ["simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["sassuolo","como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
 }
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]
@@ -48,3 +57,9 @@ map_strength_dict = {
 }
 
 SERIE_A_TEAMS = ["spal", "pescara","crotone","brescia","cesena", "benevento", "carpi", "venezia", "pisa","palermo", "Parma","Como", "Milan", "Inter", "Juventus", "Roma", "Napoli", "Lazio", "Atalanta", "Fiorentina", "Torino", "Bologna", "Sassuolo", "Empoli", "Genoa", "Verona", "Lecce", "Udinese", "Monza", "Cagliari", "Frosinone", "Salernitana", "Chievo", "Spezia"]
+
+FEATURES_LR =  ["sum_xG",  
+                "xG_last5",  
+                "goals_last5",                  
+                "finishing_form_resid"                                
+               ]

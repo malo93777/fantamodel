@@ -10,21 +10,29 @@ import os
 from pathlib import Path
 import config
 from scipy.stats import skew, kurtosis
-import shap
 
-def save_models(model, scaler):
+def save_models(model, scaler_xg, scaler, poly, lin_poly):
     """
     Salva il modello e lo scaler, chiedendo conferma se i file esistono già.
     """
 
     # Percorsi completi dei file
-    model_path = config.MODEL_DIR / config.CALIB_LOGISTIC_REG
+    model_path = config.MODEL_DIR / config.CALIB_LOGISTIC_REG if model is not None else None
     scaler_path = config.SCALER_DIR / config.SCALER if scaler is not None else None
+    scaler_xg_path = config.SCALER_DIR / config.SCALER_XG if scaler_xg is not None else None
+    poly_path = config.MODEL_DIR / config.POLY_TRANSFORMER if poly is not None else None
+    lin_poly_path = config.MODEL_DIR / config.LIN_POLY if lin_poly is not None else None
 
     # Crea le cartelle se non esistono
     os.makedirs(config.MODEL_DIR, exist_ok=True)
     if scaler_path:
         os.makedirs(config.SCALER_DIR, exist_ok=True)
+    if scaler_xg_path:
+        os.makedirs(config.SCALER_DIR, exist_ok=True)
+    if poly_path:
+        os.makedirs(config.MODEL_DIR, exist_ok=True)
+    if lin_poly_path:
+        os.makedirs(config.MODEL_DIR, exist_ok=True)
 
     # --- Salvataggio modello ---
     if model_path.exists():
@@ -47,11 +55,78 @@ def save_models(model, scaler):
                 return
         joblib.dump(scaler, scaler_path)
         print(f"✅ Scaler salvato in: {scaler_path}")
+    # --- Salvataggio scaler_xg ---
+    if scaler_xg_path:
+        if scaler_xg_path.exists():
+            overwrite = input(f"⚠️ Il file '{scaler_xg_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+            if overwrite != "y":
+                print("❌ Salvataggio scaler_xg annullato.")
+                return
+        joblib.dump(scaler_xg, scaler_xg_path)
+        print(f"✅ Scaler XG salvato in: {scaler_xg_path}")
+    # --- Salvataggio poly transformer ---
+    if poly_path:
+        if poly_path.exists():
+            overwrite = input(f"⚠️ Il file '{poly_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+            if overwrite != "y":
+                print("❌ Salvataggio poly transformer annullato.")
+                return
+        joblib.dump(poly, poly_path)
+        print(f"✅ Poly transformer salvato in: {poly_path}")
+    # --- Salvataggio lin_poly model ---
+    if lin_poly_path:
+        if lin_poly_path.exists():
+            overwrite = input(f"⚠️ Il file '{lin_poly_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+            if overwrite != "y":
+                print("❌ Salvataggio lin_poly model annullato.")
+                return
+        joblib.dump(lin_poly, lin_poly_path)
+        print(f"✅ Lin_poly model salvato in: {lin_poly_path}")
 
 # trasformazione che moltiplica (usata dopo lo StandardScaler)
 def multiply_by_factor(X, factor=2.0):
     return X * factor
 
+def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
+    """
+    Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
+    """
+    # media xG del giocatore nelle ultime 12 partite
+    base_xG = (player_df["sum_xG"].tail(12).mean()) 
+
+    # forza media degli avversari affrontati nelle ultime 12 partite
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+
+    # se mancano valori, fallback alla media
+    if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
+        return base_xG
+
+    # calcola fattore di correzione
+    # se l’avversario concede più del normale → boost
+    # se concede meno → penalità
+    factor = opponent_xGA_90min / avg_opponent_xGA
+
+    # limitiamo il fattore per non esplodere
+    factor = np.clip(factor, 0.75, 1.25)
+
+    # xG pesato
+    weighted_xG = base_xG * factor
+    return weighted_xG
+
+def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
+    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
+    if not row.empty:
+        return row["XGA_90min"].values[0]
+    else:
+        return np.nan
+    
+def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
+    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
+    if not row.empty:
+        return row["XG_90min"].values[0]
+    else:
+        return np.nan 
+    
 def clean_position(pos):
     # Restituisce "D", "M" o "F" in base al ruolo principale, altrimenti "None"
     roles = re.findall(r"[DMF]", str(pos).upper())

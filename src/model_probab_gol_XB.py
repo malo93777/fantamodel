@@ -1,10 +1,10 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
+from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier as XGBoostClassifier
+from xgboost import XGBClassifier 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import seaborn as sns
 from seaborn import heatmap
@@ -32,7 +32,7 @@ current_season = CURRENT_SEASON
 # colonne da pesare
 cols_to_weight = ["sum_xG", "n_shots", "xG_last5", "shots_last5", "goals_last5"]
 
-boosts = BOOST_FACTORS
+boosts = BOOST_FACTORS_XGB
 
 players = INPUT["players"]
 teams = INPUT["teams"]
@@ -128,15 +128,15 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
         # 1️⃣ Log-transform prima del poly
-        player_df["sum_xG"] = np.log1p(player_df["sum_xG"])   # log(1+x) evita problemi con 0
+        #player_df["sum_xG"] = np.log1p(player_df["sum_xG"])   # log(1+x) evita problemi con 0
 
         # 2️⃣ Clipping opzionale (solo se ci sono outlier)
-        clip_val = player_df["sum_xG"].quantile(0.99)
-        player_df["sum_xG"] = player_df["sum_xG"].clip(upper=clip_val)
+        #clip_val = player_df["sum_xG"].quantile(0.99)
+        #player_df["sum_xG"] = player_df["sum_xG"].clip(upper=clip_val)
  
         # Calcolo residuo polinomiale per finishing_form
-        sumxg_scaled = scaler_xg.transform(player_df[["sum_xG"]])
-        player_df["finishing_form_resid"] = player_df["finishing_form"] - lin_poly.predict(poly.transform(sumxg_scaled))
+        #sumxg_scaled = scaler_xg.transform(player_df[["sum_xG"]])
+        player_df["finishing_form_resid"] = player_df["finishing_form"] - lin_poly.predict(poly.transform(player_df[["sum_xG"]]))
         player_df["finishing_form_resid"] = 2 * player_df["finishing_form_resid"] 
 
         cols_to_check.remove("finishing_form")
@@ -144,14 +144,14 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         
         # 4️⃣ Ottieni info squadre
         season = player_df["season"].iloc[-1]
-        opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
+        opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
 
         # 5️⃣ Media storica del giocatore
         #sum_xG_new = player_df["sum_xG"].mean()
 
         #Media ultime 12 partite del giocatore (status giocatore ultimi 4 mesi, utile per il Fanta)
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
-        sum_xG_new = utils.weighted_xg_vs_opponent(player_df, opponent_xGA_90min)   
+        sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)   
 
         # Calcolo goals_last5 per la riga da prevedere
         if len(player_df) >= 5:
@@ -266,6 +266,45 @@ def get_player_data(df: pd.DataFrame, player_name: str):
 
     return player_df.sort_values("date").reset_index(drop=True)
 
+def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
+    """
+    Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
+    """
+    # media xG del giocatore nelle ultime 12 partite
+    base_xG = (player_df["sum_xG"].tail(12).mean()) 
+
+    # forza media degli avversari affrontati nelle ultime 12 partite
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+
+    # se mancano valori, fallback alla media
+    if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
+        return base_xG
+
+    # calcola fattore di correzione
+    # se l’avversario concede più del normale → boost
+    # se concede meno → penalità
+    factor = opponent_xGA_90min / avg_opponent_xGA
+
+    # limitiamo il fattore per non esplodere
+    factor = np.clip(factor, 0.75, 1.25)
+
+    # xG pesato
+    weighted_xG = base_xG * factor
+    return weighted_xG
+
+def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
+    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
+    if not row.empty:
+        return row["XGA_90min"].values[0]
+    else:
+        return np.nan
+    
+def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
+    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
+    if not row.empty:
+        return row["XG_90min"].values[0]
+    else:
+        return np.nan 
 
 df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
 df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -390,19 +429,19 @@ from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.preprocessing import PolynomialFeatures
 
 # 1️⃣ Log-transform prima del poly
-X["sum_xG"] = np.log1p(X["sum_xG"])   # log(1+x) evita problemi con 0
+#X["sum_xG"] = np.log1p(X["sum_xG"])   # log(1+x) evita problemi con 0
 
 # 2️⃣ Clipping opzionale (solo se ci sono outlier)
-clip_val = X["sum_xG"].quantile(0.99)
-X["sum_xG"] = X["sum_xG"].clip(upper=clip_val)
+#clip_val = X["sum_xG"].quantile(0.99)
+#X["sum_xG"] = X["sum_xG"].clip(upper=clip_val)
 
 # 3️⃣ Standardizzazione
-scaler_xg = StandardScaler()
-sumxg_scaled = scaler_xg.fit_transform(X[["sum_xG"]])
+#scaler_xg = StandardScaler()
+#sumxg_scaled = scaler_xg.fit_transform(X[["sum_xG"]])
 
 # 4️⃣ Polynomial features
 poly = PolynomialFeatures(degree=2, include_bias=False)
-X_poly = poly.fit_transform(sumxg_scaled)
+X_poly = poly.fit_transform(X[["sum_xG"]])
 
 lin_poly = Ridge(alpha=1.0)
 lin_poly.fit(X_poly, X["finishing_form"])
@@ -448,8 +487,22 @@ X_train, X_val, y_train, y_val = train_test_split(
 )
 
 # --- Addestramento modello base ---
-model = LogisticRegression(random_state=42, class_weight="balanced")
-model.fit(X_train, y_train)
+#model = LogisticRegression(random_state=42, class_weight="balanced")
+#model.fit(X_train, y_train)
+
+
+model = XGBClassifier(
+    random_state=42,
+    n_estimators=400,
+    learning_rate=0.03,
+    max_depth=4,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_lambda=1.0,
+    min_child_weight=5,  # evita overfitting di piccole variazioni
+    scale_pos_weight=(y_train == 0).sum() / (y_train == 1).sum(),
+    eval_metric="logloss",
+)
 
 model.fit(X_train, y_train)
 
@@ -572,7 +625,7 @@ result = permutation_importance(
 )
 
 importance = pd.Series(result.importances_mean, index=X_test.columns).sort_values(ascending=True)
-
+print(importance)
 plt.barh(importance.index, importance.values)
 plt.title("Importanza feature (Permutation Importance)")
 plt.xlabel("Riduzione media di accuratezza")
@@ -586,4 +639,4 @@ pred_df = predict_goal_probabilities(players, teams, opponents,
                                      pos_dummies, numeric_features)
 
 
-utils.save_models(calib_model, scaler_xg, scaler, poly, lin_poly)
+#utils.save_models(calib_model, scaler_xg, scaler, poly, lin_poly)
