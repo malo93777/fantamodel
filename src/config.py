@@ -26,6 +26,8 @@ SCALER_XG = "scaler_xg.pkl"
 POLY_TRANSFORMER = "poly.pkl"
 LIN_POLY = "lin_poly.pkl"
 
+XGB_MODEL_DIR = "xbg_classifier.pkl"
+
 # Costanti varie
 CURRENT_SEASON = 2025
 BOOST_FACTORS = {
@@ -36,8 +38,8 @@ BOOST_FACTORS = {
 
 BOOST_FACTORS_XGB = {
     "sum_xG": 1.0,
-    "xG_last5": 1.0,
-    "goals_last5": 1.0,
+    #"xG_last5": 1.0,
+    #"goals_last5": 1.0,
 }
 
 INPUT = {

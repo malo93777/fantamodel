@@ -91,7 +91,7 @@ def compute_goals_per90_weighted(df, window=15, min_games=3):
     return df["goals_per90_weighted_mean"]
 
 
-def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, scaler_xg, scaler, poly, lin_poly, boosts, pos_dummies, numeric_features):
+def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, calib_model, lin_poly, boosts, pos_dummies, numeric_features):
     results = []
 
     df_records = pd.DataFrame()
@@ -119,25 +119,18 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
 
         # 3️⃣ Fill NaN con 0
         cols_to_check = ["sum_xG",  
-                         "xG_last5",  
-                         "goals_last5",
+                         #"xG_last5",  
+                         #"goals_last5",
                          #"goals_per90_weighted_mean",
                          "finishing_form",               
-                         #"opponent_xGA_90min"
+                         "opponent_xGA_90min"
                          ]
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
-
-        # 1️⃣ Log-transform prima del poly
-        #player_df["sum_xG"] = np.log1p(player_df["sum_xG"])   # log(1+x) evita problemi con 0
-
-        # 2️⃣ Clipping opzionale (solo se ci sono outlier)
-        #clip_val = player_df["sum_xG"].quantile(0.99)
-        #player_df["sum_xG"] = player_df["sum_xG"].clip(upper=clip_val)
  
         # Calcolo residuo polinomiale per finishing_form
         #sumxg_scaled = scaler_xg.transform(player_df[["sum_xG"]])
-        player_df["finishing_form_resid"] = player_df["finishing_form"] - lin_poly.predict(poly.transform(player_df[["sum_xG"]]))
-        player_df["finishing_form_resid"] = 2 * player_df["finishing_form_resid"] 
+        player_df["finishing_form_resid"] = player_df["finishing_form"] - lin_poly.predict(player_df[["sum_xG"]])
+        player_df["finishing_form_resid"] = 1.0 * player_df["finishing_form_resid"] 
 
         cols_to_check.remove("finishing_form")
         cols_to_check.append("finishing_form_resid")
@@ -161,22 +154,15 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
             # Se ci sono meno di 5 partite, usa tutte le partite disponibili
             goals_last5 = player_df["goals"].mean()
 
-        # Calcolo xG_last5 per partita da prevedere
-        if len(player_df) >= 5:
-            xG_last5 = player_df["sum_xG"].iloc[-5:].mean()
-        else:
-            xG_last5 = player_df["sum_xG"].mean()
-
+        player_df["xG_last5"] = player_df["sum_xG"].rolling(5).mean() / player_df["sum_xG"].mean()
+    
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
         # 7️⃣ Costruisci feature row
-        X_new = [[sum_xG_new,
-                  xG_last5,
-                  goals_last5,
- 
-                  player_df["finishing_form_resid"].iloc[-1],
-                  #opponent_xGA_90min                             
+        X_new = [[sum_xG_new,        
+                  opponent_xGA_90min,    
+                  player_df["finishing_form_resid"].iloc[-1]                        
                   ]]
 
         feature_names = cols_to_check
@@ -184,12 +170,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
 
         df_records = pd.concat([df_records, X_new_df], axis=0)
 
+        for col, val in X_new_df.iloc[0].items():
+            print(f"  {col}: {val:.4f}")
+
         # 8️⃣ Applica boost
         for feature, factor in boosts.items():
             X_new_df[feature] = X_new_df[feature] * factor
-
-        # 9️⃣ Scala numeriche
-        X_new_df[feature_names] = scaler.transform(X_new_df[feature_names])
 
         # 🔟 Aggiungi categoriche (posizioni)
         #X_new_df = pd.concat([X_new_df.reset_index(drop=True), pos_dummy_df.reset_index(drop=True)], axis=1)
@@ -320,35 +306,18 @@ now = pd.Timestamp.now()
 df["date"] = pd.to_datetime(df["date"], errors="coerce")
 df = df[df["date"] <= now].reset_index(drop=True)
 
-
-#drop nome giocatori e squadre
-#df= df.drop(columns=["goal_per90", "xG_per90","player", "match_id", "player_team", "opponent_team", "date", "xG_cummean", "is_home","games","time","goals_total","xG","assists","xA","shots","key_passes","npg","npxG","xGChain","xGBuildup", "shots_per90"])
-
-preproc = Preprocessor(
-        serie_a_teams=SERIE_A_TEAMS
-    )
-
-# Calcolo finishing_efficiency_hist
-#df= preproc.add_finishing_efficiency_hist(df, window=20)
-
-# Calcolo finishing_eff_weighted
-#df= preproc.weight_efficiency_shots(df)
-
-# Calcolo finishing_form
-#df= preproc.combine_sumxg_efficiency(df, use_rank=True)
-
-# Normalizza finishing_form rispetto al numero di tiri cumulativi
-#df["finishing_form"] = df["finishing_form"] / (df["shots_hist"] + 1)
-
 #analisi statistica
 #correlazione tra variabili numeriche
+
+#df["xG_last5"] = df["sum_xG"].rolling(5).mean() / df["sum_xG"].mean()
+
 cols_to_check = [
     "sum_xG", 
-    "xG_last5",
-    "goals_last5",
+    #"xG_last5",
+    #"goals_last5",
     #"goals_per90_weighted_mean",
     "finishing_form",
-    #"opponent_xGA_90min"
+    "opponent_xGA_90min"
 ]
 
 #df = df.dropna(subset=cols_to_check)
@@ -403,13 +372,6 @@ X = df.drop(columns=["is_goals"])
 
 #******* boosting feature stato di forma giocatore (last5) e media cumulativa (cummean) *********
 
-mask = X["season"] == current_season
-
-for feature, factor in boosts.items():
-   X.loc[mask, feature] = utils.multiply_by_factor(X.loc[mask, feature], factor=factor)
-
-X = X.drop(columns=["season"])
-
 numeric_features = cols_to_check
 
 #*********    trovo i nan in X  *********
@@ -428,34 +390,25 @@ if X.isnull().values.any():
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.preprocessing import PolynomialFeatures
 
-# 1️⃣ Log-transform prima del poly
-#X["sum_xG"] = np.log1p(X["sum_xG"])   # log(1+x) evita problemi con 0
+# --- Calcolo residuo lineare (prima di qualsiasi scaling/log) ---
+lin_reg = LinearRegression()
 
-# 2️⃣ Clipping opzionale (solo se ci sono outlier)
-#clip_val = X["sum_xG"].quantile(0.99)
-#X["sum_xG"] = X["sum_xG"].clip(upper=clip_val)
+# Fit su tutto il dataset
+lin_reg.fit(X[["sum_xG"]], X["finishing_form"])
 
-# 3️⃣ Standardizzazione
-#scaler_xg = StandardScaler()
-#sumxg_scaled = scaler_xg.fit_transform(X[["sum_xG"]])
+# Predizione lineare
+pred_lin = lin_reg.predict(X[["sum_xG"]])
 
-# 4️⃣ Polynomial features
-poly = PolynomialFeatures(degree=2, include_bias=False)
-X_poly = poly.fit_transform(X[["sum_xG"]])
+# Calcolo residuo
+X["finishing_form_resid"] = X["finishing_form"] - pred_lin
 
-lin_poly = Ridge(alpha=1.0)
-lin_poly.fit(X_poly, X["finishing_form"])
-
-pred_poly = lin_poly.predict(X_poly)
-
-X["finishing_form_resid"] = X["finishing_form"] - pred_poly
-X["finishing_form_resid"] = 2 * X["finishing_form_resid"]
+X["finishing_form_resid"] = 1.0 * X["finishing_form_resid"]
 
 print("Media finishing_form:", X["finishing_form"].mean())
-print("Media pred_poly:", pred_poly.mean())
+print("Media pred_poly:", pred_lin.mean())
 print("Media residuo:", X["finishing_form_resid"].mean())
 
-plt.scatter(pred_poly, X["finishing_form_resid"], alpha=0.6)
+plt.scatter(pred_lin, X["finishing_form_resid"], alpha=0.6)
 plt.axhline(0, color='r')
 plt.xlabel("Predizione regressione polinomiale")
 plt.ylabel("Residuo (finishing_form - pred_poly)")
@@ -473,8 +426,6 @@ vif_df = pd.DataFrame({
 })
 print(vif_df)
 
-scaler = StandardScaler()
-X[numeric_features] = scaler.fit_transform(X[numeric_features])
 X = X[numeric_features]
 # --- Split train / test ---
 X_train_full, X_test, y_train_full, y_test = train_test_split(
@@ -536,10 +487,12 @@ y_prob = calib_model.predict_proba(X_test)[:, 1]
 precision = precision_score(y_test, y_pred)
 recall = recall_score(y_test, y_pred)
 f1 = f1_score(y_test, y_pred)
+log_loss = log_loss(y_test, y_pred)
 
 print(f"Test Precision: {precision:.4f}")
 print(f"Test Recall: {recall:.4f}")
 print(f"Test F1 Score: {f1:.4f}")
+print(f"Test Log Loss: {log_loss:.4f}")
 
 # **************   Confusion Matrix   ***************
 
@@ -635,8 +588,8 @@ plt.show()
 
 pred_df = predict_goal_probabilities(players, teams, opponents,
                                      df_orig, df_teams,
-                                     calib_model, scaler_xg, scaler, poly, lin_poly, boosts,
+                                     calib_model, lin_reg, boosts,
                                      pos_dummies, numeric_features)
 
 
-#utils.save_models(calib_model, scaler_xg, scaler, poly, lin_poly)
+utils.save_model(calib_model)

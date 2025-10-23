@@ -83,6 +83,21 @@ def save_models(model, scaler_xg, scaler, poly, lin_poly):
         joblib.dump(lin_poly, lin_poly_path)
         print(f"✅ Lin_poly model salvato in: {lin_poly_path}")
 
+def save_model(model):
+    # Percorsi completi dei file
+    model_path = config.MODEL_DIR / config.XGB_MODEL_DIR if model is not None else None
+    # --- Salvataggio modello ---
+    if model_path.exists():
+        overwrite = input(f"⚠️ Il file '{model_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+        if overwrite != "y":
+            print("❌ Salvataggio modello annullato.")
+        else:
+            joblib.dump(model, model_path)
+            print(f"✅ Modello sovrascritto in: {model_path}")
+    else:
+        joblib.dump(model, model_path)
+        print(f"✅ Modello salvato in: {model_path}")
+
 # trasformazione che moltiplica (usata dopo lo StandardScaler)
 def multiply_by_factor(X, factor=2.0):
     return X * factor
