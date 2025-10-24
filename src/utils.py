@@ -140,13 +140,10 @@ def save_models_assist(model, scaler, is_baseline=False):
 def multiply_by_factor(X, factor=2.0):
     return X * factor
 
-def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
+def weighted_xg_vs_opponent(base_xG, player_df, opponent_xGA_90min):
     """
     Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
     """
-    # media xG del giocatore nelle ultime 12 partite
-    base_xG = (player_df["sum_xG"].tail(12).mean()) 
-
     # forza media degli avversari affrontati nelle ultime 12 partite
     avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
 
@@ -160,7 +157,7 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.7, 1.3)
+    factor = np.clip(factor, 0.75, 1.5)
 
     # xG pesato
     weighted_xG = base_xG * factor

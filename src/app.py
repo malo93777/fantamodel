@@ -173,8 +173,14 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     season = df["season"].iloc[-1]
     opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
 
+    sum_xG_new = (df["sum_xG"].tail(12).mean())
+
+    resid = df["finishing_form_resid"].iloc[-1]
+    resid_pos = max(0.0, resid)
+    sum_xG_new = sum_xG_new * (1.0 + 1 * resid_pos)
+
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario
-    sum_xG_new = utils.weighted_xg_vs_opponent(df, opponent_xGA_90min)
+    sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min)
 
     # 6️⃣ Ultimo residuo disponibile
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
@@ -182,7 +188,8 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
-        "xG_last5": xG_last5,      
+        "xG_last5": xG_last5,
+        "opponent_xGA_90min": opponent_xGA_90min,    
         "finishing_form_resid": finishing_form_resid
     }])
 
