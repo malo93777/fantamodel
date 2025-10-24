@@ -11,17 +11,22 @@ from pathlib import Path
 import config
 from scipy.stats import skew, kurtosis
 
-def save_models(model, scaler_xg, scaler, poly, lin_poly):
+def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False):
     """
     Salva il modello e lo scaler, chiedendo conferma se i file esistono già.
     """
 
     # Percorsi completi dei file
-    model_path = config.MODEL_DIR / config.CALIB_LOGISTIC_REG if model is not None else None
+    if is_baseline:
+         model_path = config.MODEL_DIR / config.CALIB_LOGISTIC_REG if model is not None else None
+    else:        
+        model_path = config.MODEL_DIR / config.XGB_MODEL if model is not None else None
+    
     scaler_path = config.SCALER_DIR / config.SCALER if scaler is not None else None
     scaler_xg_path = config.SCALER_DIR / config.SCALER_XG if scaler_xg is not None else None
     poly_path = config.MODEL_DIR / config.POLY_TRANSFORMER if poly is not None else None
     lin_poly_path = config.MODEL_DIR / config.LIN_POLY if lin_poly is not None else None
+    lin_path = config.MODEL_DIR / config.LIN if lin is not None else None
 
     # Crea le cartelle se non esistono
     os.makedirs(config.MODEL_DIR, exist_ok=True)
@@ -32,6 +37,8 @@ def save_models(model, scaler_xg, scaler, poly, lin_poly):
     if poly_path:
         os.makedirs(config.MODEL_DIR, exist_ok=True)
     if lin_poly_path:
+        os.makedirs(config.MODEL_DIR, exist_ok=True)
+    if lin_path:
         os.makedirs(config.MODEL_DIR, exist_ok=True)
 
     # --- Salvataggio modello ---
@@ -83,10 +90,29 @@ def save_models(model, scaler_xg, scaler, poly, lin_poly):
         joblib.dump(lin_poly, lin_poly_path)
         print(f"✅ Lin_poly model salvato in: {lin_poly_path}")
 
-def save_model(model):
-    # Percorsi completi dei file
-    model_path = config.MODEL_DIR / config.XGB_MODEL_DIR if model is not None else None
-    # --- Salvataggio modello ---
+    # --- Salvataggio linear model ---
+    if lin_path:
+        if lin_path.exists():
+            overwrite = input(f"⚠️ Il file '{lin_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+            if overwrite != "y":
+                print("❌ Salvataggio lin model annullato.")
+                return
+        joblib.dump(lin, lin_path)
+        print(f"✅ Lin model salvato in: {lin_path}")
+
+def save_models_assist(model, scaler, is_baseline=False):
+
+    scaler_path = config.SCALER_DIR_ASSIST / config.SCALER if scaler is not None else None
+    model_path = config.MODEL_DIR_ASSIST / config.CALIB_LOGISTIC_REG if model is not None else None    
+
+    # Crea le cartelle se non esistono
+    os.makedirs(config.MODEL_DIR_ASSIST, exist_ok=True)
+    if scaler_path:
+        os.makedirs(config.SCALER_DIR_ASSIST, exist_ok=True)
+    if model_path:
+        os.makedirs(config.MODEL_DIR_ASSIST, exist_ok=True)
+
+     # --- Salvataggio modello ---
     if model_path.exists():
         overwrite = input(f"⚠️ Il file '{model_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
         if overwrite != "y":
@@ -97,6 +123,18 @@ def save_model(model):
     else:
         joblib.dump(model, model_path)
         print(f"✅ Modello salvato in: {model_path}")
+
+    # --- Salvataggio scaler ---
+    if scaler_path:
+        if scaler_path.exists():
+            overwrite = input(f"⚠️ Il file '{scaler_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+            if overwrite != "y":
+                print("❌ Salvataggio scaler annullato.")
+                return
+        joblib.dump(scaler, scaler_path)
+        print(f"✅ Scaler salvato in: {scaler_path}")
+
+
 
 # trasformazione che moltiplica (usata dopo lo StandardScaler)
 def multiply_by_factor(X, factor=2.0):
@@ -122,11 +160,35 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.75, 1.25)
+    factor = np.clip(factor, 0.7, 1.3)
 
     # xG pesato
     weighted_xG = base_xG * factor
     return weighted_xG
+
+def weighted_xA_vs_opponent(base_xA, player_df, opponent_xGA_90min):
+    """
+    Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
+    """
+    # forza media degli avversari affrontati nelle ultime 18 partite (quanto sta concedendo l'avversario)
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+
+    # se mancano valori, fallback alla media
+    if pd.isna(base_xA) or pd.isna(avg_opponent_xGA):
+        return base_xA
+
+    # calcola fattore di correzione
+    # se l’avversario concede più del normale → boost
+    # se concede meno → penalità
+    factor = opponent_xGA_90min / avg_opponent_xGA
+
+    # limitiamo il fattore per non esplodere
+    factor = np.clip(factor, 0.75, 1.25)
+
+    # xG pesato
+    weighted_xA = base_xA * factor
+    return weighted_xA
+
 
 def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
     row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
@@ -181,6 +243,42 @@ def multicoll_check(X, features):
     vif["feature"] = X.columns
     vif["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
     print(vif)
+
+def weighted_xg_by_team_strength(sum_xg,player_df,team_xg_90min, df_teams):
+    """
+    Calcola uno xG del giocatore pesato sulla forza offensiva della propria squadra.
+    
+    Parametri
+    ----------
+    player_df : pd.DataFrame
+        Storico del giocatore, deve contenere almeno 'sum_xG', 'team' e 'season'.
+    df_teams : pd.DataFrame
+        Dataset con statistiche per squadra e stagione, deve contenere 'team', 'season', 'xG_90min' 
+        (xG prodotti medi per 90 min dalla squadra).
+    
+    Ritorna
+    -------
+    weighted_xG : float
+        xG medio del giocatore corretto per la forza offensiva della squadra.
+    """
+    if player_df.empty:
+        return np.nan
+
+    # ottieni la squadra e stagione correnti
+    season = player_df["season"].iloc[-1]
+
+    # forza offensiva media del campionato (baseline)
+    league_avg_xG = df_teams.groupby("season")["XG_90min"].mean().loc[season]
+    std_dev = df_teams[df_teams["season"] == season]["XG_90min"].std()
+
+    z_score = (team_xg_90min - league_avg_xG) / std_dev
+
+    factor = 1 + 0.2 * np.clip(z_score, -1, 1) 
+
+    # applica il moltiplicatore
+    weighted_xG = sum_xg * factor
+
+    return weighted_xG
 
 # calcolo media stagionale per giocatore
 def get_shot_conversion_mean(df):
@@ -307,21 +405,6 @@ def analyze_feature_skewness(df, feature_cols, plot=True):
     print("\n📊 Analisi asimmetria delle feature numeriche:")
     print(results_df)
     return results_df
-
-def shap_explanation(model, df, feature_columns):
-    # 1. Assicurati che tutte le feature siano numeriche
-    X = df[feature_columns].copy()
-    X = X.apply(pd.to_numeric, errors='coerce')
-
-    # 2. Rimuovi eventuali NaN creati da conversione
-    X = X.fillna(0)
-
-    # 3. Crea explainer e calcola shap
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer(X)
-
-    # 4. Plot
-    shap.summary_plot(shap_values, X)
 
 def process_positions(df, position_col="position"):
     """

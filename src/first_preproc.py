@@ -339,6 +339,7 @@ class Preprocessor:
                 goals=("goals", "sum"),
                 season=("season", "first"),
                 date=("date", "first"),
+                minutes_played = ("time", "sum"),
                 h_team=("h_team", "first"),
                 a_team=("a_team", "first"),
             )
@@ -390,9 +391,7 @@ class Preprocessor:
         # Drop colonne inutili
         merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
 
-        merged_df.head()
-
-        #  Calcolo rolling features (XG, shots, gol mean)
+        #  Calcolo rolling features (XG, shots, gol mean, time for match)
         merged_df = self.calculate_roll_features(merged_df)
 
         # Calcolo finishing efficiency storico
@@ -503,6 +502,10 @@ class Preprocessor:
         df["xG_cummean"] = df.groupby("player")["sum_xG"].transform(
             lambda x: x.shift().expanding().mean()
         )
+
+        #minuti per partita last5
+        df = self.add_minutes_played_last5(df)
+
         return df
     
     def calculate_roll_features_assist(self, df):
@@ -557,3 +560,20 @@ class Preprocessor:
         players_df.rename(columns={"XGA_90min": "opponent_xGA_90min"}, inplace=True)
 
         return teams_df, players_df
+
+    def add_minutes_played_last5(self,df):
+        """
+        Calcola la media dei minuti giocati nelle ultime 5 partite per ogni giocatore.
+        """
+        if "minutes_played" not in df.columns:
+            print("⚠️ Colonna 'minutes_played' mancante!")
+            df["minutes_played_last5"] = 0
+            return df
+
+        df = df.sort_values("date")
+        df["minutes_played_last5"] = (
+            df["minutes_played"]
+            .rolling(window=5, min_periods=1)
+            .mean()
+        )
+        return df

@@ -1,8 +1,12 @@
-,player,team,opponent,prob_goal,sum_xG,opponent_xGA_90min,finishing_form_resid
-0,simeone,torino,sassuolo,0.19524302333593369,,,
-1,vlahovic,juventus,como,0.2165999472141266,,,
-2,paz,como,juventus,0.23455263376235963,,,
-3,paz,como,lecce,0.37503654360771177,,,
-4,sanabria,cremonese,udinese,0.042772951908409594,,,
-5,Castellanos,lazio,atalanta,0.2190525472164154,,,
-0,,,,,0.20206457492895424,0.95,0.18658148490432913
+,player,team,opponent,prob_goal,xG_last5,finishing_form_resid,finishing_xg_interaction
+0,yildiz,juventus,cremonese,0.13991448904448905,,,
+1,yildiz,juventus,ac milan,0.13991448904448905,,,
+2,di lorenzo,napoli,cagliari,0.012285507922309277,,,
+3,conceicao,juventus,cagliari,0.20313906710881474,,,
+4,simeone,torino,sassuolo,0.5905579524225647,,,
+5,vlahovic,juventus,como,0.04599108898744867,,,
+6,paz,como,juventus,0.37323485963022984,,,
+7,paz,como,lecce,0.37323485963022984,,,
+8,sanabria,cremonese,udinese,0.012242126871273108,,,
+9,Castellanos,lazio,atalanta,0.15185909538365316,,,
+0,,,,,0.3371873632073402,0.18658148490432913,0.08697396728337434

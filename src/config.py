@@ -6,8 +6,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Percorsi principali
 DATASET_DATA_DIR = BASE_DIR / "dataset"
 SRC_DIR = BASE_DIR / "src"
-MODEL_DIR =  BASE_DIR / "models"
-SCALER_DIR = BASE_DIR / "scaler"
+MODEL_DIR =  BASE_DIR / "models/goal"
+SCALER_DIR = BASE_DIR / "scaler/goal"
+MODEL_DIR_ASSIST =  BASE_DIR / "models/assist"
+SCALER_DIR_ASSIST = BASE_DIR / "scaler/assist"
+
 
 # File
 MATCH_DATA_FILE = "matches_df.csv"
@@ -25,8 +28,9 @@ SCALER = "scaler.pkl"
 SCALER_XG = "scaler_xg.pkl"
 POLY_TRANSFORMER = "poly.pkl"
 LIN_POLY = "lin_poly.pkl"
+LIN = "lin.pkl"
 
-XGB_MODEL_DIR = "xbg_classifier.pkl"
+XGB_MODEL = "xbg_classifier.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
@@ -37,15 +41,15 @@ BOOST_FACTORS = {
 }
 
 BOOST_FACTORS_XGB = {
-    "sum_xG": 1.0,
-    #"xG_last5": 1.0,
-    #"goals_last5": 1.0,
+    #"sum_xG": 1.0,
+    "xG_last5": 1.0,
+    #"goals_last5": 1.5,
 }
 
 INPUT = {
-    "players": ["simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
-    "teams" : ["torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["sassuolo","como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
+    "players": ["yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["cremonese","ac milan","cagliari","cagliari","sassuolo","como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
 }
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]

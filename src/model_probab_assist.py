@@ -1,4 +1,4 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, PROD_DATA_FILE_ASSIST
+from config import DATASET_DATA_DIR, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS, INPUT, PROD_DATA_FILE_ASSIST
 import utils
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -89,9 +89,9 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
         #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
 
         # 5️⃣ Calcola statistiche base del giocatore
-        sum_xA = player_df["sum_xA"].mean()
+        sum_xA = player_df["sum_xA"].tail(12).mean()
 
-        sum_xA_new = weighted_xg_vs_opponent(sum_xA, player_df, opponent_xGA_90min)
+        sum_xA_new = weighted_xA_vs_opponent(sum_xA, player_df, opponent_xGA_90min)
 
          # Calcolo goals_last5 per la riga da prevedere
         if len(player_df) >= 5:
@@ -168,12 +168,12 @@ def get_player_data(df: pd.DataFrame, player_name: str):
 
     return player_df.sort_values("date").reset_index(drop=True)
 
-def weighted_xg_vs_opponent(base_xA, player_df, opponent_xGA_90min):
+def weighted_xA_vs_opponent(base_xA, player_df, opponent_xGA_90min):
     """
     Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
     """
     # forza media degli avversari affrontati nelle ultime 18 partite (quanto sta concedendo l'avversario)
-    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(18).mean()
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
 
     # se mancano valori, fallback alla media
     if pd.isna(base_xA) or pd.isna(avg_opponent_xGA):
@@ -185,7 +185,7 @@ def weighted_xg_vs_opponent(base_xA, player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.7, 1.3)
+    factor = np.clip(factor, 0.75, 1.25)
 
     # xG pesato
     weighted_xA = base_xA * factor
@@ -433,3 +433,5 @@ results_df = predict_assist_probabilities(
 )
 
 print(results_df)
+
+utils.save_models_assist(calib_model, scaler)
