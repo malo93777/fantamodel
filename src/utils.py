@@ -157,7 +157,7 @@ def weighted_xg_vs_opponent(base_xG, player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.75, 1.5)
+    factor = np.clip(factor, 0.75, 1.25)
 
     # xG pesato
     weighted_xG = base_xG * factor

@@ -131,7 +131,6 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
          # Se ci sono meno di 5 partite, usa tutte le partite disponibili
         xA_last5 = df["sum_xA"].mean()
 
-
         # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
         "sum_xA": sum_xA_new,
@@ -155,11 +154,18 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
+    if "position" in df.columns:
+        player_position = utils.clean_position(df["position"].iloc[-1])
+    else:
+        player_position = None
+
     df[features_names] = df[features_names].fillna(0)
+
+    df["sum_xG"] = np.log1p(df["sum_xG"])
 
     # 2️⃣ Calcolo residuo lineare della finishing_form
     pred_lin = lin_model.predict(df[["sum_xG"]])
-    df["finishing_form_resid"] = 1 * (df["finishing_form"] - pred_lin)  # boost residuo ×1
+    df["finishing_form_resid"] = 1 * (df["finishing_form"] - pred_lin) 
 
     # 3️⃣ Calcolo xG_last5 e goals_last5 (media ultime 5 partite)
     if len(df) >= 5:
@@ -176,8 +182,8 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     sum_xG_new = (df["sum_xG"].tail(12).mean())
 
     resid = df["finishing_form_resid"].iloc[-1]
-    resid_pos = max(0.0, resid)
-    sum_xG_new = sum_xG_new * (1.0 + 1 * resid_pos)
+
+    sum_xG_new = sum_xG_new * (1.0 + config.BOOST_RESID * resid)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario
     sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min)
@@ -189,9 +195,14 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
         "xG_last5": xG_last5,
+        "goals_last5": goals_last5,
         "opponent_xGA_90min": opponent_xGA_90min,    
         "finishing_form_resid": finishing_form_resid
     }])
+
+     # 8️⃣ Applica boost
+    for feature, factor in config.BOOST_FACTORS_XGB.items():
+        X_new_df[feature] = X_new_df[feature] * factor
 
     return X_new_df
 
@@ -255,6 +266,9 @@ def main():
                 except Exception as e:
                     st.error(f"Errore nel modello assist: {e}")
 
+            # Probabilità combinate — Goal O Assist
+            prob_any = goal_proba + assist_proba - (goal_proba * assist_proba)
+
             # --- Output finale
             st.markdown("---")
             st.subheader(f"📊 {player} ({team} vs {opponent})")
@@ -269,6 +283,12 @@ def main():
 
             if goal_proba is None and assist_proba is None:
                 st.warning("Nessuna previsione disponibile per questo giocatore.")
+
+            st.markdown("### ⚡ Probabilità Bonus Totale (Goal o Assist)")
+            st.metric(label="Probabilità complessiva", value=f"{prob_any*100:.1f}%")
+
+            # Barra di progressione
+            st.progress(float(prob_any))   
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, forma recente, efficienza di finalizzazione e forza difensiva avversaria.")

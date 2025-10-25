@@ -83,6 +83,9 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams, c
         cols_to_check = features
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
+        # TRASF lOG
+        player_df["sum_xA"] = np.log1p(player_df["sum_xA"])
+
         # 4️⃣ Recupera dati della squadra e avversario
         season = player_df["season"].iloc[-1]
         opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
@@ -290,7 +293,7 @@ numeric_features = [
 ]
 
 print("Skew originale:", df["xA_last5"].skew())
-X[numeric_features] = np.log1p(X[numeric_features])
+X["sum_xA"] = np.log1p(X["sum_xA"])
 
 print("Skew log1p:", X["xA_last5"].skew())
 
@@ -312,7 +315,7 @@ model = LogisticRegression(random_state=42, class_weight="balanced")
 model.fit(X_train, y_train)
 
 # --- Calibrazione su validation ---
-calib_model = CalibratedClassifierCV(model, method='isotonic', cv="prefit")
+calib_model = CalibratedClassifierCV(model, method='isotonic', cv=5)
 calib_model.fit(X_val, y_val)
 
 # --- Valutazione su test set (mai visto) ---

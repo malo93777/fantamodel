@@ -1,4 +1,4 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
+from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
@@ -106,26 +106,34 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
             continue
         
         player_df = get_player_data(df_orig, player)
-        
-        #player_df["goals_per90_weighted_mean"] = compute_goals_per90_weighted(player_df, window=15, min_games=3)
 
-        #player_df = preproc.add_finishing_efficiency_hist(player_df, window=20)
-    
-        # Calcolo finishing_eff_weighted
-        #player_df = preproc.weight_efficiency_shots(player_df)
+        # --- Ottieni posizione e one-hot encode coerente col training ---
+        if "position" in player_df.columns:
+         player_position = utils.clean_position(player_df["position"].iloc[-1])
+        else:
+            player_position = None
 
-        # Calcolo finishing_form
-        #player_df = preproc.combine_sumxg_efficiency(player_df, use_rank=True)
+        # Crea il vettore one-hot con le stesse colonne del training
+        pos_features = {col: 0 for col in pos_dummies.columns}
+        if player_position is not None:
+            col_name = f"pos_{player_position}"
+            if col_name in pos_features:
+                pos_features[col_name] = 1
+
+        # Converti in DataFrame
+        pos_df = pd.DataFrame([pos_features])
 
         # 3️⃣ Fill NaN con 0
         cols_to_check = ["sum_xG",  
-                         #"xG_last5",  
-                         #"goals_last5",
-                         #"goals_per90_weighted_mean",
-                         "finishing_form",               
-                         "opponent_xGA_90min"
+                         "xG_last5",  
+                         "goals_last5",
+                         "finishing_form",      #viene tolta e sostituita dal residuo        
+                         "opponent_xGA_90min",
+                         #"minutes_played_last5"
                          ]
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
+
+        player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
  
         # Calcolo residuo polinomiale per finishing_form
         #sumxg_scaled = scaler_xg.transform(player_df[["sum_xG"]])
@@ -137,32 +145,48 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         
         # 4️⃣ Ottieni info squadre
         season = player_df["season"].iloc[-1]
-        opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
+        opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
+        team_xG_90_min = get_Xg_90min_team(team, season, df_teams)
 
         # 5️⃣ Media storica del giocatore
         #sum_xG_new = player_df["sum_xG"].mean()
 
-        #Media ultime 12 partite del giocatore (status giocatore ultimi 4 mesi, utile per il Fanta)
+        #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
-        sum_xG_new = weighted_xg_vs_opponent(player_df, opponent_xGA_90min)   
+        
+        resid = player_df["finishing_form_resid"].iloc[-1]
+        #if sum_xG_new > 0.05 and player_position not in ["D", "C"]:
+        #resid_pos = max(-2, resid)
+        sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost = 2.5
 
-        # Calcolo goals_last5 per la riga da prevedere
+        sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, player_df, opponent_xGA_90min)   
+
+        #sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams)
+        # RiCalcolo features rolling contando anche dati ultima partita
         if len(player_df) >= 5:
             # Prendi le ultime 5 partite, includendo l'ultima
+            xG_last5 = player_df["sum_xG"].iloc[-5:].mean()
             goals_last5 = player_df["goals"].iloc[-5:].mean()
+            minutes_last5 = player_df["minutes_played"].rolling(window=5, min_periods=1).mean()
         else:
             # Se ci sono meno di 5 partite, usa tutte le partite disponibili
-            goals_last5 = player_df["goals"].mean()
+            xG_last5 = player_df["sum_xG"].mean()
+            goals_last5 =  player_df["goals"].mean()
+            minutes_last5 = player_df["minutes_played"].mean()
 
-        player_df["xG_last5"] = player_df["sum_xG"].rolling(5).mean() / player_df["sum_xG"].mean()
+        #player_df["xG_last5"] = player_df["sum_xG"].rolling(5).mean() / player_df["sum_xG"].mean()
+
     
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
         # 7️⃣ Costruisci feature row
-        X_new = [[sum_xG_new,        
-                  opponent_xGA_90min,    
-                  player_df["finishing_form_resid"].iloc[-1]                        
+        X_new = [[sum_xG_new,   
+                  xG_last5,   
+                  goals_last5,  
+                  opponent_xGA_90min,               
+                  #minutes_last5.iloc[-1],
+                  player_df["finishing_form_resid"].iloc[-1],                    
                   ]]
 
         feature_names = cols_to_check
@@ -177,8 +201,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         for feature, factor in boosts.items():
             X_new_df[feature] = X_new_df[feature] * factor
 
-        # 🔟 Aggiungi categoriche (posizioni)
-        #X_new_df = pd.concat([X_new_df.reset_index(drop=True), pos_dummy_df.reset_index(drop=True)], axis=1)
+        # Aggiungi le dummy di posizione
+        #X_new_df = pd.concat([X_new_df.reset_index(drop=True), pos_df.reset_index(drop=True)], axis=1)
 
         # 🔮 Predizione
         prob_goal = calib_model.predict_proba(X_new_df)[0, 1]
@@ -272,7 +296,7 @@ def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.75, 1.25)
+    factor = np.clip(factor, 0.5, 1.5)
 
     # xG pesato
     weighted_xG = base_xG * factor
@@ -313,11 +337,12 @@ df = df[df["date"] <= now].reset_index(drop=True)
 
 cols_to_check = [
     "sum_xG", 
-    #"xG_last5",
-    #"goals_last5",
+    "xG_last5",
+    "goals_last5",
     #"goals_per90_weighted_mean",
     "finishing_form",
-    "opponent_xGA_90min"
+    "opponent_xGA_90min",
+    #"minutes_played_last5"
 ]
 
 #df = df.dropna(subset=cols_to_check)
@@ -349,6 +374,10 @@ df = df[df["position"] != "None"]
 # One-hot encoding
 pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
 
+# Aggiungo le colonne one-hot a X
+df = pd.concat([df, pos_dummies], axis=1)
+
+
 df = df.drop(columns=["position"])
 
 # Aggiungo al dataset
@@ -364,13 +393,16 @@ utils.multicoll_check(df, cols_to_check)
 #df["goals"] = (df["goals"] > 0).astype(int)
 
 #trasf log sum_xG per ridurre skewness
-#df["sum_xG"] = np.log1p(df["sum_xG"])
+df["sum_xG"] = np.log1p(df["sum_xG"])
 # Seleziona le features (X) e target (y)
 y = df["is_goals"]
 y_binary = (y > 0).astype(int)
 X = df.drop(columns=["is_goals"])
 
 #******* boosting feature stato di forma giocatore (last5) e media cumulativa (cummean) *********
+# 8️⃣ Applica boost
+for feature, factor in boosts.items():
+    df[feature] = df[feature] * factor
 
 numeric_features = cols_to_check
 
@@ -417,16 +449,20 @@ plt.show()
 numeric_features.remove("finishing_form")
 numeric_features.append("finishing_form_resid")
 
-#trasformazione log sum_xG
-#X["sum_xG"] = np.log1p(X["sum_xG"])
-
 vif_df = pd.DataFrame({
     "feature": numeric_features,
     "VIF": [variance_inflation_factor(X[numeric_features].values, i) for i in range(len(numeric_features))]
 })
 print(vif_df)
 
+categorical_features = list(pos_dummies.columns)
+
+# Costruisci X finale
+# Aggiungi le dummy di posizione
+#X = pd.concat([X[numeric_features].reset_index(drop=True), df[categorical_features].reset_index(drop=True)], axis=1)
+
 X = X[numeric_features]
+
 # --- Split train / test ---
 X_train_full, X_test, y_train_full, y_test = train_test_split(
     X, y_binary, test_size=0.2, random_state=42, stratify=y_binary
@@ -441,27 +477,27 @@ X_train, X_val, y_train, y_val = train_test_split(
 #model = LogisticRegression(random_state=42, class_weight="balanced")
 #model.fit(X_train, y_train)
 
-
 model = XGBClassifier(
     random_state=42,
-    n_estimators=400,
+    n_estimators=500,
     learning_rate=0.03,
-    max_depth=4,
+    max_depth=3,
     subsample=0.8,
     colsample_bytree=0.8,
-    reg_lambda=1.0,
-    min_child_weight=5,  # evita overfitting di piccole variazioni
+    reg_lambda=2.0,
+    min_child_weight=10,  # evita overfitting di piccole variazioni
     scale_pos_weight=(y_train == 0).sum() / (y_train == 1).sum(),
     eval_metric="logloss",
+    gamma=2.0
 )
 
 model.fit(X_train, y_train)
 
 # --- Calibrazione su validation ---
-calib_model = CalibratedClassifierCV(model, method='isotonic', cv=5)
+calib_model = CalibratedClassifierCV(model, method='sigmoid', cv="prefit")
 calib_model.fit(X_val, y_val)
 
-# --- Valutazione su test set (mai visto) ---
+# --- Valutazione su test set  ---
 y_pred_proba = calib_model.predict_proba(X_test)[:, 1]
 
 #calib_model=model
@@ -534,42 +570,33 @@ avg_prec = average_precision_score(y_test, y_prob)
 
 # Aggiungiamo anche F1-score per ogni soglia
 f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-'''
-# Plot Precision-Recall
-plt.figure(figsize=(8,6))
-plt.plot(recalls, precisions, label=f'PR curve (AP={avg_prec:.2f})')
-plt.xlabel("Recall")
-plt.ylabel("Precision")
-plt.title("Precision-Recall Curve")
-plt.legend()
-plt.grid(True)
-#plt.show()
 
-# Plot F1 vs soglia
-plt.figure(figsize=(8,6))
-plt.plot(thresholds, f1_scores[:-1], label="F1-score")
-plt.plot(thresholds, precisions[:-1], label="Precision")
-plt.plot(thresholds, recalls[:-1], label="Recall")
-plt.xlabel("Threshold")
-plt.ylabel("Score")
-plt.title("Precision, Recall & F1 vs Threshold")
-plt.legend()
-plt.grid(True)
-#plt.show()
-'''
-'''
-coef_df = pd.DataFrame({
-    "Feature": X.columns,
-    "Coefficient": model.coef_[0]
-}).sort_values("Coefficient", ascending=False)
+# Trova soglia con F1 massimo
+best_idx = f1_scores.argmax()
+best_threshold = thresholds[best_idx]
+best_f1 = f1_scores[best_idx]
 
-plt.figure(figsize=(8,5))
-plt.barh(coef_df["Feature"].head(15), coef_df["Coefficient"].head(15))
-plt.gca().invert_yaxis()
-plt.title("Coefficiente (effetto positivo) - Gol")
-plt.xlabel("Peso del coefficiente")
-#plt.show()
-'''
+print(f"🔍 Miglior soglia trovata: {best_threshold:.3f}")
+print(f"✅ F1 ottimale: {best_f1:.3f}")
+print(f"   Precision: {precisions[best_idx]:.3f}")
+print(f"   Recall: {recalls[best_idx]:.3f}")
+
+# Applica la soglia trovata
+y_pred_opt = (y_pred_proba >= best_threshold).astype(int)
+
+# Calcola metriche finali con la soglia ottimale
+precision_opt = precision_score(y_test, y_pred_opt)
+recall_opt = recall_score(y_test, y_pred_opt)
+f1_opt = f1_score(y_test, y_pred_opt)
+
+print(f"\n🎯 Metriche con soglia ottimizzata ({best_threshold:.2f}):")
+print(f"Precision: {precision_opt:.3f}")
+print(f"Recall:    {recall_opt:.3f}")
+print(f"F1 Score:  {f1_opt:.3f}")
+
+# Applica la soglia trovata
+y_pred_opt = (y_pred_proba >= best_threshold).astype(int)
+
 from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 
@@ -592,4 +619,4 @@ pred_df = predict_goal_probabilities(players, teams, opponents,
                                      pos_dummies, numeric_features)
 
 
-utils.save_model(calib_model)
+utils.save_models(model=calib_model, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
