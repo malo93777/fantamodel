@@ -12,8 +12,6 @@ from sklearn.preprocessing import StandardScaler
 # Aggiunge la cartella "fantamodel" al percorso dei moduli
 #sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-@st.cache_resource
-
 # =====================================================
 # 🔹 Interfaccia Streamlit
 # =====================================================
