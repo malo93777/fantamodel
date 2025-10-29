@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Aggiunge la cartella "src" al percorso di ricerca dei moduli
 BASE_DIR = Path(__file__).resolve().parent
-SRC_DIR = BASE_DIR / "src"
+SRC_DIR = BASE_DIR
 if str(SRC_DIR) not in sys.path:
     sys.path.append(str(SRC_DIR))
 
