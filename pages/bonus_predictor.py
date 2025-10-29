@@ -1,13 +1,16 @@
+import sys
+import os
+
+# Aggiunge la cartella src al path
+sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import config
-import utils
 import argparse
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
-import sys, os
 # Aggiunge la cartella "fantamodel" al percorso dei moduli
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
