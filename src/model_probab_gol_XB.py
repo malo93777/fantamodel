@@ -1,4 +1,4 @@
-from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
+from config import GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
@@ -107,6 +107,13 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         
         player_df = get_player_data(df_orig, player)
 
+        if player_df["season"].min() == CURRENT_SEASON:
+            player_df = utils.add_other_leagues_data(
+                player_df, player,
+                DATASET_DATA_DIR, GOALS_DATA_FILE_ALL_LEAGUES,
+                CURRENT_SEASON
+            )
+            
         # --- Ottieni posizione e one-hot encode coerente col training ---
         if "position" in player_df.columns:
          player_position = utils.clean_position(player_df["position"].iloc[-1])
@@ -129,8 +136,13 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
                          "goals_last5",
                          "finishing_form",      #viene tolta e sostituita dal residuo        
                          "opponent_xGA_90min",
+                         #"team_xG_90min"
                          #"minutes_played_last5"
                          ]
+        
+        
+        player_df = utils.fill_missing_values_player_df(player_df, cols_to_check, season_ref=CURRENT_SEASON)
+
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
         player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
@@ -146,7 +158,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         # 4️⃣ Ottieni info squadre
         season = player_df["season"].iloc[-1]
         opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
-        team_xG_90_min = get_Xg_90min_team(team, season, df_teams)
+        team_xG_90_min = utils.get_Xg_90min_team(team, season, df_teams)
 
         # 5️⃣ Media storica del giocatore
         #sum_xG_new = player_df["sum_xG"].mean()
@@ -155,11 +167,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
         
         resid = player_df["finishing_form_resid"].iloc[-1]
-        #if sum_xG_new > 0.05 and player_position not in ["D", "C"]:
-        #resid_pos = max(-2, resid)
-        sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost = 2.5
+
+        sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost =1.0
 
         sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, player_df, opponent_xGA_90min)   
+
+        sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams) 
 
         #sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams)
         # RiCalcolo features rolling contando anche dati ultima partita
@@ -184,7 +197,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         X_new = [[sum_xG_new,   
                   xG_last5,   
                   goals_last5,  
-                  opponent_xGA_90min,               
+                  opponent_xGA_90min,  
+                  #team_xG_90_min,             
                   #minutes_last5.iloc[-1],
                   player_df["finishing_form_resid"].iloc[-1],                    
                   ]]
@@ -224,11 +238,11 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, cal
         #aggiungo a result anche il df x new conl suo contenuto
         df_records = pd.concat([results_df, X_new_df], axis=0)
 
-        df_records.to_csv("records_temp.csv")
+        #df_records.to_csv("records_temp.csv")
 
     for boost in boosts.items():
         print(boost)
-    df_records.to_csv("records.csv")
+   # df_records.to_csv("records.csv")
     return pd.DataFrame(results)
 
 def get_player_data(df: pd.DataFrame, player_name: str):
@@ -276,45 +290,6 @@ def get_player_data(df: pd.DataFrame, player_name: str):
 
     return player_df.sort_values("date").reset_index(drop=True)
 
-def weighted_xg_vs_opponent(player_df, opponent_xGA_90min):
-    """
-    Calcola uno xG medio del giocatore pesato per la forza dell'avversario (xGA_90min).
-    """
-    # media xG del giocatore nelle ultime 12 partite
-    base_xG = (player_df["sum_xG"].tail(12).mean()) 
-
-    # forza media degli avversari affrontati nelle ultime 12 partite
-    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
-
-    # se mancano valori, fallback alla media
-    if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
-        return base_xG
-
-    # calcola fattore di correzione
-    # se l’avversario concede più del normale → boost
-    # se concede meno → penalità
-    factor = opponent_xGA_90min / avg_opponent_xGA
-
-    # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.5, 1.5)
-
-    # xG pesato
-    weighted_xG = base_xG * factor
-    return weighted_xG
-
-def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
-    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
-    if not row.empty:
-        return row["XGA_90min"].values[0]
-    else:
-        return np.nan
-    
-def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
-    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
-    if not row.empty:
-        return row["XG_90min"].values[0]
-    else:
-        return np.nan 
 
 df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
 df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -342,8 +317,11 @@ cols_to_check = [
     #"goals_per90_weighted_mean",
     "finishing_form",
     "opponent_xGA_90min",
+    #"team_xG_90min"
     #"minutes_played_last5"
 ]
+
+df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
 
 #df = df.dropna(subset=cols_to_check)
 df[cols_to_check] = df[cols_to_check].fillna(0)
@@ -440,11 +418,11 @@ print("Media finishing_form:", X["finishing_form"].mean())
 print("Media pred_poly:", pred_lin.mean())
 print("Media residuo:", X["finishing_form_resid"].mean())
 
-plt.scatter(pred_lin, X["finishing_form_resid"], alpha=0.6)
-plt.axhline(0, color='r')
-plt.xlabel("Predizione regressione polinomiale")
-plt.ylabel("Residuo (finishing_form - pred_poly)")
-plt.show()
+#plt.scatter(pred_lin, X["finishing_form_resid"], alpha=0.6)
+#plt.axhline(0, color='r')
+#plt.xlabel("Predizione regressione")
+#plt.ylabel("Residuo (finishing_form - pred_poly)")
+#plt.show()
 
 numeric_features.remove("finishing_form")
 numeric_features.append("finishing_form_resid")

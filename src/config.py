@@ -21,6 +21,7 @@ TEAMS_DATA_FILE = "teams_2014_2025.csv"
 ASSIST_DATA_FILE = "assists_2025.csv"
 PROD_DATA_FILE_ASSIST = "PROD_assists_2025_preproc_Serie_A.csv"
 RAW_DATA_FILE = "raw_data.csv"
+GOALS_DATA_FILE_ALL_LEAGUES = "all_leagues_goals.csv"
 
 # Modelli
 CALIB_LOGISTIC_REG = "calibrated_lr.pkl"
@@ -42,16 +43,16 @@ BOOST_FACTORS = {
 
 BOOST_FACTORS_XGB = {
     #"sum_xG": 1.0,
-    "xG_last5": 2.0,
-    "goals_last5": 2.0,
+    "xG_last5": 1.5,
+    "goals_last5": 2,
 }
 
-BOOST_RESID = 2.5
+BOOST_RESID = 2
 
 INPUT = {
-    "players": ["orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
-    "teams" : ["verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["cagliari", "cremonese","ac milan","cagliari","cagliari","sassuolo","como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
+    "players": ["buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["ac milan","sassuolo", "cagliari", "cremonese","ac milan","cagliari","cagliari","sassuolo","como", "juventus","lecce","udinese","atalanta","Verona", "Torino", "Fiorentina", "Juventus", "Sassuolo", "Fiorentina", "como", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","cremonese"]
 }
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]
@@ -71,3 +72,5 @@ FEATURES_LR =  ["sum_xG",
                 "goals_last5",                  
                 "finishing_form_resid"                                
                ]
+
+IS_SERIEA = True

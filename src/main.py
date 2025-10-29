@@ -23,22 +23,26 @@ def get_goals_data():
     scraper = Scraper()
     scraper.run(debug=False)
 
-    # 3. Preprocessa dataset tiri
+    # 2. Preprocessa dataset tiri
     goals_df = preproc.preproc_goals_dataset(
         input_path=raw_df_path, 
-        df_to_merge_path=all_season_player_df_path
+        df_to_merge_path=all_season_player_df_path,
+        is_SerieA=config.IS_SERIEA
     )
 
     print("Preprocessed goals dataset:")
     print(goals_df.head())
 
-    # 6. Carica dataset squadre (da understat scraper)
+    if config.IS_SERIEA == False:
+        return
+
+    # 3. Carica dataset squadre (da understat scraper)
     teams_df = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
 
-    # 7. Crea feature XG per 90 min e unisci ai giocatori
+    # 4. Crea feature XG per 90 min e unisci ai giocatori
     teams_df, goals_df = preproc.create_Xg_90min_teams(teams_df, goals_df)
 
-    # 8. Crea feature XGA per 90 min della squadra avversaria
+    # 5. Crea feature XGA per 90 min della squadra avversaria
     teams_df, goals_df = preproc.create_XgA_90min_opponent(teams_df, goals_df)
 
     print("Dataset con team_xG_90min aggiunto:")
@@ -98,7 +102,7 @@ def main():
 
     args = parser.parse_args()
     args.gol = True
-    args.assist = False
+    args.assist = True
     # ==========================
     # ESECUZIONE
     # ==========================

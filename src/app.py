@@ -7,6 +7,9 @@ import utils
 import argparse
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
+import sys, os
+# Aggiunge la cartella "fantamodel" al percorso dei moduli
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # =====================================================
 # 🔹 Caricamento modelli e scaler
@@ -109,14 +112,21 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
     if df.empty:
         print(f"⚠️ Nessuna partita valida (tutte future) per {player}")
         return None
+    
+    season = config.CURRENT_SEASON
+
+    df = utils.fill_missing_values_player_df(df, features_names, season_ref=season)
 
     # 3️⃣ Riempi i NaN
     df[features_names] = df[features_names].fillna(0)
 
     # 4️⃣ Recupera dati della squadra e avversario
-    season = config.CURRENT_SEASON
+    
     opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
     #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
+
+    # trasformazione logaritmica
+    df["sum_xA"] = np.log1p(df["sum_xA"])
 
     # 5️⃣ Calcola statistiche base del giocatore
     sum_xA = df["sum_xA"].tail(12).mean()
@@ -154,10 +164,19 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
+    if df["season"].min() == config.CURRENT_SEASON:
+        df = utils.add_other_leagues_data(
+            df, player,
+            config.DATASET_DATA_DIR, config.GOALS_DATA_FILE_ALL_LEAGUES,
+            config.CURRENT_SEASON
+        )
+
     if "position" in df.columns:
         player_position = utils.clean_position(df["position"].iloc[-1])
     else:
         player_position = None
+
+    df = utils.fill_missing_values_player_df(df, features_names, season_ref=config.CURRENT_SEASON)
 
     df[features_names] = df[features_names].fillna(0)
 
@@ -178,15 +197,17 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     # 4️⃣ Ottieni opponent xGA
     season = df["season"].iloc[-1]
     opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
+    team_xG_90_min = utils.get_Xg_90min_team(opponent, season, df_teams)
 
     sum_xG_new = (df["sum_xG"].tail(12).mean())
 
     resid = df["finishing_form_resid"].iloc[-1]
 
-    sum_xG_new = sum_xG_new * (1.0 + config.BOOST_RESID * resid)
+    sum_xG_new = sum_xG_new * (1.0 + config.BOOST_RESID * resid)  #2.0
 
-    # 5️⃣ Calcolo sum_xG corretto in base all’avversario
+    # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min)
+    sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, df, team_xG_90_min, df_teams)
 
     # 6️⃣ Ultimo residuo disponibile
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
@@ -236,6 +257,10 @@ def main():
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
         submitted = st.form_submit_button("Prevedi Bonus")
+        #submitted = True
+        #player = 'orban'
+        #team = "inter"
+        #opponent = "cagliari"
 
     # --- Logica di predizione
     if submitted:

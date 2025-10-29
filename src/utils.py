@@ -194,13 +194,34 @@ def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> fl
     else:
         return np.nan
     
+
+def normalize_team_name(name: str) -> str:
+    """Normalizza il nome della squadra per confronti più robusti."""
+    name = name.lower()
+    # Rimuovi prefissi e parole comuni
+    name = re.sub(r'\b(fc|ac|ss|us|as|cf|sc|calcio|club|sporting)\b', '', name)
+    # Rimuovi spazi e punteggiatura
+    name = re.sub(r'[^a-z]', '', name)
+    return name.strip()
+
 def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
-    row = teams_df[(teams_df["Team"].str.lower() == team.lower()) & (teams_df["season"] == season)]
+    """Restituisce lo XG_90min della squadra, gestendo variazioni nel nome."""
+    team_norm = normalize_team_name(team)
+    
+    # Normalizza anche la colonna Team del dataset
+    teams_df = teams_df.copy()
+    teams_df["Team"] = teams_df["Team"].apply(normalize_team_name)
+    
+    row = teams_df[
+        (teams_df["Team"] == team_norm) &
+        (teams_df["season"] == season)
+    ]
+    
     if not row.empty:
         return row["XG_90min"].values[0]
     else:
-        return np.nan 
-    
+        return np.nan
+      
 def clean_position(pos):
     # Restituisce "D", "M" o "F" in base al ruolo principale, altrimenti "None"
     roles = re.findall(r"[DMF]", str(pos).upper())
@@ -448,3 +469,64 @@ def process_positions(df, position_col="position"):
     df = pd.concat([df, pos_dummies], axis=1)
 
     return df
+
+def add_other_leagues_data(player_df, player, DATASET_DATA_DIR, GOALS_DATA_FILE_ALL_LEAGUES, CURRENT_SEASON):
+    # se è la prima stagione in Serie A → aggiungi dati da altri campionati
+    if player_df["season"].min() == CURRENT_SEASON:
+        all_leagues_df = pd.read_csv(DATASET_DATA_DIR / GOALS_DATA_FILE_ALL_LEAGUES)
+
+        # Filtra solo i dati del giocatore
+        player_all_leagues = all_leagues_df[all_leagues_df["player"].str.contains(player, case=False, na=False)]
+
+        # Converte le date in formato datetime (per entrambi)
+        player_df["date"] = pd.to_datetime(player_df["date"], errors="coerce")
+        player_all_leagues["date"] = pd.to_datetime(player_all_leagues["date"], errors="coerce")
+
+        # Escludi match già presenti nel dataset principale
+        player_all_leagues = player_all_leagues[
+            ~player_all_leagues["match_id"].isin(player_df["match_id"])
+        ]
+
+        # Concatena i dati
+        player_df = pd.concat(
+            [player_df.reset_index(drop=True), player_all_leagues.reset_index(drop=True)],
+            ignore_index=True
+        )
+
+        # 🔽 Riordina per data
+        player_df = player_df.sort_values("date").reset_index(drop=True)
+
+        if player_all_leagues.empty:
+            print(f"Nessun dato aggiuntivo trovato per {player} in all_leagues_df.")
+        else:
+            print(f"Dati trovati per {player}: {len(player_all_leagues)} righe in all_leagues_df.")
+
+    return player_df
+
+def fill_missing_values_player_df(player_df: pd.DataFrame, cols_to_check: list, season_ref: int = 2025) -> pd.DataFrame:
+    """
+    Riempie i valori NaN in player_df:
+      - Tutte le colonne in cols_to_check con 0, tranne 'opponent_xGA_90min'
+      - 'opponent_xGA_90min' con la media della stagione season_ref (default 2025)
+        oppure, se non disponibile, con la media generale.
+    """
+    col_excluded = "opponent_xGA_90min"
+
+    # 1️⃣ Fillna(0) su tutte le colonne tranne quella esclusa
+    cols_fill_zero = [c for c in cols_to_check if c != col_excluded]
+    player_df[cols_fill_zero] = player_df[cols_fill_zero].fillna(0)
+
+    # 2️⃣ Calcola media per la stagione di riferimento
+    mean_xga_season = (
+        player_df.loc[player_df["season"] == season_ref, col_excluded]
+        .mean()
+    )
+
+    # 3️⃣ Fallback: media generale se non ci sono dati per la stagione_ref
+    if pd.isna(mean_xga_season):
+        mean_xga_season = player_df[col_excluded].mean()
+
+    # 4️⃣ Riempie solo quella colonna con la media calcolata
+    player_df[col_excluded] = player_df[col_excluded].fillna(mean_xga_season)
+
+    return player_df
