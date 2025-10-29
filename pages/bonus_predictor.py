@@ -12,222 +12,7 @@ from sklearn.preprocessing import StandardScaler
 # Aggiunge la cartella "fantamodel" al percorso dei moduli
 #sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# =====================================================
-# 🔹 Caricamento modelli e scaler
-# =====================================================
 @st.cache_resource
-def load_models():
-    return {
-        "scaler_sumxg": joblib.load(config.SCALER_DIR / config.SCALER_XG),
-        "poly": joblib.load(config.MODEL_DIR / config.POLY_TRANSFORMER),
-        "lin_poly": joblib.load(config.MODEL_DIR / config.LIN_POLY),
-        "scaler_features": joblib.load(config.SCALER_DIR / config.SCALER),
-        "clf": joblib.load(config.MODEL_DIR / config.CALIB_LOGISTIC_REG),
-        "xgbclass":joblib.load(config.MODEL_DIR / config.XGB_MODEL),
-        "lin": joblib.load(config.MODEL_DIR / config.LIN)
-    }
-
-def load_models_assist():
-    return {
-        "scaler_features_assist": joblib.load(config.SCALER_DIR_ASSIST / config.SCALER),
-        "log_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.CALIB_LOGISTIC_REG)
-    }
-
-# =====================================================
-# 🔹 Prepara feature giocatore per BASELINA LOG REGRESSION GOAL PRED
-# =====================================================
-def prepare_player_features(player, team, opponent, df_orig, df_teams, models):
-    df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
-    if df.empty:
-        st.warning(f"Nessun dato disponibile per {player}.")
-        return None
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[df["date"] <= datetime.now()].reset_index(drop=True)
-
-    # Log-transform
-    df["sum_xG"] = np.log1p(df["sum_xG"])
-    clip_val = df["sum_xG"].quantile(0.99)
-    df["sum_xG"] = df["sum_xG"].clip(upper=clip_val)
-
-    # Residuo polinomiale
-    sumxg_scaled = models["scaler_sumxg"].transform(df[["sum_xG"]])
-    pred_poly = models["lin_poly"].predict(models["poly"].transform(sumxg_scaled))
-
-    #boost del residuo della capacità di finalizzazione
-    df["finishing_form_resid"] = 2 * (df["finishing_form"] - pred_poly)
-
-    # Feature principali
-    # Calcolo goals_last5 per la riga da prevedere
-    if len(df) >= 5:
-        # Prendi le ultime 5 partite, includendo l'ultima
-        goals_last5 = df["goals"].iloc[-5:].mean()
-    else:
-        # Se ci sono meno di 5 partite, usa tutte le partite disponibili
-        goals_last5 = df["goals"].mean()
-
-    # Calcolo xG_last5 per partita da prevedere
-    if len(df) >= 5:
-        xG_last5 = df["sum_xG"].iloc[-5:].mean()
-    else:
-        xG_last5 = df["sum_xG"].mean()
-
-    #**** Ricalcolo sum_Xg attesi dal giocatore in base alla sua forma nel medio periodo 
-    # e xgAgainst per partita avversario ***
-    
-    # 1. Ottieni info squadre
-    season = df["season"].iloc[-1]
-    opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
-
-    # 2. pesa l'xg in base all'avversario
-    sum_xG_new = utils.weighted_xg_vs_opponent(df, opponent_xGA_90min)
-    finishing_form_resid = df["finishing_form_resid"].iloc[-1]
-
-    #df con features e valori
-    X_new = [[sum_xG_new, xG_last5, goals_last5, finishing_form_resid]]
-    feature_names = config.FEATURES_LR
-    X_new_df = pd.DataFrame(X_new, columns=feature_names)
-
-    # 3. Applica boost 
-
-    boosts = config.BOOST_FACTORS
-    for feature, factor in boosts.items():
-        X_new_df[feature] = X_new_df[feature] * factor
-
-    X_scaled = models["scaler_features"].transform(X_new_df[feature_names])
-
-    return X_scaled
-
-def prepare_features_assist(features_names, player, team, opponent, df_orig, df_teams, scaler):
-
-     # 1️⃣ Filtra storico giocatore
-    df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
-    if df.empty:
-        print(f"⚠️ Nessun dato disponibile per {player}")
-        return None
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[df["date"] <= datetime.now()].reset_index(drop=True)
-
-
-    if df.empty:
-        print(f"⚠️ Nessuna partita valida (tutte future) per {player}")
-        return None
-    
-    season = config.CURRENT_SEASON
-
-    df = utils.fill_missing_values_player_df(df, features_names, season_ref=season)
-
-    # 3️⃣ Riempi i NaN
-    df[features_names] = df[features_names].fillna(0)
-
-    # 4️⃣ Recupera dati della squadra e avversario
-    
-    opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
-    #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
-
-    # trasformazione logaritmica
-    df["sum_xA"] = np.log1p(df["sum_xA"])
-
-    # 5️⃣ Calcola statistiche base del giocatore
-    sum_xA = df["sum_xA"].tail(12).mean()
-
-    sum_xA_new = utils.weighted_xA_vs_opponent(sum_xA, df, opponent_xGA_90min)
-
-    # Calcolo goals_last5 per la riga da prevedere
-    if len(df) >= 5:
-        # Prendi le ultime 5 partite, includendo l'ultima
-        xA_last5 = df["sum_xA"].iloc[-5:].mean()
-    else:
-         # Se ci sono meno di 5 partite, usa tutte le partite disponibili
-        xA_last5 = df["sum_xA"].mean()
-
-        # 7️⃣ Crea dataframe con le feature finali
-    X_new_df = pd.DataFrame([{
-        "sum_xA": sum_xA_new,
-        "xA_last5": xA_last5    
-    }])
-
-    X_new_df = scaler.transform(X_new_df)
-
-    return X_new_df
-
-def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, lin_model):
-    """
-    Prepara le feature per la predizione goal probability con modello XGBoost.
-    """
-    # 1️⃣ Filtra storico giocatore
-    df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
-    if df.empty:
-        print(f"⚠️ Nessun dato disponibile per {player}")
-        return None
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[df["date"] <= datetime.now()].reset_index(drop=True)
-
-    if df["season"].min() == config.CURRENT_SEASON:
-        df = utils.add_other_leagues_data(
-            df, player,
-            config.DATASET_DATA_DIR, config.GOALS_DATA_FILE_ALL_LEAGUES,
-            config.CURRENT_SEASON
-        )
-
-    if "position" in df.columns:
-        player_position = utils.clean_position(df["position"].iloc[-1])
-    else:
-        player_position = None
-
-    df = utils.fill_missing_values_player_df(df, features_names, season_ref=config.CURRENT_SEASON)
-
-    df[features_names] = df[features_names].fillna(0)
-
-    df["sum_xG"] = np.log1p(df["sum_xG"])
-
-    # 2️⃣ Calcolo residuo lineare della finishing_form
-    pred_lin = lin_model.predict(df[["sum_xG"]])
-    df["finishing_form_resid"] = 1 * (df["finishing_form"] - pred_lin) 
-
-    # 3️⃣ Calcolo xG_last5 e goals_last5 (media ultime 5 partite)
-    if len(df) >= 5:
-        xG_last5 = df["sum_xG"].iloc[-5:].mean()
-        goals_last5 = df["goals"].iloc[-5:].mean()
-    else:
-        xG_last5 = df["sum_xG"].mean()
-        goals_last5 = df["goals"].mean()
-
-    # 4️⃣ Ottieni opponent xGA
-    season = df["season"].iloc[-1]
-    opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
-    team_xG_90_min = utils.get_Xg_90min_team(opponent, season, df_teams)
-
-    sum_xG_new = (df["sum_xG"].tail(12).mean())
-
-    resid = df["finishing_form_resid"].iloc[-1]
-
-    sum_xG_new = sum_xG_new * (1.0 + config.BOOST_RESID * resid)  #2.0
-
-    # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
-    sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min)
-    sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, df, team_xG_90_min, df_teams)
-
-    # 6️⃣ Ultimo residuo disponibile
-    finishing_form_resid = df["finishing_form_resid"].iloc[-1]
-
-    # 7️⃣ Crea dataframe con le feature finali
-    X_new_df = pd.DataFrame([{
-        "sum_xG": sum_xG_new,
-        "xG_last5": xG_last5,
-        "goals_last5": goals_last5,
-        "opponent_xGA_90min": opponent_xGA_90min,    
-        "finishing_form_resid": finishing_form_resid
-    }])
-
-     # 8️⃣ Applica boost
-    for feature, factor in config.BOOST_FACTORS_XGB.items():
-        X_new_df[feature] = X_new_df[feature] * factor
-
-    return X_new_df
-
 
 # =====================================================
 # 🔹 Interfaccia Streamlit
@@ -238,8 +23,8 @@ def main():
     st.markdown("Prevedi la probabilità che un giocatore **segni o faccia assist** nella prossima partita.")
 
     # --- Carica dataset e modelli
-    models = load_models()  # modelli goal
-    models_assist = load_models_assist()  # modelli assist
+    models = utils.load_models()  # modelli goal
+    models_assist = utils.load_models_assist()  # modelli assist
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
@@ -274,7 +59,7 @@ def main():
             if "finishing_form_resid" in features_names_goal:
                 features_names_goal.remove("finishing_form_resid")
 
-            X_goal = prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, models["lin"])
+            X_goal = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, models["lin"])
             goal_proba = None
             if X_goal is not None:
                 try:
@@ -284,7 +69,7 @@ def main():
 
             # === PREDIZIONE ASSIST ===
             features_names_assist = models_assist["log_reg_assist"].feature_names_in_
-            X_assist = prepare_features_assist(features_names_assist, player, team, opponent, df_orig_assist, df_teams, models_assist["scaler_features_assist"])
+            X_assist = utils.prepare_features_assist(features_names_assist, player, team, opponent, df_orig_assist, df_teams, models_assist["scaler_features_assist"])
             assist_proba = None
             if X_assist is not None:
                 try:

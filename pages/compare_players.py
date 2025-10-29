@@ -1,12 +1,11 @@
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 import config
-import utils
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from bonus_predictor import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist
+from utils import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist
 
 DATASET_DATA_DIR = config.DATASET_DATA_DIR
 PROD_DATA_FILE_GOALS = config.PROD_DATA_FILE_GOALS
