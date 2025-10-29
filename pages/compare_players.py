@@ -6,11 +6,13 @@ project_root = os.path.abspath(os.path.join(current_dir, "../.."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
+
+from src import config
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from src.config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, PROD_DATA_FILE_ASSIST, TEAMS_DATA_FILE, CURRENT_SEASON
+from config import DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, PROD_DATA_FILE_ASSIST, TEAMS_DATA_FILE, CURRENT_SEASON
 from pages.bonus_predictor import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist
 
 # ======================================================
