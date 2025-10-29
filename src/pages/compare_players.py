@@ -12,13 +12,14 @@ if project_root not in sys.path:
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly
 import plotly.graph_objects as go
 from src.config  import DATASET_DATA_DIR,PROD_DATA_FILE_GOALS, PROD_DATA_FILE_ASSIST, DATASET_DATA_DIR,TEAMS_DATA_FILE,CURRENT_SEASON
 # Dentro src/pages/1_Confronta_giocatori.py
-from src.app import prepare_features_xgb
-from src.app import prepare_features_assist
-from src.app import load_models
-from src.app import load_models_assist
+from src.bonus_predictor import prepare_features_xgb
+from src.bonus_predictor import prepare_features_assist
+from src.bonus_predictor import load_models
+from src.bonus_predictor import load_models_assist
 
 # ======================================================
 # ⚔️ PAGINA CONFRONTO GIOCATORI
