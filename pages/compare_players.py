@@ -180,23 +180,12 @@ def main():
                 )
                 st.plotly_chart(radar, use_container_width=True)
 
-            # 🔗 Link di condivisione
-            st.markdown("### 🔗 Condividi questo confronto")
-
-            # Genera il link completo con i query parameters
-            link = (
-                f"https://fantamodel.streamlit.app/?"
-                f"player1={player1}&team1={team1}&opponent1={opponent1}&"
-                f"player2={player2}&team2={team2}&opponent2={opponent2}"
-            )
-
-            # Mostra il link cliccabile
-            st.markdown(f"[Apri il confronto]({link})", unsafe_allow_html=True)
-
-            # Mostra anche il link in formato testo copiabile
-            st.code(link, language="text")
-    else:
-        st.error("Impossibile calcolare i dati per uno dei giocatori.")
+                # Link di condivisione
+                #st.markdown("### 🔗 Condividi questo confronto")
+                #link = f"{st.link_button()}?player1={player1}&team1={team1}&opponent1={opponent1}&player2={player2}&team2={team2}&opponent2={opponent2}"
+                #st.code(link, language="text")
+            else:
+                st.error("Impossibile calcolare i dati per uno dei giocatori.")
 
 # ======================================================
 # ⚔️ EXEC MAIN
