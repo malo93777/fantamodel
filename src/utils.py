@@ -16,7 +16,7 @@ from datetime import datetime
 # =====================================================
 # 🔹 Caricamento modelli e scaler
 # =====================================================
-@st.cache_resource
+#@st.cache_resource
 def load_models():
     return {
         "scaler_sumxg": joblib.load(config.SCALER_DIR / config.SCALER_XG),
