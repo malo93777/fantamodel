@@ -6,3 +6,6 @@ matplotlib
 scikit-learn
 joblib
 python-dateutil
+statsmodels
+matplotlib
+seaborn
