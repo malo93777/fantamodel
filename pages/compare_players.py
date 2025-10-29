@@ -1,11 +1,4 @@
 import sys, os
-# Ottiene il percorso del file corrente
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Va su due livelli fino alla root del progetto
-project_root = os.path.abspath(os.path.join(current_dir, "../.."))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 import config
 import utils
