@@ -102,7 +102,7 @@ def main():
 
     args = parser.parse_args()
     args.gol = True
-    args.assist = True
+    args.assist = False
     # ==========================
     # ESECUZIONE
     # ==========================

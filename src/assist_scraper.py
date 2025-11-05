@@ -5,7 +5,8 @@ import config
 class AssistScraper:
 
     def run(self, debug):
-          
+        if not debug:
+            return 
         with UnderstatClient() as understat:           
 
                     league_player_data = understat.league(league="Serie_A").get_player_data(season=str(config.CURRENT_SEASON))

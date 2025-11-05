@@ -6,6 +6,7 @@ import re
 from understatapi import UnderstatClient
 from teamscraper import TeamsXGAScraper
 import config
+import first_preproc
 
 class Scraper:
 
@@ -13,19 +14,23 @@ class Scraper:
 
         if debug == False:
 
-            with UnderstatClient() as understat:           
-
-                league_player_data = understat.league(league="Serie_A").get_player_data(season="2025")
+            with UnderstatClient() as understat:
+                
+                #costruisco dataframe squadre con rolling features
+                team_data = understat.league(league="Serie_A").get_team_data(season=str(config.CURRENT_SEASON)) 
+                teams_df = first_preproc.build_team_dataframe(team_data)
+                
+                #ciclo giocatori che sono in serie a attuale e prendo loro dati partite passate in serie a
+                league_player_data = understat.league(league="Serie_A").get_player_data(season=str(config.CURRENT_SEASON))
                 shots_df = pd.DataFrame()
                 # Get the name and id of every player
-
                 for index, player in enumerate(league_player_data):
                     player_id = player["id"]
                     player_name = player["player_name"]
                     print(f"Player ID: {player_id}, Player Name: {player_name}")
 
                     # Get the name and id of one of the player
-                    player_id, player_name = league_player_data[index]["id"], league_player_data[index]["player_name"]
+                    #player_id, player_name = league_player_data[index]["id"], league_player_data[index]["player_name"]
                     
                     # Get data for every match this player has taken in a league match (for all seasons)
                     player_match_data = understat.player(player=player_id).get_match_data()
@@ -40,7 +45,9 @@ class Scraper:
                         shots_df = pd.concat([shots_df, player_match_data_df], ignore_index=True)
 
             shots_df.to_csv(config.DATASET_DATA_DIR / config.RAW_DATA_FILE, index=False)
-            print("Dati salvati in raw_data.csv")
+            print("Dati salvati in {config.RAW_DATA_FILE}")
+            teams_df.to_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE, index=False)
+            print("Dati salvati in {config.CURRENT_SEASON_TEAMS_FILE}")
 
             #Get overall data for a player in a season          
             players_seasons_df = pd.DataFrame()

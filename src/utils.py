@@ -12,6 +12,7 @@ import config
 from scipy.stats import skew, kurtosis
 import streamlit as st
 from datetime import datetime
+from sklearn.metrics import brier_score_loss
 
 # =====================================================
 # 🔹 Caricamento modelli e scaler
@@ -439,6 +440,58 @@ def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
         return row["XG_90min"].values[0]
     else:
         return np.nan
+    
+def get_xG_last5_team(team: str, teams_df: pd.DataFrame) -> float:
+    """
+    Restituisce l'ultimo valore di xG_last5 per una squadra dal DataFrame partite.
+
+    Args:
+        team (str): nome della squadra (non necessariamente perfettamente uguale)
+        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
+
+    Returns:
+        float: ultimo valore di xG_last5, oppure np.nan se non trovato
+    """
+    team_norm = normalize_team_name(team)
+    teams_df = teams_df.copy()
+    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
+
+    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+
+    if team_rows.empty:
+        return np.nan
+
+    # Prende le ultime 5 partite, includendo l'ultima giocata
+    recent_rows = team_rows.tail(5)
+
+    # Usa la colonna xG "grezza" e non xG_last5 per evitare feedback loop
+    return recent_rows["xG"].mean()
+
+
+def get_xGA_last5_team(team: str, teams_df: pd.DataFrame) -> float:
+    """
+    Restituisce l'ultimo valore di xGA_last5 per una squadra dal DataFrame partite.
+
+    Args:
+        team (str): nome della squadra
+        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
+
+    Returns:
+        float: ultimo valore di xGA_last5, oppure np.nan se non trovato
+    """
+    team_norm = normalize_team_name(team)
+    teams_df = teams_df.copy()
+    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
+
+    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+
+    if team_rows.empty:
+        return np.nan
+
+    # Prende le ultime 5 partite, includendo l'ultima giocata
+    recent_rows = team_rows.tail(5)
+
+    return recent_rows["xGA"].mean()
       
 def clean_position(pos):
     # Restituisce "D", "M" o "F" in base al ruolo principale, altrimenti "None"
@@ -748,3 +801,224 @@ def fill_missing_values_player_df(player_df: pd.DataFrame, cols_to_check: list, 
     player_df[col_excluded] = player_df[col_excluded].fillna(mean_xga_season)
 
     return player_df
+
+import numpy as np
+import pandas as pd
+
+def get_latest_cold_penalty(player_df):
+    """
+    Calcola la penalità 'cold_penalty' aggiornata per un singolo giocatore,
+    includendo anche l'ultima partita (quindi adatta per la predizione in prod).
+
+    Parametri:
+        player_df (pd.DataFrame): dati del giocatore con almeno la colonna 'goals'
+        cold_weight (float): coefficiente di quanto velocemente cresce la penalità
+        cold_center (int): numero di partite dopo cui la penalità diventa significativa
+
+    Ritorna:
+        float: valore cold_penalty più aggiornato (ultima partita)
+    """
+    if "goals" not in player_df.columns:
+        raise ValueError("La colonna 'goals' deve essere presente in player_df")
+
+    df = player_df.copy().sort_values("date")
+    df["no_goal_streak"] = (
+        df.groupby("player")["goals"]
+        .apply(lambda g: g.eq(0).astype(int)
+                .groupby(g.ne(0).cumsum()).cumsum())
+        .reset_index(level=0, drop=True)
+        .fillna(0)
+    )
+
+    # Penalità logistica (più morbida e scalata tra ~0.2 e ~1)
+    df["cold_penalty"] = 1 / (1 + np.exp(0.25 * (df["no_goal_streak"] - 8)))
+
+    # Ritorna il valore più recente
+    return float(df["cold_penalty"].iloc[-1])
+
+from catboost import CatBoostClassifier
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import log_loss, f1_score, precision_score, recall_score
+import random
+
+def tune_catboost(X, y, n_iter=20, random_seed=42):
+    """
+    Esegue una ricerca casuale di iperparametri per CatBoostClassifier
+    e restituisce il miglior modello addestrato e le metriche medie.
+    """
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    
+    param_grid = {
+        "depth": [3, 4, 5, 6, 7, 8, 9],
+        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
+        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10],
+        "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
+        "iterations": [500, 800, 1000, 1200],
+        "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
+    }
+    
+    best_logloss = np.inf
+    best_params = None
+    best_model = None
+    
+    for i in range(n_iter):
+        params = {
+            "depth": random.choice(param_grid["depth"]),
+            "learning_rate": random.choice(param_grid["learning_rate"]),
+            "l2_leaf_reg": random.choice(param_grid["l2_leaf_reg"]),
+            "bagging_temperature": random.choice(param_grid["bagging_temperature"]),
+            "iterations": random.choice(param_grid["iterations"]),
+            "random_strength": random.choice(param_grid["random_strength"]),
+            "bootstrap_type": "Bayesian",
+            "loss_function": "Logloss",
+            "eval_metric": "Logloss",
+            "verbose": False,
+            "random_seed": random_seed,
+        }
+
+        model = CatBoostClassifier(**params)
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_seed)
+        losses = []
+        f1s = []
+        
+        for train_idx, val_idx in cv.split(X, y):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            
+            model.fit(X_train, y_train)
+            preds = model.predict_proba(X_val)[:, 1]
+            pred_labels = (preds > 0.5).astype(int)
+            
+            losses.append(log_loss(y_val, preds))
+            f1s.append(f1_score(y_val, pred_labels))
+        
+        mean_loss = np.mean(losses)
+        mean_f1 = np.mean(f1s)
+
+        print(f"[{i+1}/{n_iter}] LogLoss={mean_loss:.4f} | F1={mean_f1:.4f} | Params={params}")
+
+        if mean_loss < best_logloss:
+            best_logloss = mean_loss
+            best_params = params
+            best_model = model
+
+    print("\n🏆 Miglior combinazione trovata:")
+    print(best_params)
+    print(f"📉 Best LogLoss: {best_logloss:.4f}")
+    
+    return best_model, best_params
+
+
+from sklearn.linear_model import LinearRegression
+
+def compute_cold_penalty_res(
+    df: pd.DataFrame,
+    xg_col: str = "sum_xG",
+    penalty_col: str = "cold_penalty",
+    prod: bool = False,
+    penalty_model: LinearRegression = None,
+    cold_penalty_prod: float = None
+):
+    """
+    Applica una penalizzazione ai valori di xG in base alla cold_penalty
+    tramite regressione lineare e residui.
+
+    Formula:
+        xg_resid = xG - pred(xG | cold_penalty)
+        xG_penalized = xg_resid * cold_penalty
+
+    Parametri:
+        df (pd.DataFrame): dati contenenti le colonne [xg_col, penalty_col]
+        xg_col (str): nome della colonna xG
+        penalty_col (str): nome della colonna penalty
+        prod (bool): se True, usa un modello già addestrato (inference)
+        penalty_model (LinearRegression): modello salvato da fase di training
+
+    Ritorna:
+        - df (pd.DataFrame): con colonne aggiunte ['xg_resid', 'xG_penalized']
+        - reg (LinearRegression | None): modello addestrato (solo in training)
+    """
+
+    df = df.copy()
+
+    # --- Controlli di sicurezza ---
+    if xg_col not in df.columns or penalty_col not in df.columns:
+        raise ValueError(f"Le colonne '{xg_col}' e/o '{penalty_col}' non sono presenti nel DataFrame.")
+
+    if prod:
+        if penalty_model is None:
+            raise ValueError("In modalità 'prod', devi passare un modello di regressione già addestrato (penalty_model).")
+        reg = penalty_model
+        temp_df = pd.DataFrame({"cold_penalty":[cold_penalty_prod]})
+        
+        df["cold_penalty_res"] = df[xg_col].iloc[-1] - reg.predict(temp_df)[0]
+    else:
+        reg = LinearRegression()
+        reg.fit(df[[penalty_col]], df[xg_col])
+
+        # --- Calcolo residuo e penalizzazione ---
+        df["cold_penalty_res"] = df[xg_col].iloc[-1] - reg.predict(df[[penalty_col]])
+        #df["xG_penalized"] = df["xg_resid"] * df[penalty_col]
+
+    if prod:
+        return df  # solo dati trasformati
+    else:
+        return df, reg  # dati + modello per riuso in prod
+
+
+def penalize_xg_with_cold_penalty(
+    sum_xG: float,
+    cold_penalty_value: float,
+    position: str = None,
+    alpha: float = 2.0,
+    floor_base: float = 0.5
+    ):
+    """
+    Penalizza gli xG in base alla 'cold_penalty' e al ruolo del giocatore.
+
+    Formula:
+        factor = floor + (1 - floor) * (cold_penalty ** alpha)
+        xG_penalized = sum_xG * factor
+
+    Dove:
+      - 'cold_penalty' ∈ [0,1]: misura quanto il giocatore è "freddo" (più basso = meno gol recentemente)
+      - 'floor': livello minimo di riduzione, diverso per ruolo
+      - 'alpha': controlla la curvatura della penalità (1 = lineare, >1 = più aggressiva)
+    
+    Parametri:
+        sum_xG (float): xG del giocatore
+        cold_penalty_value (float): penalità calcolata (0–1)
+        position (str): ruolo del giocatore ("F", "M", "D", "P", o None)
+        alpha (float): intensità della penalità
+        floor_base (float): valore minimo di riduzione per un attaccante
+
+    Ritorna:
+        float: xG penalizzato
+    """
+
+    # 🔹 Imposta floor in base al ruolo
+    role_floor_map = {
+        "F": floor_base + 0.1,          # Attaccanti → penalità più forte
+        "M": floor_base + 0.3,    # Centrocampisti → un po’ più soft
+        "D": floor_base + 0.4,    # Difensori → penalità molto leggera     
+    }
+
+    floor = role_floor_map.get(position, floor_base + 0.1)
+
+    # 🔹 Calcola fattore di penalità (bounded tra floor e 1)
+    factor = floor + (1 - floor) * (cold_penalty_value ** alpha)
+    factor = np.clip(factor, floor, 1.0)
+
+    # 🔹 Applica la penalità agli xG
+    xG_penalized = sum_xG * factor
+
+    return xG_penalized
+
+def print_metrics(y_true, y_pred, y_proba, split=""):
+    print(f"\n**************  METRICHE {split.upper()}  ***************")
+    print(f"Precision: {precision_score(y_true, y_pred):.4f}")
+    print(f"Recall: {recall_score(y_true, y_pred):.4f}")
+    print(f"F1: {f1_score(y_true, y_pred):.4f}")
+    print(f"Brier Score: {brier_score_loss(y_true, y_proba):.4f}")
+    print(f"Log Loss: {log_loss(y_true, y_proba):.4f}")

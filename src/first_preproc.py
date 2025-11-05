@@ -82,7 +82,7 @@ class Preprocessor:
 
         Dove:
         - rolling_* sono somme mobili sulle ultime `window` partite (shiftate per escludere la partita corrente)
-        - weight(shots) è una funzione logaritmica che penalizza i giocatori con pochi tiri
+       
 
         Parametri:
             df (pd.DataFrame): dataframe contenente almeno ['player', 'date', 'goals', 'sum_xG', 'shots']
@@ -146,42 +146,106 @@ class Preprocessor:
         return df
 
     # ---------------------------------------------------------------
-
-    def combine_sumxg_efficiency(self, df, use_rank=False):
+   
+    def add_cold_penalty(self, df):
         """
-        Combina la pericolosità (xG generato) e l'efficienza (finishing_eff_weighted)
-        in un unico indice 'finishing_form'.
-
-        Due opzioni di normalizzazione:
-        - use_rank=True → usa rank percentuali (0-1), robusti a outlier ma perdono scala metrica
-        - use_rank=False → usa z-score (StandardScaler), più informativi per modelli lineari
-
-        Formula:
-            finishing_form = 0.5 * norm(sum_xG) + 0.5 * norm(finishing_eff_weighted)
+        Combina xG e efficienza di finalizzazione in una metrica 'finishing_form',
+        includendo penalità per assenza di gol e smoothing temporale per stabilità.
+        La standardizzazione finale è su tutto il dataset (non per giocatore).
 
         Parametri:
-            df (pd.DataFrame)
-            use_rank (bool): se True usa rank percentuali, altrimenti z-score
-
-        Ritorna:
-            pd.DataFrame: con nuova colonna 'finishing_form'
+            df (pd.DataFrame): dati con colonne ['player', 'date', 'sum_xG', 'finishing_eff_weighted', 'goals']
+            use_rank (bool): se True usa ranks invece di z-score
+            smooth_span (int): span per smoothing EMA
+            mode (str): 'balanced' (default) o 'strict' per penalizzazioni più forti
         """
         df = df.copy()
 
-        if use_rank:
-            # Versione rank percentuale
-            df["finishing_form"] = (
-                0.5 * df["sum_xG"].rank(pct=True) +
-                0.5 * df["finishing_eff_weighted"].rank(pct=True)
+        # 1️⃣ Calcolo streak di partite senza gol
+        df["no_goal_streak"] = (
+            df.groupby("player")["goals"]
+            .apply(lambda g: g.eq(0).astype(int)
+                .groupby(g.ne(0).cumsum()).cumsum().shift(1))
+            .reset_index(level=0, drop=True)
+            .fillna(0)
+        )
+
+        # 2️⃣ Penalità logistica più morbida (chi non segna da molto viene penalizzato)
+        df["cold_penalty"] = 1 / (1 + np.exp(0.25 * (df["no_goal_streak"] - 8)))
+     
+        return df
+
+    def compute_cold_penalty(self, df, streak_col="no_goal_streak", a=0.25, b=8, min_penalty=0.4):
+        """
+        Calcola la penalità 'cold_penalty' in base alla streak di partite senza gol.
+        
+        Formula base:
+            cold_penalty = min_penalty + (1 - min_penalty) / (1 + exp(a * (streak - b)))
+
+        Dove:
+            - a: controlla la pendenza della curva (quanto rapidamente cala)
+            - b: soglia centrale in cui la penalità inizia a diventare significativa
+            - min_penalty: livello minimo raggiungibile (evita di azzerare tutto)
+
+        Effetto:
+            🔹 Penalizza pochissimo per 1–3 partite senza gol
+            🔹 Decadimento più rapido dopo 6–8 partite
+            🔹 Mantiene un minimo >0 per non annullare totalmente il contributo xG
+        """
+        df = df.copy()
+
+        # Calcolo streak di partite senza gol (se non esiste)
+        if streak_col not in df.columns:
+            df["no_goal_streak"] = (
+                df.groupby("player")["goals"]
+                .apply(lambda g: g.eq(0).astype(int)
+                    .groupby(g.ne(0).cumsum()).cumsum().shift(1))
+                .reset_index(level=0, drop=True)
+                .fillna(0)
             )
-        else:
-            # Versione z-score (mantiene informazione metrica)
-            scaler = StandardScaler()
-            z_sumxg = scaler.fit_transform(df[["sum_xG"]])
-            z_eff = scaler.fit_transform(df[["finishing_eff_weighted"]])
-            df["finishing_form"] = 0.5 * z_sumxg.flatten() + 0.5 * z_eff.flatten()
+            streak_col = "no_goal_streak"
+
+        # Penalità logistica "shiftata"
+        df["cold_penalty"] = min_penalty + (1 - min_penalty) / (1 + np.exp(a * (df[streak_col] - b)))
 
         return df
+
+
+    def combine_sumxg_efficiency(self, df, use_rank=False):
+            """
+            Combina la pericolosità (xG generato) e l'efficienza (finishing_eff_weighted)
+            in un unico indice 'finishing_form'.
+
+            Due opzioni di normalizzazione:
+            - use_rank=True → usa rank percentuali (0-1), robusti a outlier ma perdono scala metrica
+            - use_rank=False → usa z-score (StandardScaler), più informativi per modelli lineari
+
+            Formula:
+                finishing_form = 0.5 * norm(sum_xG) + 0.5 * norm(finishing_eff_weighted)
+
+            Parametri:
+                df (pd.DataFrame)
+                use_rank (bool): se True usa rank percentuali, altrimenti z-score
+
+            Ritorna:
+                pd.DataFrame: con nuova colonna 'finishing_form'
+            """
+            df = df.copy()
+
+            if use_rank:
+                # Versione rank percentuale
+                df["finishing_form"] = (
+                    0.5 * df["sum_xG"].rank(pct=True) +
+                    0.5 * df["finishing_eff_weighted"].rank(pct=True)
+                )
+            else:
+                # Versione z-score (mantiene informazione metrica)
+                scaler = StandardScaler()
+                z_sumxg = scaler.fit_transform(df[["sum_xG"]])
+                z_eff = scaler.fit_transform(df[["finishing_eff_weighted"]])
+                df["finishing_form"] = 0.5 * z_sumxg.flatten() + 0.5 * z_eff.flatten()
+
+            return df
 
     def calculate_players_data_shots(self, df):
 
@@ -396,13 +460,16 @@ class Preprocessor:
         merged_df = self.calculate_roll_features(merged_df)
 
         # Calcolo finishing efficiency
-        merged_df = self.add_finishing_efficiency_hist(merged_df, window=12)
+        merged_df = self.add_finishing_efficiency_hist(merged_df, window=10)
 
         # Calcolo finishing_eff_weighted
         merged_df = self.weight_efficiency_shots(merged_df)
 
         # Calcolo finishing_form
         merged_df = self.combine_sumxg_efficiency(merged_df, use_rank=True)
+
+        # Calcolo cold_penalty
+        merged_df = self.compute_cold_penalty(merged_df)
 
         if is_SerieA:
             # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
@@ -479,8 +546,6 @@ class Preprocessor:
 
         #drop colonne inutili
         merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
-
-        merged_df
 
         merged_df.head()
         merged_df.to_csv(config.DATASET_DATA_DIR / config.ASSIST_DATA_FILE, index=False)
@@ -582,3 +647,51 @@ class Preprocessor:
             .mean()
         )
         return df
+    
+def build_team_dataframe(team_data: dict) -> pd.DataFrame:
+    """
+    Converte un dizionario `team_data` in un DataFrame con tutte le partite
+    e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
+
+    Args:
+        team_data (dict): dizionario del tipo {
+            '94': {'id': '94', 'title': 'Verona', 'history': [ {...}, {...}, ... ]},
+            '95': {'id': '95', 'title': 'Roma', 'history': [ {...}, {...}, ... ]},
+            ...
+        }
+
+    Returns:
+        pd.DataFrame: DataFrame completo con colonne xG_last5 e xGA_last5
+    """
+
+    rows = []
+
+    # 1️⃣ Espandi il dizionario in righe
+    for team_id, team in team_data.items():
+        title = team.get("title", "")
+        history = team.get("history", [])
+        for match in history:
+            rows.append({**match, "team_id": team_id, "team_name": title})
+
+    # 2️⃣ Crea il DataFrame
+    df = pd.DataFrame(rows)
+
+    # Se non ci sono partite, ritorna subito
+    if df.empty:
+        return df
+
+    # 3️⃣ Converti la colonna "date" in datetime e ordina
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values(["team_name", "date"]).reset_index(drop=True)
+
+    # 4️⃣ Calcola medie mobili (ultime 5 partite, escludendo quella corrente)
+    df["xG_last5"] = (
+        df.groupby("team_name")["xG"]
+        .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
+    )
+    df["xGA_last5"] = (
+        df.groupby("team_name")["xGA"]
+        .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
+    )
+
+    return df
