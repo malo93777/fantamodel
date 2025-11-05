@@ -44,7 +44,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import pandas as pd
 
-def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, calib_model, lin, boosts, numeric_features, categorical_features):
+def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, best_a, lin, boosts, numeric_features, categorical_features):
     results = []
 
     df_records = pd.DataFrame()
@@ -147,7 +147,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, player_df, opponent_xGA_90min_last5)   
 
-        sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min_last5, df_teams) 
+        sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min_last5, df_teams)
+
+        # Streak senza gol
+        cold_penalty = utils.get_latest_cold_penalty(player_df)
+
+        sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, player_df["position"].iloc[-1]) 
 
         #sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams)
         # RiCalcolo features rolling contando anche dati ultima partita
@@ -163,9 +168,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
             minutes_last5 = player_df["minutes_played"].mean()
 
         # 🔹 Streak senza gol
-        #cold_penalty = utils.get_latest_cold_penalty(player_df)
-        #player_df["xG_last5"] = player_df["sum_xG"].rolling(5).mean() / player_df["sum_xG"].mean()
-
+        cold_penalty = utils.get_latest_cold_penalty(player_df)
     
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
@@ -193,21 +196,25 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         for feature, factor in boosts.items():
             X_new_df[feature] = X_new_df[feature] * factor
 
-        #player_pos = player_df[categorical_features]
+        player_pos = player_df[categorical_features]
 
         # Aggiungi le dummy di posizione
-        #X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
+        X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
 
         # Il modello Poisson predice λ = expected goals
-        lambda_pred = calib_model.predict(X_new)
+        lambda_pred = model.predict(X_new_df)
 
          # Converti λ → probabilità di segnare almeno un gol applicando alfa per evitarae overconfidence
-        prob_goal = 1 - np.exp(-0.5 * np.clip(lambda_pred, 0, None))
+        prob_goal = 1 - np.exp(-0.7 * np.clip(lambda_pred, 0, None))
+
+        # Estrai lo scalare se è array di forma (1,)
+        if isinstance(prob_goal, np.ndarray):
+            prob_goal = prob_goal.item() 
 
         # Interpretazione binaria (se vuoi anche la previsione 0/1)
         pred = int(prob_goal >= best_threshold)  # Usa la soglia trovata nel training
 
-        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal[0]:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}")
+        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}")
 
         # (Facoltativo) per debugging:
         # print(f"λ previsto (expected goals): {lambda_pred:.4f}")
@@ -334,6 +341,7 @@ plt.grid(axis="y", linestyle="--", alpha=0.6)
 plt.show()
 
 df = df[df["position"] != "GK"]
+df = df[df["position"] != "GKS"]
 
 # applica al dataset
 df["position"] = df["position"].apply(utils.clean_position)
@@ -342,17 +350,17 @@ df["position"] = df["position"].apply(utils.clean_position)
 print(df["position"].unique())
 df["position"]= df["position"].dropna()
 # Conta le occorrenze
-counts = df["position"].value_counts(dropna=False)
 
+print(df.shape)
 # Rimuovo i "None"
-df = df[df["position"] != "None"]
+#df = df[df["position"] != "None"]
+print(df.shape)
 
 # One-hot encoding
 pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
 
 # Aggiungo le colonne one-hot a X
 df = pd.concat([df, pos_dummies], axis=1)
-
 
 #df = df.drop(columns=["position"])
 
@@ -433,7 +441,7 @@ vif_df = pd.DataFrame({
 print(vif_df)
 
 X =df[numeric_features]
-#X = pd.concat([X, df["position"]], axis=1)
+X = pd.concat([X, df["position"]], axis=1)
 X.head()
 categorical_features = ["position"]
 
@@ -463,13 +471,13 @@ model = CatBoostRegressor(
     learning_rate=0.01,
     l2_leaf_reg=6,
     bagging_temperature=0,
-    iterations=1000,
+    iterations=500,
     random_strength=1.5,
     bootstrap_type='Bayesian',
     loss_function='Poisson',
     verbose=False,
     random_seed=42,
-    #cat_features=categorical_features
+    cat_features=categorical_features
 )
 
 model.fit(X_train, y_train, sample_weight=sample_weights)
@@ -492,22 +500,22 @@ print(f"Best alpha: {best_a:.3f}  →  Brier val: {best_brier:.5f}")
 # ----------------------------
 # 2️⃣ CONVERSIONE OUTPUT → PROBABILITÀ
 # ----------------------------
-# Il modello predice λ (expected goals)
 lambda_train = model.predict(X_train)
-lambda_val =  model.predict(X_val)
-lambda_test = model.predict(X_test)
+lambda_val   = model.predict(X_val)
+lambda_test  = model.predict(X_test)
 
-# Convertiamo λ → probabilità di almeno un gol
-y_train_proba = 1 - np.exp(-np.clip(lambda_train, 0, None))
-y_val_proba = 1 - np.exp(-np.clip(lambda_val, 0, None))
-y_test_proba = 1 - np.exp(-np.clip(lambda_test, 0, None))
+# ✅ Applica shrink con best_a
+y_train_proba = 1 - np.exp(-np.clip(best_a * lambda_train, 0, None))
+y_val_proba   = 1 - np.exp(-np.clip(best_a * lambda_val, 0, None))
+y_test_proba  = 1 - np.exp(-np.clip(best_a * lambda_test, 0, None))
 
 # ----------------------------
 # 3️⃣ BINARIZZA per metriche classiche (threshold = 0.5)
 # ----------------------------
-y_train_pred = (y_train_proba >= 0.5).astype(int)
-y_test_pred = (y_test_proba >= 0.5).astype(int)
+y_train_pred = (y_train_proba >= 0.31).astype(int)
+y_test_pred  = (y_test_proba  >= 0.31).astype(int)
 
+'''
 # ----------------------------
 # 3️⃣ CALIBRAZIONE
 # ----------------------------
@@ -515,12 +523,20 @@ from sklearn.isotonic import IsotonicRegression
 iso = IsotonicRegression(out_of_bounds='clip')
 iso.fit(y_val_proba, y_val)  # usa validation
 
+# 3) Fit Platt / sigmoid (LogisticRegression su 1D)
+platt = LogisticRegression(solver='lbfgs')
+# reshape per sklearn: (n_samples, 1)
+platt.fit(y_val_proba.reshape(-1, 1), y_val)
+
 # Applichiamo la calibrazione ai test
 y_test_proba_cal = iso.predict(y_test_proba)
+
+y_test_proba_cal_sigmoid = platt.predict_proba(y_test_proba.reshape(-1, 1))[:, 1]
 
 # Valutazione prima/dopo calibrazione
 print("Brier before:", brier_score_loss(y_test, y_test_proba))
 print("Brier after isotonic:", brier_score_loss(y_test, y_test_proba_cal))
+print("Brier after sigmoid:", brier_score_loss(y_test, y_test_proba_cal_sigmoid))
 
 # Curva di calibrazione
 prob_true, prob_pred = calibration_curve(y_test, y_test_proba, n_bins=10)
@@ -535,7 +551,7 @@ plt.xlabel("Predicted probability")
 plt.ylabel("True fraction of goals")
 plt.title("Calibration Curve")
 plt.show()
-
+'''
 # ----------------------------
 # 4️⃣ METRICHE
 # ----------------------------
@@ -558,15 +574,6 @@ plt.show()
 # ----------------------------
 base_rate = y_test.mean()
 print(f"Baseline (freq. goal>0): {base_rate:.3f}")
-
-prob_true, prob_pred = calibration_curve(y_test, y_test_proba, n_bins=5)
-plt.figure(figsize=(7, 6))
-plt.plot(prob_pred, prob_true, marker='o')
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-plt.xlabel("Predicted probability")
-plt.ylabel("True frequency")
-plt.title("Calibration Curve")
-plt.show()
 
 print(f"Brier score: {brier_score_loss(y_test, y_test_proba):.5f}")
 
@@ -630,8 +637,8 @@ print("\nFeature importance:\n", importance.tail(10))
 
 pred_df = predict_goal_probabilities(players, teams, opponents,
                                      df_orig, df_teams, df_teams_curr_season,
-                                     model, lin_reg, boosts,
-                                      numeric_features, categorical_features)
+                                     model, best_a, lin_reg, boosts,
+                                     numeric_features, categorical_features)
 
 
-utils.save_models(model=iso, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
+utils.save_models(model=model, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
