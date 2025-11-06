@@ -53,7 +53,7 @@ def main():
         else:
             # === PREDIZIONE GOAL ===
             #tolgo finishing_form_resid perchè va ancora calcolata
-            features_names_goal = list(models_goal["xgbclass"].feature_names_in_)
+            features_names_goal = list(models_goal["xgbclass"].feature_names_)
             if "finishing_form_resid" in features_names_goal:
                 features_names_goal.remove("finishing_form_resid")         
 
