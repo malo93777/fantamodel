@@ -15,7 +15,13 @@ from scipy.stats import skew, kurtosis
 import streamlit as st
 from datetime import datetime
 from sklearn.metrics import brier_score_loss, precision_score, recall_score
-
+from catboost import CatBoostRegressor
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import log_loss, f1_score
+import random
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error, r2_score
+from tqdm import trange  # opzionale, per barra di progresso
 # =====================================================
 # 🔹 Caricamento modelli e scaler
 # =====================================================
@@ -188,8 +194,16 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     df["sum_xG"] = np.log1p(df["sum_xG"])
 
+     # Calcolo residuo  per finishing_form
+    df["xg_mean_12"] = (
+        df.groupby("player")["sum_xG"]
+        .apply(lambda x: x.rolling(window=10, min_periods=3).mean())
+        .reset_index(level=0, drop=True)
+    )
+    df["xg_mean_12"] = df["xg_mean_12"].fillna(0)
+
     # 2️⃣ Calcolo residuo lineare della finishing_form
-    pred_lin = lin_model.predict(df[["sum_xG"]])
+    pred_lin = lin_model.predict(df[["xg_mean_12"]])
     df["finishing_form_resid"] = 1 * (df["finishing_form"] - pred_lin) 
 
     # 3️⃣ Calcolo xG_last5 e goals_last5 (media ultime 5 partite)
@@ -848,9 +862,6 @@ def fill_missing_values_player_df(player_df: pd.DataFrame, cols_to_check: list, 
 
     return player_df
 
-import numpy as np
-import pandas as pd
-
 def get_latest_cold_penalty(player_df):
     """
     Calcola la penalità 'cold_penalty' aggiornata per un singolo giocatore,
@@ -881,12 +892,6 @@ def get_latest_cold_penalty(player_df):
 
     # Ritorna il valore più recente
     return float(df["cold_penalty"].iloc[-1])
-
-from catboost import CatBoostRegressor
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import log_loss, f1_score
-import numpy as np
-import random
 
 def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     """
@@ -959,13 +964,6 @@ def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     print(f"📉 Best LogLoss: {best_logloss:.4f}")
     
     return best_model, best_params
-
-from catboost import CatBoostRegressor
-from sklearn.model_selection import KFold
-from sklearn.metrics import mean_squared_error, r2_score
-import numpy as np
-import random
-from tqdm import trange  # opzionale, per barra di progresso
 
 def tune_catboost_regressor(X, y, cat_features, n_iter=15, random_seed=42):
     """
@@ -1297,3 +1295,45 @@ def split_features_by_type(df: pd.DataFrame, feature_names: list):
             categorical_features.append(col)
 
     return numeric_features, categorical_features
+
+def predict_goal_probability(model, X_goal, player, role, get_alpha_for_role_fn):
+    """
+    Calcola la probabilità che un giocatore segni almeno un gol,
+    usando un modello Poisson (che predice λ = expected goals)
+    e un fattore di calibrazione α specifico per ruolo.
+
+    Parameters
+    ----------
+    model : object
+        Modello Poisson o regressore (es. CatBoostRegressor).
+    X_goal : pd.DataFrame
+        Feature del giocatore per la predizione (una sola riga).
+    player : str
+        Nome del giocatore (solo per debug/log).
+    role : str
+        Ruolo principale del giocatore (es. 'F', 'M', 'D', 'FM', 'DM', ecc.).
+    get_alpha_for_role_fn : callable
+        Funzione che dato un ruolo restituisce il miglior alpha calibrato.
+
+    Returns
+    -------
+    float
+        Probabilità stimata di segnare almeno un gol.
+    """
+
+    # 1️⃣ Predici λ (expected goals)
+    lambda_pred = model.predict(X_goal)[0]
+
+    print(f"Ruolo principale (pesato) di {player}: {role}")
+
+    # 2️⃣ Recupera α ottimale per il ruolo
+    best_a = get_alpha_for_role_fn(role)
+
+    # 3️⃣ Converti λ → probabilità P(goal ≥ 1)
+    goal_proba = 1 - np.exp(-best_a * np.clip(lambda_pred, 0, None))
+
+    # 4️⃣ Estrai scalare se è un array
+    if isinstance(goal_proba, np.ndarray):
+        goal_proba = goal_proba.item()
+
+    return goal_proba
