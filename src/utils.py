@@ -176,12 +176,13 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
             config.CURRENT_SEASON
         )
 
-    if "position" in df.columns:
-        player_position = clean_position(df["position"].iloc[-1])
-    else:
-        player_position = None
+    numeric_features, categorical_features = split_features_by_type(df, features_names)
+    
+    df["position"] = df["position"].apply(clean_position)
+    # Rimuovo i "None"
+    df = df[df["position"] != "None"]
 
-    df =fill_missing_values_player_df(df, features_names, season_ref=config.CURRENT_SEASON)
+    df = fill_missing_values_player_df(df, numeric_features, season_ref=config.CURRENT_SEASON)
 
     df[features_names] = df[features_names].fillna(0)
 
@@ -214,6 +215,13 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     sum_xG_new = weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min)
     sum_xG_new = weighted_xg_by_team_strength(sum_xG_new, df, team_xG_90_min, df_teams)
 
+    # Streak senza gol
+    cold_penalty = get_latest_cold_penalty(df)
+        
+    main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
+
+    sum_xG_new = penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
+
     # 6️⃣ Ultimo residuo disponibile
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
 
@@ -221,16 +229,20 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
         "xG_last5": xG_last5,
-        "goals_last5": goals_last5,
-        "opponent_xGA_90min": opponent_xGA_90min,    
+        "goals_last5": goals_last5,    
         "finishing_form_resid": finishing_form_resid
     }])
 
      # 8️⃣ Applica boost
-    for feature, factor in config.BOOST_FACTORS_XGB.items():
-        X_new_df[feature] = X_new_df[feature] * factor
+     #for feature, factor in config.BOOST_FACTORS_XGB.items():
+        #X_new_df[feature] = X_new_df[feature] * factor
 
-    return X_new_df
+    player_pos = df[categorical_features]
+
+    # Aggiungi le dummy di posizione
+    X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
+
+    return X_new_df, main_role
 
 def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False):
     """
@@ -1246,4 +1258,42 @@ def get_main_position_weighted(pos_series: pd.Series, window: int = 10, decay: f
     main_pos = max(pos_weights, key=pos_weights.get)
     return main_pos
 
+def split_features_by_type(df: pd.DataFrame, feature_names: list):
+    """
+    Divide una lista di feature in numeriche e categoriche in base ai tipi del DataFrame.
 
+    Parametri
+    ----------
+    df : pd.DataFrame
+        Il DataFrame che contiene i dati.
+    feature_names : list
+        Lista delle colonne da analizzare.
+
+    Ritorna
+    -------
+    numeric_features : list
+        Colonne numeriche.
+    categorical_features : list
+        Colonne categoriche (object, string, category o bool).
+    """
+    numeric_features = []
+    categorical_features = []
+
+    for col in feature_names:
+        if col not in df.columns:
+            print(f"⚠️ Attenzione: '{col}' non trovato nel DataFrame, salto.")
+            continue
+
+        dtype = df[col].dtype
+
+        # Numeric: int, float, np.number
+        if np.issubdtype(dtype, np.number):
+            numeric_features.append(col)
+        # Categorical: string, object, category, boolean
+        elif dtype == "object" or dtype.name == "category" or np.issubdtype(dtype, np.bool_):
+            categorical_features.append(col)
+        else:
+            # fallback: se non riconosciuto, consideriamo categorico
+            categorical_features.append(col)
+
+    return numeric_features, categorical_features

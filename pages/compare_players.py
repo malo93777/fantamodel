@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from utils import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist
+from utils import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist,predict_goal_probability,get_alpha_for_role
 
 DATASET_DATA_DIR = config.DATASET_DATA_DIR
 PROD_DATA_FILE_GOALS = config.PROD_DATA_FILE_GOALS
@@ -76,7 +76,7 @@ def main():
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")
 
-        X_goal = prepare_features_xgb(
+        X_goal, role = prepare_features_xgb(
             features_names=features_names_goal,
             player=player,
             team=team,
@@ -99,7 +99,13 @@ def main():
         if X_goal is None or X_assist is None:
             return None
 
-        proba_goal = models_goal["xgbclass"].predict_proba(X_goal)[0, 1]
+        proba_goal = predict_goal_probability(
+                    model=models_goal["xgbclass"],
+                    X_goal=X_goal,
+                    player=player,
+                    role=role,
+                    get_alpha_for_role_fn=get_alpha_for_role
+                    )    
         proba_assist = models_assist["log_reg_assist"].predict_proba(X_assist)[0, 1]
         proba_bonus = 1 - (1 - proba_goal) * (1 - proba_assist)
 

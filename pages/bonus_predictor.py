@@ -21,7 +21,7 @@ def main():
     st.markdown("Prevedi la probabilità che un giocatore **segni o faccia assist** nella prossima partita.")
 
     # --- Carica dataset e modelli
-    models = utils.load_models()  # modelli goal
+    models_goal = utils.load_models()  # modelli goal
     models_assist = utils.load_models_assist()  # modelli assist
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
@@ -53,15 +53,23 @@ def main():
         else:
             # === PREDIZIONE GOAL ===
             #tolgo finishing_form_resid perchè va ancora calcolata
-            features_names_goal = list(models["xgbclass"].feature_names_in_)
+            features_names_goal = list(models_goal["xgbclass"].feature_names_in_)
             if "finishing_form_resid" in features_names_goal:
-                features_names_goal.remove("finishing_form_resid")
+                features_names_goal.remove("finishing_form_resid")         
 
-            X_goal = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, models["lin"])
+            X_goal, role = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, models_goal["lin"])
             goal_proba = None
             if X_goal is not None:
                 try:
-                    goal_proba = models["xgbclass"].predict_proba(X_goal)[0, 1]
+                    
+                    goal_proba = utils.predict_goal_probability(
+                        model=models_goal["xgbclass"],
+                        X_goal=X_goal,
+                        player=player,
+                        role=role,
+                        get_alpha_for_role_fn=utils.get_alpha_for_role
+                    )                   
+
                 except Exception as e:
                     st.error(f"Errore nel modello goal: {e}")
 
