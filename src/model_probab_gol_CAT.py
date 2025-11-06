@@ -44,14 +44,14 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import pandas as pd
 
-def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, best_a, lin, boosts, numeric_features, categorical_features):
+def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, boosts, numeric_features, categorical_features):
     results = []
 
     df_records = pd.DataFrame()
 
     for player, team, opponent in zip(players, teams, opponents):
         print(f"\n➡️ {player} ({team} vs {opponent})")
-
+        
         # 1️⃣ Filtra storico del giocatore
         player_df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
         if player_df.empty:
@@ -112,6 +112,9 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
+        #peso xg per ruolo
+        #player_df = utils.adjust_sumxg_by_position(player_df, pos_factors)
+
         player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
  
         # Calcolo residuo polinomiale per finishing_form
@@ -151,8 +154,10 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         # Streak senza gol
         cold_penalty = utils.get_latest_cold_penalty(player_df)
+        
+        main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
 
-        sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, player_df["position"].iloc[-1]) 
+        sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role) 
 
         #sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams)
         # RiCalcolo features rolling contando anche dati ultima partita
@@ -166,9 +171,6 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
             xG_last5 = player_df["sum_xG"].mean()
             goals_last5 =  player_df["goals"].mean()
             minutes_last5 = player_df["minutes_played"].mean()
-
-        # 🔹 Streak senza gol
-        cold_penalty = utils.get_latest_cold_penalty(player_df)
     
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
@@ -203,9 +205,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         # Il modello Poisson predice λ = expected goals
         lambda_pred = model.predict(X_new_df)
+        
+        print(f"Ruolo principale (pesato) di {player}: {main_role}")
+        best_a = utils.get_alpha_for_role(main_role)
 
          # Converti λ → probabilità di segnare almeno un gol applicando alfa per evitarae overconfidence
-        prob_goal = 1 - np.exp(-0.7 * np.clip(lambda_pred, 0, None))
+        prob_goal = 1 - np.exp(-best_a * np.clip(lambda_pred, 0, None))
 
         # Estrai lo scalare se è array di forma (1,)
         if isinstance(prob_goal, np.ndarray):
@@ -362,8 +367,26 @@ pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
 # Aggiungo le colonne one-hot a X
 df = pd.concat([df, pos_dummies], axis=1)
 
-#df = df.drop(columns=["position"])
+# ===============================
+# ESEMPIO DI UTILIZZO
+# ===============================
 
+'''
+#PESO XG IN BASE AL RUOLO
+goal_by_pos = (
+    df.groupby("position")["goals"]
+    .apply(lambda x: (x > 0).mean())  # frequenza partite con almeno un gol
+    .sort_values(ascending=False)
+)
+print(goal_by_pos)
+
+goal_by_pos_norm = goal_by_pos/goal_by_pos.max()
+pos_factors = goal_by_pos_norm.to_dict()
+print(pos_factors)
+
+df = utils.adjust_sumxg_by_position(df, pos_factors)
+#df = df.drop(columns=["position"])
+'''
 # Aggiungo al dataset
 #df = pd.concat([df, pos_dummies], axis=1)
 
@@ -485,15 +508,21 @@ model.fit(X_train, y_train, sample_weight=sample_weights)
 lambda_val = model.predict(X_val)
 y = y_val.values if hasattr(y_val, "values") else y_val
 
-alphas = np.linspace(0.3, 1.0, 40)
-best_a, best_brier = None, 1e9
+role_alphas = {}
+for role in X_val["position"].unique():
+    mask = X_val["position"] == role
+    lam = model.predict(X_val[mask])
+    y = y_val[mask]
+    
+    best_a, best_brier = None, 1e9
+    for a in np.linspace(0.3, 1.0, 40):
+        p = 1 - np.exp(-np.clip(a * lam, 0, None))
+        b = brier_score_loss(y, p)
+        if b < best_brier:
+            best_a, best_brier = a, b
 
-for a in alphas:
-    p = 1 - np.exp(-np.clip(a * lambda_val, 0, None))
-    b = brier_score_loss(y, p)
-    if b < best_brier:
-        best_brier = b
-        best_a = a
+    role_alphas[role] = best_a
+    print(f"Ruolo {role}: best α = {best_a:.3f}, Brier = {best_brier:.5f}")
 
 print(f"Best alpha: {best_a:.3f}  →  Brier val: {best_brier:.5f}")
 
@@ -512,8 +541,8 @@ y_test_proba  = 1 - np.exp(-np.clip(best_a * lambda_test, 0, None))
 # ----------------------------
 # 3️⃣ BINARIZZA per metriche classiche (threshold = 0.5)
 # ----------------------------
-y_train_pred = (y_train_proba >= 0.31).astype(int)
-y_test_pred  = (y_test_proba  >= 0.31).astype(int)
+y_train_pred = (y_train_proba >= 0.37).astype(int)
+y_test_pred  = (y_test_proba  >= 0.37).astype(int)
 
 '''
 # ----------------------------
@@ -637,7 +666,7 @@ print("\nFeature importance:\n", importance.tail(10))
 
 pred_df = predict_goal_probabilities(players, teams, opponents,
                                      df_orig, df_teams, df_teams_curr_season,
-                                     model, best_a, lin_reg, boosts,
+                                     model, lin_reg, boosts,
                                      numeric_features, categorical_features)
 
 

@@ -9,10 +9,12 @@ import joblib
 import os
 from pathlib import Path
 import config
+from collections import Counter
+from collections import defaultdict
 from scipy.stats import skew, kurtosis
 import streamlit as st
 from datetime import datetime
-from sklearn.metrics import brier_score_loss
+from sklearn.metrics import brier_score_loss, precision_score, recall_score
 
 # =====================================================
 # 🔹 Caricamento modelli e scaler
@@ -376,7 +378,7 @@ def weighted_xg_vs_opponent(base_xG, player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.75, 1.25)
+    factor = np.clip(factor, 0.7, 1.3)
 
     # xG pesato
     weighted_xG = base_xG * factor
@@ -493,17 +495,49 @@ def get_xGA_last5_team(team: str, teams_df: pd.DataFrame) -> float:
 
     return recent_rows["xGA"].mean()
       
+import re
+
 def clean_position(pos):
-    # Restituisce "D", "M" o "F" in base al ruolo principale, altrimenti "None"
-    roles = re.findall(r"[DMF]", str(pos).upper())
-    if "F" in roles:
-        return "F"
-    elif "M" in roles:
-        return "M"
-    elif "D" in roles:
-        return "D"
-    else:
+    """
+    Pulisce e classifica la posizione di un calciatore:
+    - GK -> None
+    - 3+ ruoli -> None
+    - D+M -> 'DM' (terzino/mediano)
+    - F+M -> 'FM' (trequartista)
+    - D+F -> 'DF' (esterno)
+    - Singola lettera -> 'D', 'M' o 'F'
+    """
+    text = str(pos).upper()
+    
+    # Escludi portieri
+    #if "GK" in text:
+       # return None
+    
+    # Estrai ruoli principali
+    roles = re.findall(r"[DMF]", text)
+    roles = list(dict.fromkeys(roles))  # rimuovi duplicati preservando ordine
+    
+    # Troppi ruoli => ambigua
+    if len(roles) >= 3:
         return "None"
+    
+    # Mappa combinazioni specifiche
+    if len(roles) == 2:
+        combo = "".join(sorted(roles))
+        if combo == "DM":
+            return "DM"   # terzino o mediano
+        elif combo == "FM":
+            return "FM"   # trequartista
+        elif combo == "DF":
+            return "DF"   # esterno difensivo
+        else:
+            return "None"
+    
+    # Ruolo singolo
+    if len(roles) == 1:
+        return roles[0]
+    
+    return "None"
 
 def get_positions(player_df, pos_dummies_index):
     # 1. Prendo l'ultima posizione nota del giocatore
@@ -836,12 +870,13 @@ def get_latest_cold_penalty(player_df):
     # Ritorna il valore più recente
     return float(df["cold_penalty"].iloc[-1])
 
-from catboost import CatBoostClassifier
+from catboost import CatBoostRegressor
 from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import log_loss, f1_score, precision_score, recall_score
+from sklearn.metrics import log_loss, f1_score
+import numpy as np
 import random
 
-def tune_catboost(X, y, n_iter=20, random_seed=42):
+def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     """
     Esegue una ricerca casuale di iperparametri per CatBoostClassifier
     e restituisce il miglior modello addestrato e le metriche medie.
@@ -862,6 +897,8 @@ def tune_catboost(X, y, n_iter=20, random_seed=42):
     best_params = None
     best_model = None
     
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_seed)
+    
     for i in range(n_iter):
         params = {
             "depth": random.choice(param_grid["depth"]),
@@ -877,16 +914,15 @@ def tune_catboost(X, y, n_iter=20, random_seed=42):
             "random_seed": random_seed,
         }
 
-        model = CatBoostClassifier(**params)
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_seed)
-        losses = []
-        f1s = []
+        losses, f1s = [], []
         
         for train_idx, val_idx in cv.split(X, y):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
             
-            model.fit(X_train, y_train)
+            model = CatBoostRegressor(**params)
+            model.fit(X_train, y_train, cat_features=cat_features)
+            
             preds = model.predict_proba(X_val)[:, 1]
             pred_labels = (preds > 0.5).astype(int)
             
@@ -901,11 +937,89 @@ def tune_catboost(X, y, n_iter=20, random_seed=42):
         if mean_loss < best_logloss:
             best_logloss = mean_loss
             best_params = params
-            best_model = model
+
+    # 🔁 Allena di nuovo il modello migliore su tutti i dati
+    best_model = CatBoostRegressor(**best_params)
+    best_model.fit(X, y, cat_features=cat_features, verbose=False)
 
     print("\n🏆 Miglior combinazione trovata:")
     print(best_params)
     print(f"📉 Best LogLoss: {best_logloss:.4f}")
+    
+    return best_model, best_params
+
+from catboost import CatBoostRegressor
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np
+import random
+from tqdm import trange  # opzionale, per barra di progresso
+
+def tune_catboost_regressor(X, y, cat_features, n_iter=15, random_seed=42):
+    """
+    Esegue una ricerca casuale di iperparametri per CatBoostRegressor
+    e restituisce il miglior modello addestrato e le metriche medie (RMSE e R²).
+    """
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    
+    param_grid = {
+        "depth": [3, 4, 5, 6, 7, 8, 9],
+        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
+        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10],
+        "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
+        "iterations": [500, 800, 1000, 1200],
+        "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
+    }
+
+    best_rmse = np.inf
+    best_params = None
+    
+    kf = KFold(n_splits=5, shuffle=True, random_state=random_seed)
+    
+    for i in trange(n_iter, desc="Tuning CatBoostRegressor"):
+        params = {
+            "depth": random.choice(param_grid["depth"]),
+            "learning_rate": random.choice(param_grid["learning_rate"]),
+            "l2_leaf_reg": random.choice(param_grid["l2_leaf_reg"]),
+            "bagging_temperature": random.choice(param_grid["bagging_temperature"]),
+            "iterations": random.choice(param_grid["iterations"]),
+            "random_strength": random.choice(param_grid["random_strength"]),
+            "bootstrap_type": "Bayesian",
+            "loss_function": "Poisson",  # <-- per regressione count-based
+            "verbose": False,
+            "random_seed": random_seed,
+        }
+        
+        rmses, r2s = [], []
+        
+        for train_idx, val_idx in kf.split(X, y):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            
+            model = CatBoostRegressor(**params)
+            model.fit(X_train, y_train, cat_features=cat_features)
+            
+            preds = model.predict(X_val)
+            rmses.append(np.sqrt(mean_squared_error(y_val, preds)))
+            r2s.append(r2_score(y_val, preds))
+        
+        mean_rmse = np.mean(rmses)
+        mean_r2 = np.mean(r2s)
+        
+        print(f"[{i+1}/{n_iter}] RMSE={mean_rmse:.4f} | R²={mean_r2:.4f} | Params={params}")
+        
+        if mean_rmse < best_rmse:
+            best_rmse = mean_rmse
+            best_params = params
+
+    # 🔁 Allena il modello migliore su tutto il dataset
+    best_model = CatBoostRegressor(**best_params)
+    best_model.fit(X, y, cat_features=cat_features, verbose=False)
+    
+    print("\n🏆 Miglior combinazione trovata:")
+    print(best_params)
+    print(f"📉 Best RMSE: {best_rmse:.4f}")
     
     return best_model, best_params
 
@@ -997,11 +1111,14 @@ def penalize_xg_with_cold_penalty(
         float: xG penalizzato
     """
 
-    # 🔹 Imposta floor in base al ruolo
+   # 🔹 Imposta floor in base al ruolo (inclusi ruoli ibridi)
     role_floor_map = {
-        "F": floor_base + 0.1,          # Attaccanti → penalità più forte
-        "M": floor_base + 0.3,    # Centrocampisti → un po’ più soft
-        "D": floor_base + 0.4,    # Difensori → penalità molto leggera     
+        "F":  floor_base - 0.3,    # Attaccanti → penalità più forte
+        "FM": floor_base + 0.15,    # Trequartisti / esterni offensivi → leggera riduzione
+        "M":  floor_base + 0.3,     # Centrocampisti → più soft
+        "DM": floor_base + 0.35,    # Centrocampisti difensivi → penalità più leggera
+        "D":  floor_base + 0.4,     # Difensori → penalità molto leggera
+        "DF": floor_base + 0.45     # Difensori puri o terzini difensivi → penalità minima
     }
 
     floor = role_floor_map.get(position, floor_base + 0.1)
@@ -1022,3 +1139,111 @@ def print_metrics(y_true, y_pred, y_proba, split=""):
     print(f"F1: {f1_score(y_true, y_pred):.4f}")
     print(f"Brier Score: {brier_score_loss(y_true, y_proba):.4f}")
     print(f"Log Loss: {log_loss(y_true, y_proba):.4f}")
+
+def adjust_sumxg_by_position(df, pos_factors):
+    df = df.copy()
+    df["sum_xG"] = df.apply(
+        lambda row: row["sum_xG"] * pos_factors.get(row["position"], 1.0),
+        axis=1
+    )
+    return df
+
+import numpy as np
+from sklearn.metrics import brier_score_loss
+
+def find_best_alpha_per_role(model, X_val, y_val, role_col="position", alphas=None):
+    """
+    Trova il miglior α per ciascun ruolo (F, M, D) minimizzando il Brier score.
+    Restituisce un dizionario: {"F": α_f, "M": α_m, "D": α_d}
+    """
+
+    if alphas is None:
+        alphas = np.linspace(0.3, 1.2, 40)
+
+    role_alphas = {}
+    lambda_val = model.predict(X_val)
+
+    roles = X_val[role_col].unique()
+
+    for role in roles:
+        mask = X_val[role_col] == role
+        if mask.sum() < 10:
+            continue  # ignora ruoli troppo rari
+
+        y_role = y_val[mask]
+        λ_role = lambda_val[mask]
+
+        best_a, best_brier = None, 1e9
+        for a in alphas:
+            p = 1 - np.exp(-np.clip(a * λ_role, 0, None))
+            b = brier_score_loss(y_role, p)
+            if b < best_brier:
+                best_brier = b
+                best_a = a
+
+        role_alphas[role] = best_a
+        print(f"Ruolo {role}: best α = {best_a:.3f}, Brier = {best_brier:.5f}")
+
+    return role_alphas
+
+def get_alpha_for_role(role: str) -> float:
+    """
+    Restituisce il valore di alpha ottimale per un determinato ruolo.
+    Se il ruolo non è presente o è None, usa il valore medio generale.
+    """
+    role_alphas = {
+        "F": 0.659,     #0.659
+        "FM": 0.501,    #0.551
+        "M": 0.426,
+        "DM": 0.300,
+        "D": 0.336,
+        "DF": 0.300
+    }
+
+    # Se il ruolo non è noto, calcola un fallback come media pesata o media semplice
+    default_alpha = np.mean(list(role_alphas.values()))
+
+    # Normalizza input (maiuscolo, nessuno spazio)
+    if isinstance(role, str):
+        role = role.strip().upper()
+    else:
+        role = None
+
+    return role_alphas.get(role, default_alpha)
+
+
+def get_main_position_weighted(pos_series: pd.Series, window: int = 10, decay: float = 0.85) -> str:
+    """
+    Restituisce la posizione principale di un giocatore pesando maggiormente le partite più recenti.
+    
+    Args:
+        pos_series (pd.Series): Colonna 'position' del giocatore (ordinata cronologicamente).
+        window (int): Numero di partite recenti da considerare (default 10).
+        decay (float): Fattore di decadimento (0 < decay ≤ 1). 
+                       Più è basso → più le partite recenti contano di più (default 0.85).
+    
+    Returns:
+        str: Posizione principale (più frequente, pesata per recency).
+    """
+    if pos_series.empty:
+        return None
+
+    # Prendi le ultime N posizioni (escludendo NaN)
+    last_positions = pos_series.dropna().astype(str).tail(window).tolist()
+    n = len(last_positions)
+    if n == 0:
+        return None
+
+    # Calcola pesi decrescenti (es. [1.0, 0.85, 0.72, ...])
+    weights = np.array([decay ** (n - i - 1) for i in range(n)])
+
+    # Somma pesi per ciascuna posizione
+    pos_weights = defaultdict(float)
+    for pos, w in zip(last_positions, weights):
+        pos_weights[pos] += w
+
+    # Trova la posizione con peso massimo
+    main_pos = max(pos_weights, key=pos_weights.get)
+    return main_pos
+
+
