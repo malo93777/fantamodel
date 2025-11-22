@@ -1694,7 +1694,7 @@ def reduce_penalty_xg(df, penalty_weight=0.5):
 
     return df
 
-def add_finishing_efficiency_hist(self, df, window=20, prod=False):
+def add_finishing_efficiency_hist(df, window=20, prod=False):
         """
         Calcola una metrica storica di efficienza di finalizzazione ('finishing_efficiency_hist')
         per ciascun giocatore sulle ultime `window` partite.
@@ -1748,7 +1748,7 @@ def add_finishing_efficiency_hist(self, df, window=20, prod=False):
         return df
 
 
-def weight_efficiency_shots(self, df, prod=False):
+def weight_efficiency_shots(df, prod=False):
     """
         Aggiunge una colonna 'finishing_eff_weighted' che combina
         l'efficienza di finalizzazione con l'esperienza (numero totale di tiri storici).
