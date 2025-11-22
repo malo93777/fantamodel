@@ -5,7 +5,7 @@ import config
 class AssistScraper:
 
     def run(self, debug):
-        if not debug:
+        if debug:
             return 
         with UnderstatClient() as understat:           
 

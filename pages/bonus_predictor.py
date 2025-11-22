@@ -26,6 +26,7 @@ def main():
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
+    df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
 
     # --- Dropdown dinamici
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
@@ -53,22 +54,30 @@ def main():
         else:
             # === PREDIZIONE GOAL ===
             #tolgo finishing_form_resid perchè va ancora calcolata
-            features_names_goal = list(models_goal["xgbclass"].feature_names_)
+            features_names_goal = list(models_goal["poiss_reg"].feature_names_)
             if "finishing_form_resid" in features_names_goal:
                 features_names_goal.remove("finishing_form_resid")         
 
-            X_goal, role = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, models_goal["lin"])
+            X_goal, role = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams_curr_season, models_goal["lin"])
             goal_proba = None
             if X_goal is not None:
                 try:
-                    
+                    #probabilità base dal modello
                     goal_proba = utils.predict_goal_probability(
-                        model=models_goal["xgbclass"],
+                        model=models_goal["poiss_reg"],
                         X_goal=X_goal,
                         player=player,
                         role=role,
                         get_alpha_for_role_fn=utils.get_alpha_for_role
-                    )                   
+                    ) 
+
+                    #calibrazione probabilità in base a overperformance e capacità di tiro
+                    goal_proba = utils.adjust_prob_final(
+                    prob_base = goal_proba,
+                    overperf_value = df_orig_goal["overperf_combined"].iloc[-1],
+                    finishing_resid = df_orig_goal["finishing_form_resid"].iloc[-1],
+                    role = role
+        )                
 
                 except Exception as e:
                     st.error(f"Errore nel modello goal: {e}")

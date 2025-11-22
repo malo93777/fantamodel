@@ -72,7 +72,7 @@ class Preprocessor:
         
         return "Other"
 
-    def add_finishing_efficiency_hist(self, df, window=20):
+    def add_finishing_efficiency_hist(self, df, window=20, prod=False):
         """
         Calcola una metrica storica di efficienza di finalizzazione ('finishing_efficiency_hist')
         per ciascun giocatore sulle ultime `window` partite.
@@ -82,11 +82,12 @@ class Preprocessor:
 
         Dove:
         - rolling_* sono somme mobili sulle ultime `window` partite (shiftate per escludere la partita corrente)
-       
+    
 
         Parametri:
             df (pd.DataFrame): dataframe contenente almeno ['player', 'date', 'goals', 'sum_xG', 'shots']
             window (int): numero di partite considerate nella media mobile
+            prod (bool): se True non applica shift (usa anche gli ultimi valori disponibili)
 
         Ritorna:
             pd.DataFrame: con nuova colonna 'finishing_efficiency_hist'
@@ -95,14 +96,23 @@ class Preprocessor:
         eps = 1e-5
 
         # Calcolo cumulativo goals/xG
-        df["finishing_efficiency"] = df["goals"] / (df["sum_xG"] + eps)
+        df["finishing_efficiency"] = df["npgoals_perMatch"] / (df["npxG_perMatch"] + eps)
 
         # EMA per ogni giocatore
-        df["finishing_efficiency_hist"] = (
-            df.groupby("player")["finishing_efficiency"]
-            .apply(lambda x: x.shift().ewm(span=window, min_periods=3).mean())
-            .reset_index(level=0, drop=True)
-        )
+        if prod:
+            # NO SHIFT in produzione → usa anche gli ultimi valori
+            df["finishing_efficiency_hist"] = (
+                df.groupby("player")["finishing_efficiency"]
+                .apply(lambda x: x.ewm(span=window, min_periods=3).mean())
+                .reset_index(level=0, drop=True)
+            )
+        else:
+            # VERSIONE TRAINING → SHIFT per evitare leakage
+            df["finishing_efficiency_hist"] = (
+                df.groupby("player")["finishing_efficiency"]
+                .apply(lambda x: x.shift().ewm(span=window, min_periods=3).mean())
+                .reset_index(level=0, drop=True)
+            )
 
         # Clipping per outlier
         max_clip = df["finishing_efficiency_hist"].quantile(0.99)
@@ -115,7 +125,8 @@ class Preprocessor:
 
         return df
 
-    def weight_efficiency_shots(self, df):
+
+    def weight_efficiency_shots(self, df, prod=False):
         """
         Aggiunge una colonna 'finishing_eff_weighted' che combina
         l'efficienza di finalizzazione con l'esperienza (numero totale di tiri storici).
@@ -129,13 +140,20 @@ class Preprocessor:
 
         Parametri:
             df (pd.DataFrame): dataframe con colonne 'player', 'shots', 'finishing_efficiency_hist'
+            prod (bool): se True non applica shift sulla storia dei tiri
 
         Ritorna:
             pd.DataFrame: con colonne 'shots_hist' e 'finishing_eff_weighted'
         """
         df = df.copy()
 
-        df["shots_hist"] = df.groupby("player")["shots"].cumsum().shift(1)
+        if prod:
+            # NO SHIFT → usa anche l’ultimo match
+            df["shots_hist"] = df.groupby("player")["shots_perMatch"].cumsum()
+        else:
+            # VERSIONE TRAINING → SHIFT per evitare leakage
+            df["shots_hist"] = df.groupby("player")["shots_perMatch"].cumsum().shift(1)
+
         df["shots_hist"] = df["shots_hist"].fillna(0)
 
         # Peso logaritmico più realistico
@@ -145,7 +163,74 @@ class Preprocessor:
         df["finishing_eff_weighted"] = df["finishing_efficiency_hist"] * weight
         return df
 
+    
+    def combine_sumxg_efficiency(self, df, use_rank=False):
+        """
+        Combina la pericolosità (xG generato) e l'efficienza (finishing_eff_weighted)
+        in un unico indice 'finishing_form'.
+
+        Due opzioni di normalizzazione:
+            - use_rank=True → usa rank percentuali (0-1), robusti a outlier ma perdono scala metrica
+            - use_rank=False → usa z-score (StandardScaler), più informativi per modelli lineari
+
+        Formula:
+            finishing_form = 0.5 * norm(sum_xG) + 0.5 * norm(finishing_eff_weighted)
+
+        Parametri:
+            df (pd.DataFrame)
+            use_rank (bool): se True usa rank percentuali, altrimenti z-score
+
+        Ritorna:
+            pd.DataFrame: con nuova colonna 'finishing_form'
+        """
+        df = df.copy()
+
+        if use_rank:
+            # Versione rank percentuale
+            df["finishing_form"] = (
+                0.5 * df["sum_xG"].rank(pct=True) +
+                0.5 * df["finishing_eff_weighted"].rank(pct=True)
+            )
+        else:
+            # Versione z-score (mantiene informazione metrica)
+            scaler = StandardScaler()
+            z_sumxg = scaler.fit_transform(df[["sum_xG"]])
+            z_eff = scaler.fit_transform(df[["finishing_eff_weighted"]])
+            df["finishing_form"] = 0.5 * z_sumxg.flatten() + 0.5 * z_eff.flatten()
+
+        return df
+
     # ---------------------------------------------------------------
+
+    def compute_shot_quality(self, df, window=20, use_rank=True, prod=False):
+        """
+        Esegue in sequenza:
+        1) add_finishing_efficiency_hist
+        2) weight_efficiency_shots
+        3) combine_sumxg_efficiency
+
+        Se prod=True:
+            - NON applica shift nei calcoli storici (usa tutti i dati disponibili).
+        """
+
+        merged_df = df.copy()
+
+        # Calcolo finishing efficiency
+        merged_df = self.add_finishing_efficiency_hist(
+            merged_df, window=window, prod=prod
+        )
+
+        # Calcolo finishing_eff_weighted
+        merged_df = self.weight_efficiency_shots(
+            merged_df, prod=prod
+        )
+
+        # Calcolo finishing_form
+        merged_df = self.combine_sumxg_efficiency(
+            merged_df, use_rank=use_rank
+        )
+
+        return merged_df
    
     def add_cold_penalty(self, df):
         """
@@ -210,42 +295,6 @@ class Preprocessor:
 
         return df
 
-
-    def combine_sumxg_efficiency(self, df, use_rank=False):
-            """
-            Combina la pericolosità (xG generato) e l'efficienza (finishing_eff_weighted)
-            in un unico indice 'finishing_form'.
-
-            Due opzioni di normalizzazione:
-            - use_rank=True → usa rank percentuali (0-1), robusti a outlier ma perdono scala metrica
-            - use_rank=False → usa z-score (StandardScaler), più informativi per modelli lineari
-
-            Formula:
-                finishing_form = 0.5 * norm(sum_xG) + 0.5 * norm(finishing_eff_weighted)
-
-            Parametri:
-                df (pd.DataFrame)
-                use_rank (bool): se True usa rank percentuali, altrimenti z-score
-
-            Ritorna:
-                pd.DataFrame: con nuova colonna 'finishing_form'
-            """
-            df = df.copy()
-
-            if use_rank:
-                # Versione rank percentuale
-                df["finishing_form"] = (
-                    0.5 * df["sum_xG"].rank(pct=True) +
-                    0.5 * df["finishing_eff_weighted"].rank(pct=True)
-                )
-            else:
-                # Versione z-score (mantiene informazione metrica)
-                scaler = StandardScaler()
-                z_sumxg = scaler.fit_transform(df[["sum_xG"]])
-                z_eff = scaler.fit_transform(df[["finishing_eff_weighted"]])
-                df["finishing_form"] = 0.5 * z_sumxg.flatten() + 0.5 * z_eff.flatten()
-
-            return df
 
     def calculate_players_data_shots(self, df):
 
@@ -401,6 +450,9 @@ class Preprocessor:
             .agg(
                 sum_xG=("xG", "sum"),
                 goals=("goals", "sum"),
+                npgoals_perMatch=("npg", "sum"),
+                shots_perMatch=("shots", "sum"),
+                npxG_perMatch=("npxG", "sum"),          
                 season=("season", "first"),
                 date=("date", "first"),
                 minutes_played = ("time", "sum"),
@@ -459,14 +511,8 @@ class Preprocessor:
         #  Calcolo rolling features (XG, shots, gol mean, time for match)
         merged_df = self.calculate_roll_features(merged_df)
 
-        # Calcolo finishing efficiency
-        merged_df = self.add_finishing_efficiency_hist(merged_df, window=10)
-
-        # Calcolo finishing_eff_weighted
-        merged_df = self.weight_efficiency_shots(merged_df)
-
         # Calcolo finishing_form
-        merged_df = self.combine_sumxg_efficiency(merged_df, use_rank=True)
+        merged_df = self.compute_shot_quality(merged_df, window=12, use_rank=True, prod=False)
 
         # Calcolo cold_penalty
         merged_df = self.compute_cold_penalty(merged_df)
@@ -561,11 +607,16 @@ class Preprocessor:
         df["xG_last5"] = df.groupby("player")["sum_xG"].transform(
             lambda x: x.shift().rolling(5, min_periods=1).mean()
         )
-        df["shots_last5"] = df.groupby("player")["shots"].transform(
+        df["shots_last5"] = df.groupby("player")["shots_perMatch"].transform(
             lambda x: x.shift().rolling(5, min_periods=1).mean()
         )
         df["goals_last5"] = df.groupby("player")["goals"].transform(
             lambda x: x.shift().rolling(5, min_periods=1).mean()
+        )
+
+        #sbagliata!!!
+        df["goals_last5_sum"] = df.groupby("player")["goals"].transform(
+            lambda x: x.shift().rolling(5, min_periods=1).sum()
         )
 
         # Statistiche cumulative
@@ -650,18 +701,18 @@ class Preprocessor:
     
 def build_team_dataframe(team_data: dict) -> pd.DataFrame:
     """
-    Converte un dizionario `team_data` in un DataFrame con tutte le partite
-    e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
+        Converte un dizionario `team_data` in un DataFrame con tutte le partite
+        e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
 
-    Args:
-        team_data (dict): dizionario del tipo {
-            '94': {'id': '94', 'title': 'Verona', 'history': [ {...}, {...}, ... ]},
-            '95': {'id': '95', 'title': 'Roma', 'history': [ {...}, {...}, ... ]},
-            ...
-        }
+        Args:
+            team_data (dict): dizionario del tipo {
+                '94': {'id': '94', 'title': 'Verona', 'history': [ {...}, {...}, ... ]},
+                '95': {'id': '95', 'title': 'Roma', 'history': [ {...}, {...}, ... ]},
+                ...
+            }
 
-    Returns:
-        pd.DataFrame: DataFrame completo con colonne xG_last5 e xGA_last5
+        Returns:
+            pd.DataFrame: DataFrame completo con colonne xG_last5 e xGA_last5
     """
 
     rows = []

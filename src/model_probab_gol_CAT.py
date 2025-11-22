@@ -3,6 +3,7 @@ import utils
 from first_preproc import Preprocessor
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
@@ -40,15 +41,28 @@ teams = INPUT["teams"]
 opponents = INPUT["opponents"]
 ### *** END  GLOBALS ***
 
-from sklearn.linear_model import LinearRegression
-import numpy as np
-import pandas as pd
+def predict_goal_proba(lambda_pred, role, alpha_map, iso_models):
+    """Applica α e calibrazione isotonic in base al ruolo"""
+    alpha = alpha_map.get(role, np.mean(list(alpha_map.values())))
+    p_raw = 1 - np.exp(-np.clip(alpha * lambda_pred, 0, None))
+    if role in iso_models:
+        return float(iso_models[role].predict([p_raw])[0])
+    return float(p_raw)
+
+# 3️⃣ Funzione helper che prende la posizione e restituisce il relativo alpha
+def get_alpha_for_position(role):
+    return role_alphas.get(role, 0.5)  # fallback se ruolo non presente
+
+# 4️⃣ Applica alpha personalizzato a ogni record (train / val / test)
+def apply_alpha_by_role(lambda_vec, roles):
+    alphas = np.array([utils.get_alpha_for_role(r) for r in roles])
+    return 1 - np.exp(-np.clip(alphas * lambda_vec, 0, None))
 
 def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, boosts, numeric_features, categorical_features):
     results = []
 
     df_records = pd.DataFrame()
-
+    preproc = Preprocessor(serie_a_teams=SERIE_A_TEAMS)
     for player, team, opponent in zip(players, teams, opponents):
         print(f"\n➡️ {player} ({team} vs {opponent})")
         
@@ -66,23 +80,9 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
                 DATASET_DATA_DIR, GOALS_DATA_FILE_ALL_LEAGUES,
                 CURRENT_SEASON
             )
-        '''
-        # --- Ottieni posizione e one-hot encode coerente col training ---
-        if "position" in player_df.columns:
-         player_position = utils.clean_position(player_df["position"].iloc[-1])
-        else:
-            player_position = None
 
-        # Crea il vettore one-hot con le stesse colonne del training
-        pos_features = {col: 0 for col in pos_dummies.columns}
-        if player_position is not None:
-            col_name = f"pos_{player_position}"
-            if col_name in pos_features:
-                pos_features[col_name] = 1
-
-        # Converti in DataFrame
-        pos_df = pd.DataFrame([pos_features])
-        '''
+        player_df = utils.add_overperformance_features(player_df, prod=True)
+        player_df = utils.reduce_penalty_xg(player_df)
 
         # applica al dataset
         player_df["position"] = player_df["position"].apply(utils.clean_position)
@@ -98,13 +98,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         # 3️⃣ Fill NaN con 0
         cols_to_check = ["sum_xG",  
-                         "xG_last5",  
-                         "goals_last5",
-                         "finishing_form", #viene tolta e sostituita dal residuo         
+                         #"xG_last5",
+                         "finishing_form", 
+                         "overperf_combined"  #viene tolta e sostituita dal residuo       
                          #"cold_penalty",                       
                          #"opponent_xGA_90min",  
                          #"team_xG_90min"
-                         #"minutes_played_last5"
                          ]
         
         
@@ -116,20 +115,23 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         #player_df = utils.adjust_sumxg_by_position(player_df, pos_factors)
 
         player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
- 
-        # Calcolo residuo polinomiale per finishing_form
+        player_df["xG_last5"] = np.log1p(player_df["xG_last5"])
+
+        # Calcolo residuo  per finishing_form
         player_df["xg_mean_12"] = (
             player_df.groupby("player")["sum_xG"]
-            .apply(lambda x: x.rolling(window=10, min_periods=3).mean())
+            .apply(lambda x: x.rolling(window=12, min_periods=3).mean())
             .reset_index(level=0, drop=True)
         )
         player_df["xg_mean_12"] = player_df["xg_mean_12"].fillna(0)
+
+        player_df = preproc.compute_shot_quality(player_df, window=12, use_rank=True, prod=True)
 
         player_df["finishing_form_resid"] = player_df["finishing_form"] - lin.predict(player_df[["xg_mean_12"]])
 
         cols_to_check.remove("finishing_form")
         cols_to_check.append("finishing_form_resid")
-        
+       
         # 4️⃣ Ottieni info squadre
         season = player_df["season"].iloc[-1]
         #opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
@@ -144,9 +146,9 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
         
-        resid = player_df["finishing_form_resid"].iloc[-1]
+        #resid = player_df["finishing_form_resid"].iloc[-1]
 
-        sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost =1.0
+        #sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost =1.0
 
         sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, player_df, opponent_xGA_90min_last5)   
 
@@ -157,33 +159,19 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         
         main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
 
-        sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role) 
+        sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
 
-        #sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min, df_teams)
-        # RiCalcolo features rolling contando anche dati ultima partita
-        if len(player_df) >= 5:
-            # Prendi le ultime 5 partite, includendo l'ultima
-            xG_last5 = player_df["sum_xG"].iloc[-5:].mean()
-            goals_last5 = player_df["goals"].iloc[-5:].mean()
-            minutes_last5 = player_df["minutes_played"].rolling(window=5, min_periods=1).mean()
-        else:
-            # Se ci sono meno di 5 partite, usa tutte le partite disponibili
-            xG_last5 = player_df["sum_xG"].mean()
-            goals_last5 =  player_df["goals"].mean()
-            minutes_last5 = player_df["minutes_played"].mean()
+        sum_xG_new = utils.adjust_xg_by_minutes(player_df, sum_xG_new,player_df["minutes_played"].rolling(window=5, min_periods=1).mean())
     
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
         # 7️⃣ Costruisci feature row
         X_new = [[sum_xG_new,   
-                  xG_last5,   
-                  goals_last5, 
-                  #cold_penalty,                 
-                  #opponent_xGA_90min_last5,  
-                  #team_xG_90_min,             
-                  #minutes_last5.iloc[-1],
-                  player_df["finishing_form_resid"].iloc[-1],                    
+                  #xG_last5,                                                                                                               
+                  player_df["overperf_combined"].iloc[-1],
+                  player_df["finishing_form_resid"].iloc[-1]
+                                            
                   ]]
 
         feature_names = cols_to_check
@@ -209,16 +197,22 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         print(f"Ruolo principale (pesato) di {player}: {main_role}")
         best_a = utils.get_alpha_for_role(main_role)
 
-         # Converti λ → probabilità di segnare almeno un gol applicando alfa per evitarae overconfidence
+        # Converti λ → probabilità di segnare almeno un gol applicando alfa per evitarae overconfidence
         prob_goal = 1 - np.exp(-best_a * np.clip(lambda_pred, 0, None))
 
         # Estrai lo scalare se è array di forma (1,)
         if isinstance(prob_goal, np.ndarray):
-            prob_goal = prob_goal.item() 
-
-        # Interpretazione binaria (se vuoi anche la previsione 0/1)
-        pred = int(prob_goal >= best_threshold)  # Usa la soglia trovata nel training
-
+            prob_goal = prob_goal.item()
+        '''
+        # Applica la funzione
+        prob_goal = utils.adjust_prob_final(
+            prob_base = prob_goal_base,
+            overperf_value = player_df["overperf_combined"].iloc[-1],
+            finishing_resid = player_df["finishing_form_resid"].iloc[-1],
+            role = role
+        )
+        '''
+        
         print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}")
 
         # (Facoltativo) per debugging:
@@ -304,23 +298,18 @@ now = pd.Timestamp.now()
 df["date"] = pd.to_datetime(df["date"], errors="coerce")
 df = df[df["date"] <= now].reset_index(drop=True)
 
-#df, lr_new = compute_finishing_form_resid(df, 10)
+df = utils.add_overperformance_features(df,prod=False)
 
-#analisi statistica
-#correlazione tra variabili numeriche
-
-#df["xG_last5"] = df["sum_xG"].rolling(5).mean() / df["sum_xG"].mean()
+print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())
 
 cols_to_check = [
     "sum_xG", 
-    "xG_last5",
-    "goals_last5",
+    #"xG_last5",
     #"goals_per90_weighted_mean",
     "finishing_form",
-    #"cold_penalty",
+    "overperf_combined"
     #"opponent_xGA_90min",
     #"team_xG_90min"
-    #"minutes_played_last5"
 ]
 
 df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
@@ -328,7 +317,6 @@ df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_S
 #df = df.dropna(subset=cols_to_check)
 df[cols_to_check] = df[cols_to_check].fillna(0)
 
-#multicoll_check(df,["finishing_efficiency", "sum_xG"])
 #corr = df[cols_to_check].corr(numeric_only=True)
 #plt.figure(figsize=(12, 10))
 #sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
@@ -337,6 +325,7 @@ df[cols_to_check] = df[cols_to_check].fillna(0)
 #df.groupby(pd.qcut(df['finishing_efficiency_hist'], 4, duplicates='drop'))['is_goals'].mean().plot(kind='bar')
 #plt.title('Finishing Efficiency vs Goal Probability')
 #********** POSIZIONE *************
+'''
 print(df["position"].unique())
 plt.figure(figsize=(6,4))
 df["position"].value_counts().plot(kind="bar", edgecolor="black")
@@ -344,7 +333,7 @@ plt.ylabel("numero osservazioni")
 plt.xlabel("Ruolo")
 plt.grid(axis="y", linestyle="--", alpha=0.6)
 plt.show()
-
+'''
 df = df[df["position"] != "GK"]
 df = df[df["position"] != "GKS"]
 
@@ -359,7 +348,6 @@ df["position"]= df["position"].dropna()
 print(df.shape)
 # Rimuovo i "None"
 #df = df[df["position"] != "None"]
-print(df.shape)
 
 # One-hot encoding
 pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
@@ -401,6 +389,7 @@ utils.multicoll_check(df, cols_to_check)
 
 #trasf log sum_xG per ridurre skewness
 df["sum_xG"] = np.log1p(df["sum_xG"])
+df["xG_last5"] = np.log1p(df["xG_last5"])
 # Seleziona le features (X) e target (y)
 y = df["is_goals"]
 y_binary = (y > 0).astype(int)
@@ -439,7 +428,7 @@ pred_lin = lin_reg.predict(df[["xg_mean_12"]])
 df["finishing_form_resid"] = df["finishing_form"] - pred_lin
 
 print("Media finishing_form:", df["finishing_form"].mean())
-print("Media pred_poly:", pred_lin.mean())
+print("Media pred:", pred_lin.mean())
 print("Media residuo:", df["finishing_form_resid"].mean())
 
 #plt.scatter(pred_lin, X["finishing_form_resid"], alpha=0.6)
@@ -489,6 +478,7 @@ sample_weights = np.where(y_train == 1, pos_weight, 1)
 # ----------------------------
 # 1️⃣ TRAINING MODELLO POISSON
 # ----------------------------
+
 model = CatBoostRegressor(
     depth=4,
     learning_rate=0.01,
@@ -502,6 +492,7 @@ model = CatBoostRegressor(
     random_seed=42,
     cat_features=categorical_features
 )
+
 
 model.fit(X_train, y_train, sample_weight=sample_weights)
 
@@ -532,55 +523,23 @@ print(f"Best alpha: {best_a:.3f}  →  Brier val: {best_brier:.5f}")
 lambda_train = model.predict(X_train)
 lambda_val   = model.predict(X_val)
 lambda_test  = model.predict(X_test)
-
+'''
 # ✅ Applica shrink con best_a
 y_train_proba = 1 - np.exp(-np.clip(best_a * lambda_train, 0, None))
 y_val_proba   = 1 - np.exp(-np.clip(best_a * lambda_val, 0, None))
 y_test_proba  = 1 - np.exp(-np.clip(best_a * lambda_test, 0, None))
+'''
+# 5️⃣ Applica la conversione separata per ciascun set
+y_train_proba = apply_alpha_by_role(lambda_train, X_train["position"])
+y_val_proba   = apply_alpha_by_role(lambda_val,   X_val["position"])
+y_test_proba  = apply_alpha_by_role(lambda_test,  X_test["position"])
 
 # ----------------------------
 # 3️⃣ BINARIZZA per metriche classiche (threshold = 0.5)
 # ----------------------------
-y_train_pred = (y_train_proba >= 0.37).astype(int)
-y_test_pred  = (y_test_proba  >= 0.37).astype(int)
+y_train_pred = (y_train_proba >= 0.30).astype(int)
+y_test_pred  = (y_test_proba  >= 0.30).astype(int)
 
-'''
-# ----------------------------
-# 3️⃣ CALIBRAZIONE
-# ----------------------------
-from sklearn.isotonic import IsotonicRegression
-iso = IsotonicRegression(out_of_bounds='clip')
-iso.fit(y_val_proba, y_val)  # usa validation
-
-# 3) Fit Platt / sigmoid (LogisticRegression su 1D)
-platt = LogisticRegression(solver='lbfgs')
-# reshape per sklearn: (n_samples, 1)
-platt.fit(y_val_proba.reshape(-1, 1), y_val)
-
-# Applichiamo la calibrazione ai test
-y_test_proba_cal = iso.predict(y_test_proba)
-
-y_test_proba_cal_sigmoid = platt.predict_proba(y_test_proba.reshape(-1, 1))[:, 1]
-
-# Valutazione prima/dopo calibrazione
-print("Brier before:", brier_score_loss(y_test, y_test_proba))
-print("Brier after isotonic:", brier_score_loss(y_test, y_test_proba_cal))
-print("Brier after sigmoid:", brier_score_loss(y_test, y_test_proba_cal_sigmoid))
-
-# Curva di calibrazione
-prob_true, prob_pred = calibration_curve(y_test, y_test_proba, n_bins=10)
-prob_true_cal, prob_pred_cal = calibration_curve(y_test, y_test_proba_cal, n_bins=10)
-
-plt.figure(figsize=(7,6))
-plt.plot(prob_pred, prob_true, "o-", label="Before calibration")
-plt.plot(prob_pred_cal, prob_true_cal, "o-", label="After isotonic")
-plt.plot([0,1],[0,1],"--", color="gray")
-plt.legend()
-plt.xlabel("Predicted probability")
-plt.ylabel("True fraction of goals")
-plt.title("Calibration Curve")
-plt.show()
-'''
 # ----------------------------
 # 4️⃣ METRICHE
 # ----------------------------
@@ -653,14 +612,49 @@ result = permutation_importance(
     model, X_test, y_test, n_repeats=20, random_state=42
 )
 
-importance = pd.Series(result.importances_mean, index=X_test.columns).sort_values(ascending=True)
-plt.figure(figsize=(8, 6))
-plt.barh(importance.index, importance.values)
-plt.title("Permutation Feature Importance")
-plt.xlabel("Riduzione media di accuratezza")
-plt.show()
+importance = model.get_feature_importance(prettified=True)
+print(importance.head(10))
 
-print("\nFeature importance:\n", importance.tail(10))
+
+# Assicurati che X_test sia un DataFrame con gli stessi indici di y_test
+if not isinstance(X_test, pd.DataFrame):
+    X_test = pd.DataFrame(X_test, columns=model.feature_names_)
+
+# Aggiungi y_true, pred prob e pred label
+X_test["true_goal"] = y_test.values
+X_test["pred_prob"] = y_test_proba
+X_test["pred_label"] = y_test_pred
+
+# Ordina per probabilità discendente
+X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
+
+# Stampa un riepilogo
+print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI GOL (TEST):")
+print(X_test_sorted.head(30))
+
+print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
+wrong_preds = X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]]
+print(wrong_preds.head(30))
+
+# Analisi media per ruolo
+print("\n📊 Probabilità media di gol per ruolo:")
+print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+
+# 📊 Analisi di performance per ruolo
+agg = (
+    X_test_sorted
+    .groupby("position")
+    .agg(
+        mean_prob=("pred_prob", "mean"),
+        true_rate=("true_goal", "mean"),
+        false_positive_rate=("pred_label", lambda x: ((x==1) & (X_test_sorted.loc[x.index, "true_goal"]==0)).mean()),
+        false_negative_rate=("pred_label", lambda x: ((x==0) & (X_test_sorted.loc[x.index, "true_goal"]==1)).mean())
+    )
+    .sort_values("mean_prob", ascending=False)
+)
+
+print("\n📊 METRICHE PER RUOLO:")
+print(agg.round(3))
 
 #input utente
 
