@@ -42,7 +42,7 @@ def main():
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
         submitted = st.form_submit_button("Prevedi Bonus")
-        
+
         #*** per test in locale ***
         #submitted = True
         #player = 'orban'
@@ -60,7 +60,16 @@ def main():
             if "finishing_form_resid" in features_names_goal:
                 features_names_goal.remove("finishing_form_resid")         
 
-            X_goal, role = utils.prepare_features_xgb(features_names_goal, player, team, opponent, df_orig_goal, df_teams, df_teams_curr_season, models_goal["lin"])
+            X_goal, role = utils.prepare_features_xgb(features_names_goal,
+                                                       player, 
+                                                       team, 
+                                                       opponent, 
+                                                       df_orig_goal, 
+                                                       df_teams, 
+                                                       df_teams_curr_season, 
+                                                       models_goal["lin"]
+                                   )
+            
             goal_proba = None
             if X_goal is not None:
                 try:

@@ -28,6 +28,7 @@ def main():
     df_orig_goal = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
+    df_teams_curr_season = pd.read_csv(DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
 
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
     teams = sorted(df_teams[df_teams['season'] == CURRENT_SEASON]['Team'].dropna().unique().tolist())
@@ -83,6 +84,7 @@ def main():
             opponent=opponent,
             df_orig=df_orig_goal,
             df_teams=df_teams,
+            df_teams_curr_season=df_teams_curr_season,
             lin_model=models_goal["lin"]
         )
 
