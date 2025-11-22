@@ -72,7 +72,7 @@ def main():
     # 📊 FUNZIONE PER CALCOLARE FEATURE E PROBABILITÀ
     # ======================================================
     def get_player_data(player, team, opponent):
-        features_names_goal = list(models_goal["xgbclass"].feature_names_)
+        features_names_goal = list(models_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")
 
