@@ -69,15 +69,7 @@ def main():
                         player=player,
                         role=role,
                         get_alpha_for_role_fn=utils.get_alpha_for_role
-                    ) 
-
-                    #calibrazione probabilità in base a overperformance e capacità di tiro
-                    goal_proba = utils.adjust_prob_final(
-                    prob_base = goal_proba,
-                    overperf_value = df_orig_goal["overperf_combined"].iloc[-1],
-                    finishing_resid = df_orig_goal["finishing_form_resid"].iloc[-1],
-                    role = role
-        )                
+                    )              
 
                 except Exception as e:
                     st.error(f"Errore nel modello goal: {e}")
