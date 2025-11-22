@@ -42,6 +42,8 @@ def main():
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
         submitted = st.form_submit_button("Prevedi Bonus")
+        
+        #*** per test in locale ***
         #submitted = True
         #player = 'orban'
         #team = "inter"

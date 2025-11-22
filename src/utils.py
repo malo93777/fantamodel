@@ -186,7 +186,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
-    df = add_overperformance_features(df)
+    df = add_overperformance_features(df, prod=True)
     df = reduce_penalty_xg(df)
 
     df["overperf_combined"].iloc[-1]
@@ -243,11 +243,12 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     # 6️⃣ Ultimo residuo disponibile
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
+    overperf_value = df["overperf_combined"].iloc[-1]
 
     # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
-        "xG_last5": xG_last5,   
+        "overperf_combined": overperf_value,   
         "finishing_form_resid": finishing_form_resid
     }])
 

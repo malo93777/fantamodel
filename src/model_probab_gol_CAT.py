@@ -161,7 +161,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
 
-        sum_xG_new = utils.adjust_xg_by_minutes(player_df, sum_xG_new,player_df["minutes_played"].rolling(window=5, min_periods=1).mean())
+        sum_xG_new = utils.adjust_xg_by_minutes(sum_xG_new, player_df["minutes_played"].rolling(window=5, min_periods=1).mean())
     
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
