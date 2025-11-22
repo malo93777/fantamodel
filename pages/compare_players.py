@@ -100,7 +100,7 @@ def main():
             return None
 
         proba_goal = predict_goal_probability(
-                    model=models_goal["xgbclass"],
+                    model=models_goal["poiss_reg"],
                     X_goal=X_goal,
                     player=player,
                     role=role,
