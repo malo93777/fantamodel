@@ -44,10 +44,10 @@ def main():
         submitted = st.form_submit_button("Prevedi Bonus")
 
         #*** per test in locale ***
-        submitted = True
-        player = 'orban'
-        team = "inter"
-        opponent = "cagliari"
+        #submitted = True
+        #player = 'orban'
+        #team = "inter"
+        #opponent = "cagliari"
 
     # --- Logica di predizione
     if submitted:
