@@ -187,9 +187,10 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
     df = add_overperformance_features(df, prod=True)
+    df = compute_shot_quality_index(df,prod=True)
     df = reduce_penalty_xg(df)
 
-    df["overperf_combined"].iloc[-1]
+    df_teams_curr = compute_defensive_overperf_stats(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
     
     df["position"] = df["position"].apply(clean_position)
     # Rimuovo i "None"
@@ -221,15 +222,16 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     else:
         xG_last5 = df["sum_xG"].mean()
 
-    # 4️⃣ Ottieni opponent xGA
+    # 4️⃣ Ottieni opponent info squadre partita da giocare
     season = df["season"].iloc[-1]
     opponent_xGA_90min_last5 = get_xGA_last5_team(opponent, df_teams_curr_season)
     team_xG_90_min_last5 = get_xG_last5_team(team, df_teams_curr_season)
+    xGA_last5_opp, GA_last5_opp = get_overperf_last5_team(opponent, df_teams_curr)
 
     sum_xG_new = (df["sum_xG"].tail(12).mean())
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
-    sum_xG_new = weighted_xg_vs_opponent(sum_xG_new, df, opponent_xGA_90min_last5)
+    sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5, xGA_last5_opp, GA_last5_opp)
     sum_xG_new = weighted_xg_by_team_strength(sum_xG_new, df, team_xG_90_min_last5, df_teams)
 
     # Streak senza gol
@@ -411,7 +413,7 @@ def weighted_xg_vs_opponent(base_xG, player_df, opponent_xGA_90min):
     factor = opponent_xGA_90min / avg_opponent_xGA
 
     # limitiamo il fattore per non esplodere
-    factor = np.clip(factor, 0.65, 1.35)
+    factor = np.clip(factor, 0.5, 1.5)
 
     # xG pesato
     weighted_xG = base_xG * factor
@@ -527,8 +529,35 @@ def get_xGA_last5_team(team: str, teams_df: pd.DataFrame) -> float:
     recent_rows = team_rows.tail(5)
 
     return recent_rows["xGA"].mean()
+
+def get_overperf_last5_team(team: str, teams_df: pd.DataFrame) -> float:
+    """
+    Restituisce l'ultimo valore di xG_last5 per una squadra dal DataFrame partite.
+
+    Args:
+        team (str): nome della squadra (non necessariamente perfettamente uguale)
+        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
+
+    Returns:
+        float: ultimo valore di xG_last5, oppure np.nan se non trovato
+    """
+    team_norm = normalize_team_name(team)
+    teams_df = teams_df.copy()
+    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
+
+    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+
+    if team_rows.empty:
+        return np.nan
+
+    # Prende le ultime 5 partite, includendo l'ultima giocata
+    last_row = team_rows.tail(1)
+    xGA_last5 = last_row["xGA_last5"].iloc[-1]  #somma cumulativa
+    GA_last5 = last_row["GA_last5"].iloc[-1]
+
+    # Usa la colonna xG "grezza" e non xG_last5 per evitare feedback loop
+    return xGA_last5, GA_last5
       
-import re
 
 def clean_position(pos):
     """
@@ -870,22 +899,8 @@ def fill_missing_values_player_df(player_df: pd.DataFrame, cols_to_check: list, 
     return player_df
 
 def get_latest_cold_penalty(player_df):
-    """
-    Calcola la penalità 'cold_penalty' aggiornata per un singolo giocatore,
-    includendo anche l'ultima partita (quindi adatta per la predizione in prod).
-
-    Parametri:
-        player_df (pd.DataFrame): dati del giocatore con almeno la colonna 'goals'
-        cold_weight (float): coefficiente di quanto velocemente cresce la penalità
-        cold_center (int): numero di partite dopo cui la penalità diventa significativa
-
-    Ritorna:
-        float: valore cold_penalty più aggiornato (ultima partita)
-    """
-    if "goals" not in player_df.columns:
-        raise ValueError("La colonna 'goals' deve essere presente in player_df")
-
     df = player_df.copy().sort_values("date")
+
     df["no_goal_streak"] = (
         df.groupby("player")["goals"]
         .apply(lambda g: g.eq(0).astype(int)
@@ -894,11 +909,19 @@ def get_latest_cold_penalty(player_df):
         .fillna(0)
     )
 
-    # Penalità logistica (più morbida e scalata tra ~0.2 e ~1)
-    df["cold_penalty"] = 1 / (1 + np.exp(0.25 * (df["no_goal_streak"] - 8)))
+    streak = float(df["no_goal_streak"].iloc[-1])
 
-    # Ritorna il valore più recente
-    return float(df["cold_penalty"].iloc[-1])
+    # Parametri della logistica scalata
+    low = 0.25   # minimo asintotico
+    high = 1.00  # massimo esatto quando streak=0
+    k = 0.45     # ripidità
+    c = 6        # centro
+
+    base_sigmoid = 1 / (1 + np.exp(k * (streak - c)))
+
+    # Scaling 0–1 to low–high
+    penalty = low + (high - low) * base_sigmoid
+    return float(penalty)
 
 def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     """
@@ -911,7 +934,7 @@ def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     param_grid = {
         "depth": [3, 4, 5, 6, 7, 8, 9],
         "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
-        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10],
+        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10, 20],
         "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
         "iterations": [500, 800, 1000, 1200],
         "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
@@ -972,28 +995,30 @@ def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
     
     return best_model, best_params
 
-def tune_catboost_regressor(X, y, cat_features, n_iter=15, random_seed=42):
+def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
     """
-    Esegue una ricerca casuale di iperparametri per CatBoostRegressor
-    e restituisce il miglior modello addestrato e le metriche medie (RMSE e R²).
+    Random Search per CatBoostRegressor (Poisson) con cross-validation.
+    Aggiunti: leaf_estimation_backtracking e feature_weights opzionale.
     """
+
     random.seed(random_seed)
     np.random.seed(random_seed)
-    
+
     param_grid = {
-        "depth": [3, 4, 5, 6, 7, 8, 9],
-        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
-        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10],
+        "depth": [4, 5, 6, 7, 8, 9],
+        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05],
+        "l2_leaf_reg": [2, 3, 4, 5, 6, 8, 10, 20],
         "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
-        "iterations": [500, 800, 1000, 1200],
+        "iterations": [600, 800, 1000, 1200],
         "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
+        "min_data_in_leaf": [10, 20, 30, 50]
     }
 
     best_rmse = np.inf
     best_params = None
-    
+
     kf = KFold(n_splits=5, shuffle=True, random_state=random_seed)
-    
+
     for i in trange(n_iter, desc="Tuning CatBoostRegressor"):
         params = {
             "depth": random.choice(param_grid["depth"]),
@@ -1002,43 +1027,47 @@ def tune_catboost_regressor(X, y, cat_features, n_iter=15, random_seed=42):
             "bagging_temperature": random.choice(param_grid["bagging_temperature"]),
             "iterations": random.choice(param_grid["iterations"]),
             "random_strength": random.choice(param_grid["random_strength"]),
+            "min_data_in_leaf": random.choice(param_grid["min_data_in_leaf"]),
+           
+
             "bootstrap_type": "Bayesian",
-            "loss_function": "Poisson",  # <-- per regressione count-based
+            "loss_function": "Poisson",
             "verbose": False,
             "random_seed": random_seed,
         }
-        
+
         rmses, r2s = [], []
-        
+
         for train_idx, val_idx in kf.split(X, y):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-            
+
             model = CatBoostRegressor(**params)
             model.fit(X_train, y_train, cat_features=cat_features)
-            
+
             preds = model.predict(X_val)
-            rmses.append(np.sqrt(mean_squared_error(y_val, preds)))
+            rmse = np.sqrt(mean_squared_error(y_val, preds))
+            rmses.append(rmse)
             r2s.append(r2_score(y_val, preds))
-        
+
         mean_rmse = np.mean(rmses)
-        mean_r2 = np.mean(r2s)
-        
-        print(f"[{i+1}/{n_iter}] RMSE={mean_rmse:.4f} | R²={mean_r2:.4f} | Params={params}")
-        
+
+        print(f"[{i+1}/{n_iter}] RMSE={mean_rmse:.4f} | Params={params}")
+
         if mean_rmse < best_rmse:
             best_rmse = mean_rmse
             best_params = params
 
-    # 🔁 Allena il modello migliore su tutto il dataset
+    # Train final model
     best_model = CatBoostRegressor(**best_params)
     best_model.fit(X, y, cat_features=cat_features, verbose=False)
-    
-    print("\n🏆 Miglior combinazione trovata:")
+
+    print("\n🏆 **Migliori iperparametri trovati:**")
     print(best_params)
     print(f"📉 Best RMSE: {best_rmse:.4f}")
-    
+
     return best_model, best_params
+
 
 
 from sklearn.linear_model import LinearRegression
@@ -1131,7 +1160,7 @@ def penalize_xg_with_cold_penalty(
    # 🔹 Imposta floor in base al ruolo (inclusi ruoli ibridi)
     role_floor_map = {
         "F":  floor_base - 0.35,    # Attaccanti → penalità più forte
-        "FM": floor_base ,          # Trequartisti / esterni offensivi → leggera riduzione
+        "FM": floor_base + 0.15,          # Trequartisti / esterni offensivi → leggera riduzione
         "M":  floor_base + 0.3,     # Centrocampisti → più soft
         "DM": floor_base + 0.35,    # Centrocampisti difensivi → penalità più leggera
         "D":  floor_base + 0.4,     # Difensori → penalità molto leggera
@@ -1210,13 +1239,13 @@ def get_alpha_for_role(role: str) -> float:
     """
     role_alphas = {
        
-        "F": 0.605,     #0.659
-        "FM": 0.583,    #0.551
-        "M": 0.390,     #0.42
-        "DM": 0.426,    #0.30
-        "D": 0.354,     #0.33
+        "F": 0.655,     #0.659
+        "FM": 0.563,    #0.551
+        "M": 0.470,     #0.42
+        "DM": 0.446,    #0.30
+        "D": 0.35,     #0.33
         "DF": 0.300
-        
+    
     }
 
     # Se il ruolo non è noto, calcola un fallback come media pesata o media semplice
@@ -1351,134 +1380,96 @@ def add_overperformance_features(
     df: pd.DataFrame,
     player_col: str = "player",
     prod: bool = False
-) -> pd.DataFrame:
-    """
-    Aggiunge feature stabili di overperformance, con gestione anti-leak:
-    
-        ✔ overperf_log        = differenza log goals vs xG
-        ✔ overperf_last5      = forma recente rolling
-        ✔ overperf_blend      = mix individuale/global
-        ✔ overperf_combined   = forma recente + baseline
-        ✔ overperf_role_resid = residuo rispetto alla media di ruolo (shiftata se prod=False)
-
-    Parametri:
-        df  (pd.DataFrame)
-        player_col (str)
-        prod (bool): 
-            - True  → NON usa shift (produzione → usa info più recente)
-            - False → usa shift per evitare leakage (training)
-    """
-
+):
     df = df.copy()
-
-    # --------------------------------------------------------
-    # Ordinamento per evitare leakage nei rolling
-    # --------------------------------------------------------
     df = df.sort_values([player_col, "date"])
 
-    # --------------------------------------------------------
-    # 1️⃣ Overperformance logaritmica base (stabile)
-    # --------------------------------------------------------
+    # ============================================================
+    # 1️⃣ OVERPERFORMANCE LOG “DI BASE”
+    # più stabile, molto informativa, no outlier
+    # ============================================================
     df["overperf_log"] = (
-        np.log1p(df["npgoals_perMatch"]) - np.log1p(df["npxG_perMatch"].replace(0, np.nan))
-    )
-    df["overperf_log"] = df["overperf_log"].fillna(0)
+        np.log1p(df["npgoals_perMatch"]) - 
+        np.log1p(df["npxG_perMatch"] + 1e-6)
+    ).clip(-1.2, 1.2)
 
-    # --------------------------------------------------------
-    # 2️⃣ Rolling ultime 5 partite per giocatore
-    #     → shift se prod=False
-    # --------------------------------------------------------
-    goals_roll = (
+    # ============================================================
+    # 2️⃣ OVERPERFORMANCE ULTIME 5 (FORMA RECENTE)
+    # ============================================================
+    goals5 = (
         df.groupby(player_col)["npgoals_perMatch"]
-          .rolling(window=5, min_periods=1)
-          .sum()
+          .rolling(5, min_periods=1).sum()
           .reset_index(level=0, drop=True)
     )
-    xg_roll = (
+    xg5 = (
         df.groupby(player_col)["npxG_perMatch"]
-          .rolling(window=5, min_periods=1)
-          .sum()
+          .rolling(5, min_periods=1).sum()
           .reset_index(level=0, drop=True)
     )
 
     if not prod:
-        goals_roll = goals_roll.shift()
-        xg_roll = xg_roll.shift()
+        goals5 = goals5.shift()
+        xg5 = xg5.shift()
 
-    df["overperf_last5"] = np.log1p(goals_roll) - np.log1p(xg_roll.replace(0, np.nan))
-    df["overperf_last5"] = df["overperf_last5"].fillna(0)
+    df["overperf_last5"] = (
+        np.log1p(goals5) - np.log1p(xg5 + 1e-6)
+    ).clip(-1.0, 1.0)
 
-    # --------------------------------------------------------
-    # 3️⃣ Blending individuale ↔ globale
-    # --------------------------------------------------------
+    # ============================================================
+    # 3️⃣ PESO basato sull'incertezza (ottimo)
+    #   -> più tiri → più affidabile l’overperf_log storico
+    # ============================================================
+    shots20 = (
+        df.groupby(player_col)["shots_perMatch"]
+          .rolling(20, min_periods=1).sum()
+          .reset_index(level=0, drop=True)
+    )
+    if not prod:
+        shots20 = shots20.shift()
+    df["shots_last20"] = shots20.fillna(0)
+
+    # peso: da 0.2 a 0.85
+    df["weight"] = 0.2 + 0.65 * (1 - np.exp(-df["shots_last20"] / 8))
+    df["weight"] = df["weight"].clip(0.2, 0.85)
+
+    # ============================================================
+    # 4️⃣ OVERPERFORMANCE BLEND (storico ↔ recente)
+    # ============================================================
     global_mean = df["overperf_log"].mean()
-
-    # Peso basato sui tiri (rolling + shift se prod=False)
-    if "shots_perMatch" in df.columns:
-
-        shots_roll = (
-            df.groupby(player_col)["shots_perMatch"]
-              .rolling(window=10, min_periods=3)
-              .sum()
-              .reset_index(level=0, drop=True)
-        )
-
-        if not prod:
-            shots_roll = shots_roll.shift()
-
-        df["shots_last10"] = shots_roll.fillna(0)
-
-        df["weight"] = np.log1p(df["shots_last10"]) / np.log1p(20)
-        df["weight"] = df["weight"].clip(0, 1)
-
-    else:
-        df["weight"] = 0.5
 
     df["overperf_blend"] = (
         df["weight"] * df["overperf_log"] +
         (1 - df["weight"]) * global_mean
+    ).clip(-1.0, 1.0)
+
+    # ============================================================
+    # 5️⃣ COMBINAZIONE FINALE (storia 60%, forma 40%)
+    # ============================================================
+    df["overperf_combined"] = (
+        0.27 * df["overperf_blend"] +
+        0.73 * df["overperf_last5"]
     )
 
-    # --------------------------------------------------------
-    # 4️⃣ Combinazione forma recente + baseline
-    # --------------------------------------------------------
-    df["overperf_combined"] = df["overperf_last5"] + 0.5 * df["overperf_blend"]
-
-    # --------------------------------------------------------
-    # 5️⃣ Residuo rispetto alla media di ruolo
-    #     → shift se prod=False
-    # --------------------------------------------------------
+    # ============================================================
+    # 6️⃣ RESIDUO DI RUOLO con rolling median
+    # più robusto di expanding mean
+    # ============================================================
     role_mean = (
         df.groupby("position")["overperf_combined"]
-          .expanding()
-          .mean()
+          .rolling(40, min_periods=10)
+          .median()
           .reset_index(level=0, drop=True)
     )
 
     if not prod:
         role_mean = role_mean.shift()
 
-    df["overperf_role_resid"] = df["overperf_combined"] - role_mean
-    df["overperf_role_resid"] = df["overperf_role_resid"].fillna(0)
+    df["overperf_role_resid"] = (
+        df["overperf_combined"] - role_mean
+    ).fillna(0).clip(-1.5, 1.5)
 
     return df
 
-
-    # --------------------------------------------------------
-    # 6️⃣ Clipping severo → impedisce che domini sum_xG
-    # --------------------------------------------------------
-    #df["overperf_role_resid"] = df["overperf_role_resid"].clip(-0.4, 0.4)
-
-    # --------------------------------------------------------
-    # 7️⃣ Shrink non lineare (tanh) → feature finale stabile
-    # --------------------------------------------------------
-    #df["overperf_stable"] = np.tanh(df["overperf_role_resid"] * 2)
-
-    # --------------------------------------------------------
-    # 8️⃣ Pulizia finale: tieni SOLO la feature stabile
-    # --------------------------------------------------------
-    # (le altre puoi rimuoverle prima di trainare)
-    return df
 
 
 def calibrate_by_role(df_val: pd.DataFrame, lambda_val: np.ndarray, y_val: np.ndarray, role_col: str = "position"):
@@ -1535,69 +1526,6 @@ def calibrate_by_role(df_val: pd.DataFrame, lambda_val: np.ndarray, y_val: np.nd
     print(df_results)
     return alpha_map, iso_models, df_results
 
-def adjust_prob_by_overperf(prob, overperf_stable, scale=0.15):
-    """
-    Versione più impattante della correzione basata su overperformance.
-
-    - tanh -> usato per smorzare outlier ma con scala più alta
-    - moltiplicatore massimo: +40%
-    - penalità massima: -25%
-    """
-
-    prob = np.asarray(prob, dtype=float)
-    op = np.asarray(overperf_stable, dtype=float)
-
-    # Permetti più ampiezza agli overperformer/underperformer
-    op = np.clip(op, -2.0, 2.0)
-
-    # Aumento sensibilità: tanh * scale più grande
-    adj = scale * np.tanh(op * 1.5)  # più reattivo
-
-    # Moltiplicatore più forte
-    mult = 1 + adj
-    mult = np.clip(mult, 0.75, 1.40)  # ~ -25% → +40%
-
-    prob_adj = prob * mult
-    prob_adj = np.clip(prob_adj, 0, 1)
-
-    if prob_adj.size == 1:
-        return float(prob_adj)
-    return prob_adj
-
-def adjust_prob_by_finishing_resid(prob, finishing_resid, scale=0.20):
-    """
-    Ajuste aggressivo basato sui residui di finishing.
-
-    - penalizza i giocatori che tirano male (resid negativo)
-    - boosta quelli che stanno finalizzando molto bene
-    - impatto controllato da tanh, ma forte
-    
-    Moltiplicatore finale:
-        → tra 0.70 e 1.30  (±30%)
-    """
-
-    prob = np.asarray(prob, dtype=float)
-    fr = np.asarray(finishing_resid, dtype=float)
-
-    # taglio degli estremi (evita esplosioni)
-    fr = np.clip(fr, -2.0, 2.0)
-
-    # funzione reattiva
-    adj = scale * np.tanh(fr * 1.5)
-
-    # amplifica l’effetto
-    mult = 1 + adj
-    mult = np.clip(mult, 0.70, 1.30)
-
-    prob_adj = prob * mult
-    prob_adj = np.clip(prob_adj, 0, 1)
-
-    if prob_adj.size == 1:
-        return float(prob_adj)
-
-    return prob_adj
-
-
 def adjust_prob_final(
     prob_base: float,
     overperf_value: float,
@@ -1647,7 +1575,7 @@ def adjust_prob_final(
     role_factor = {
         "F":  0.7,
         "FM": 0.8,
-        "M":  1.2,
+        "M":  1.1,
         "DM": 1.3,
         "D":  1.3,
         "DF": 1.3,
@@ -1861,12 +1789,13 @@ def adjust_xg_by_minutes(sum_xg, minutes_last5):
     Aggiusta sum_xG in base ai minuti giocati nelle ultime 5 partite.
 
     Logica:
-        - minutes_last5 può essere uno scalar (float) o una pd.Series (rolling mean).
-        - Se è una Series si usa l'ultimo valore disponibile.
-        - Usa una aspettativa di 5*90 minuti per le ultime 5 partite.
+        - Penalizza chi gioca molto meno della media (68').
+        - Non aumenta mai sum_xg quando i minuti sono sopra la media.
+        - Usa una curva concava (potenza) per penalizzare più chi gioca poco.
+        - Accetta scalar o pd.Series.
     """
 
-    # Gestione input che può essere pd.Series o scalar
+    # Gestione input Series → prendi ultimo valore
     if isinstance(minutes_last5, pd.Series):
         if minutes_last5.empty:
             return sum_xg
@@ -1874,24 +1803,455 @@ def adjust_xg_by_minutes(sum_xg, minutes_last5):
     else:
         minutes_val = minutes_last5
 
-    # Protezioni e conversione a float
+    # Protezioni
     try:
         minutes_val = float(minutes_val)
-    except Exception:
-        return sum_xg  # fallback se valore non convertibile
+    except:
+        return sum_xg
 
-    if np.isnan(minutes_val) or minutes_val <= 0:
-        return sum_xg  # Nessun aggiustamento se dati mancanti o zero
+    if minutes_val <= 0 or np.isnan(minutes_val):
+        return sum_xg
 
-    # media storica dei minuti giocati dai giocatori in utto il df
+    # Media reale dei minuti giocati nel dataset
     mean_minutes_overall = 68.0
 
-    # Peso morbido: sqrt(minutes / expected_minutes)
-    minutes_safe = max(minutes_val, 1e-6)
-    weight = (minutes_safe / mean_minutes_overall) ** 0.5
-    # Clipping anti-outlier
-    weight = max(0.20, min(weight, 1.00))
+    # Rapporto rispetto alla media
+    ratio = minutes_val / mean_minutes_overall
 
-    # Applica il peso
+    # Curva concava → penalizza molto chi gioca poco, ma poco chi gioca un po' di meno
+    # Non permettere MAI aumento: min(weight, 1.0)
+    weight = ratio ** 0.6
+    weight = min(weight, 1.0)
+
+    # Clipping inferiore → mai scendere sotto 0.20
+    weight = max(weight, 0.20)
+
     return sum_xg * weight
+
+def compute_shot_quality_index(df, window=20, player_col="player", prod=False):
+    """
+    Calcola un indice di qualità tiro normalizzato 0–1 SENZA SCALER.
+    
+    - prod=False → training (usa shift per evitare leakage)
+    - prod=True  → produzione (non usa shift, usa tutto lo storico)
+    """
+
+    df = df.copy()
+    eps = 1e-6
+
+    # --------------------------------------------
+    # 1) Efficienza di tiro logaritmica
+    # --------------------------------------------
+    df["shot_eff_log"] = np.log1p(df["npgoals_perMatch"]) - np.log1p(df["npxG_perMatch"] + eps)
+
+    # --------------------------------------------
+    # 2) Difficoltà del tiro (premia gol difficili)
+    # --------------------------------------------
+    df["shot_difficulty"] = df["npgoals_perMatch"] * (1 - df["npxG_perMatch"].clip(0, 1))
+
+    # --------------------------------------------
+    # 3) Indice grezzo
+    # --------------------------------------------
+    df["shot_quality_raw"] = (
+        0.25 * df["shot_eff_log"] +
+        0.75 * df["shot_difficulty"]
+    )
+
+    # --------------------------------------------
+    # 4) Rolling window di stabilizzazione
+    # --------------------------------------------
+    df = df.sort_values([player_col, "date"])
+
+    if prod:
+        # 🚀 Produzione → usa anche la riga corrente
+        df["shot_quality_roll"] = (
+            df.groupby(player_col)["shot_quality_raw"]
+              .rolling(window=window, min_periods=1)
+              .mean()
+              .reset_index(level=0, drop=True)
+        )
+
+    else:
+        # 🎓 Training → shift per evitare leakage
+        df["shot_quality_shifted"] = df.groupby(player_col)["shot_quality_raw"].shift(1)
+
+        df["shot_quality_roll"] = (
+            df.groupby(player_col)["shot_quality_shifted"]
+              .rolling(window=window, min_periods=3)
+              .mean()
+              .reset_index(level=0, drop=True)
+        )
+
+        # fallback iniziale
+        df["shot_quality_roll"] = df["shot_quality_roll"].fillna(df["shot_quality_shifted"])
+
+    # --------------------------------------------
+    # 5) Normalizzazione 0–1 senza scaler
+    #    usando quantile clipping robusto (evita outlier)
+    # --------------------------------------------
+
+    # quantili robusti
+    q01 = df["shot_quality_roll"].quantile(0.01)
+    q99 = df["shot_quality_roll"].quantile(0.99)
+
+    # protezione
+    if q99 - q01 < 1e-6:
+        df["shot_quality_index"] = 0.5
+        return df
+
+    # normalizzazione
+    df["shot_quality_index"] = (df["shot_quality_roll"] - q01) / (q99 - q01)
+
+    # clipping finale
+    df["shot_quality_index"] = df["shot_quality_index"].clip(0, 1)
+
+    return df
+
+def compute_shot_quality_index_per_shot(
+        df,
+        player_col="player",
+        xg_col="sum_xG",
+        goals_col="npgoals_perMatch",
+        shots_col="shots_perMatch",
+        date_col="date",
+        window=20,
+        prod=False
+    ):
+        """
+        Indice 0-1 focalizzato sulla qualità PER TIRO / PER MATCH,
+        evita di premiare chi tira tanto ma non converte.
+        """
+
+        df = df.copy()
+        eps = 1e-6
+
+        # safety
+        df[xg_col] = df[xg_col].astype(float)
+        df[goals_col] = df[goals_col].astype(float)
+        df[shots_col] = df[shots_col].astype(float)
+
+        # ordine
+        df = df.sort_values([player_col, date_col])
+
+        # 1) metriche per-shot / per-90 (per-match)
+        df["xg_per_shot"] = df[xg_col] / (df[shots_col] + eps)
+        df["goals_per_shot"] = df[goals_col] / (df[shots_col] + eps)
+        df["conv_minus_xg_per_shot"] = df["goals_per_shot"] - df["xg_per_shot"]  # quanto sopra/ sotto aspettativa PER TIRO
+
+        # 2) shot difficulty per shot (premia chi converte su tiri a bassa xG)
+        # normalizziamo per shot: (goals/shots) * (1 - xg_per_shot)
+        df["shot_difficulty_per_shot"] = (df["goals_per_shot"]) * (1 - df["xg_per_shot"])
+        df["shot_difficulty_per_shot"] = df["shot_difficulty_per_shot"].clip(-1, 1)
+
+        # 3) metrica grezza per-match (per-shot based)
+        # pesi: di solito qualità per-shot è più affidabile; difficulty è secondario
+        df["shot_quality_raw_ps"] = 0.7 * df["conv_minus_xg_per_shot"] + 0.3 * df["shot_difficulty_per_shot"]
+
+        # 4) rolling mean per giocatore (window impostabile), con shift in training per evitare leakage
+        grouped = df.groupby(player_col)["shot_quality_raw_ps"]
+
+        if prod:
+            roll = grouped.rolling(window=window, min_periods=1).mean().reset_index(level=0, drop=True)
+        else:
+            roll = grouped.shift(1).rolling(window=window, min_periods=3).mean().reset_index(level=0, drop=True)
+
+        df["shot_quality_roll"] = roll.fillna(df["shot_quality_raw_ps"])
+
+        # 5) shrink by sample size: compute shot_count in window to downweight noisy players
+        if prod:
+            shot_count = df.groupby(player_col)[shots_col].rolling(window=window, min_periods=1).sum().reset_index(level=0, drop=True)
+        else:
+            shot_count = df.groupby(player_col)[shots_col].shift(1).rolling(window=window, min_periods=1).sum().reset_index(level=0, drop=True)
+
+        # normalize shot_count to [0,1] for shrink factor
+        shot_count_norm = np.log1p(shot_count) / np.log1p(window * 5)  # window*5 shots ~ many shots
+        shot_count_norm = shot_count_norm.clip(0,1)
+
+        # shrink: blend towards global median when shot_count_norm small
+        global_median = df["shot_quality_roll"].median()
+        df["shot_quality_shrunk"] = shot_count_norm * df["shot_quality_roll"] + (1 - shot_count_norm) * global_median
+
+        # 6) robust min-max normalization using quantiles (no external scaler)
+        q_lo = df["shot_quality_shrunk"].quantile(0.01)
+        q_hi = df["shot_quality_shrunk"].quantile(0.99)
+        if q_hi - q_lo < 1e-8:
+            df["shot_quality_index"] = 0.5
+        else:
+            df["shot_quality_index"] = (df["shot_quality_shrunk"] - q_lo) / (q_hi - q_lo)
+            df["shot_quality_index"] = df["shot_quality_index"].clip(0,1)
+
+        return df
+
+def compute_shot_quality_index_v2(df, window=30, player_col="player", prod=False):
+    """
+    Shot Quality Index 0–1 indipendente dal volume di tiri.
+
+    - Usa residui di conversione (goals - xG)
+    - Premia gol con xG bassi
+    - Smoothing tramite rolling mean
+    - Quantile normalization 0–1 senza scaler
+    - prod=True → NO SHIFT (usa tutto lo storico)
+    """
+
+    df = df.copy()
+    eps = 1e-6
+
+    # ----------------------------------------------------
+    # 1) Residuo di conversione
+    # ----------------------------------------------------
+    df["conv_residual"] = df["npgoals_perMatch"] - df["npxG_perMatch"]
+
+    # normalizzazione logaritmica robusta
+    df["conv_residual_log"] = np.sign(df["conv_residual"]) * np.log1p(np.abs(df["conv_residual"]))
+
+    # ----------------------------------------------------
+    # 2) Difficoltà del tiro (gol da xG bassi)
+    # ----------------------------------------------------
+    df["shot_difficulty"] = df["npgoals_perMatch"] * (1 - df["npxG_perMatch"].clip(0, 1))
+
+    # ----------------------------------------------------
+    # 3) Shot quality grezzo
+    # ----------------------------------------------------
+    df["shot_quality_raw"] = (
+        0.7 * df["conv_residual_log"] +
+        0.3 * df["shot_difficulty"]
+    )
+
+    # ----------------------------------------------------
+    # 4) Rolling smoothing per giocatore
+    # ----------------------------------------------------
+    df = df.sort_values([player_col, "date"])
+
+    if prod:
+        # produzione → usa la riga corrente
+        df["sq_roll"] = (
+            df.groupby(player_col)["shot_quality_raw"]
+              .rolling(window=window, min_periods=1)
+              .mean()
+              .reset_index(level=0, drop=True)
+        )
+    else:
+        # training → shift per evitare leakage
+        df["sq_shifted"] = df.groupby(player_col)["shot_quality_raw"].shift(1)
+
+        df["sq_roll"] = (
+            df.groupby(player_col)["sq_shifted"]
+              .rolling(window=window, min_periods=3)
+              .mean()
+              .reset_index(level=0, drop=True)
+        )
+
+        df["sq_roll"] = df["sq_roll"].fillna(df["sq_shifted"])
+
+    # ----------------------------------------------------
+    # 5) Normalizzazione robusta 0–1 (senza scaler)
+    # ----------------------------------------------------
+    q01 = df["sq_roll"].quantile(0.01)
+    q99 = df["sq_roll"].quantile(0.99)
+
+    if q99 - q01 < 1e-6:
+        df["shot_quality_index"] = 0.5
+        return df
+
+    df["shot_quality_index"] = (df["sq_roll"] - q01) / (q99 - q01)
+    df["shot_quality_index"] = df["shot_quality_index"].clip(0, 1)
+
+    return df
+
+def compute_defensive_overperf_stats(df, team_col="team_name", ga_col="missed", xga_col="xGA", window=5):
+    """
+    Calcola la metrica di overperformance difensiva per ogni squadra:
+    
+        xGA_missed_last5 = xGA_last5 - GA_last5
+
+    e la trasforma in un fattore correttivo 0.8–1.2 tramite funzione logistica,
+    utile per pesare la qualità dei tiri o il sum_xG dell’avversario.
+
+    Parametri:
+        df        : DataFrame contenente almeno [team, GA, xGA]
+        team_col  : colonna con nome squadra
+        ga_col    : gol subiti
+        xga_col   : expected goals against
+        window    : rolling window (default 5)
+
+    Output:
+        df con nuove colonne:
+            - xGA_last5
+            - GA_last5
+            - xGA_missed_last5
+            - defensive_adjust_factor (0.8 – 1.2)
+    """
+
+    df = df.copy()
+
+    # 1) Calcolo rolling last5 per ogni squadra
+    df = df.sort_values([team_col, "date"])  # Assicurazione ordine temporale
+
+    df["xGA_last5"] = (
+        df.groupby(team_col)[xga_col]
+          .rolling(window=window, min_periods=1)
+          .sum()
+          .reset_index(level=0, drop=True)
+    )
+
+    df["GA_last5"] = (
+        df.groupby(team_col)[ga_col]
+          .rolling(window=window, min_periods=1)
+          .sum()
+          .reset_index(level=0, drop=True)
+    )
+
+    return df
+
+
+def adjust_sumxg_by_defensive_factor(sum_xg, def_factor):
+    """
+    Applica il fattore difensivo alla probabilità gol del giocatore.
+    """
+    return sum_xg * def_factor
+
+
+def weighted_xg_vs_opponent_mixed(
+        base_xG,
+        player_df,
+        opponent_xGA_90min,
+        opponent_xGA_last5,
+        opponent_GA_last5,
+        w_xga=0.4,
+        w_overperf=0.6
+    ):
+    """
+    Pesa il base_xG del giocatore con:
+        1) forza difensiva attesa (xGA/90min)
+        2) performance reale difesa (GA90_last5 / xGA90_last5)
+    """
+
+    # ------------------------------
+    # 1) Fattore atteso (xGA/90)
+    # ------------------------------
+    avg_opponent_xGA = player_df["opponent_xGA_90min"].tail(12).mean()
+
+    if pd.isna(base_xG) or pd.isna(avg_opponent_xGA):
+        return base_xG
+
+    factor_xGA = opponent_xGA_90min / avg_opponent_xGA
+    factor_xGA = np.clip(factor_xGA, 0.7, 1.3)
+
+    # ------------------------------
+    # 2) Fattore reale (GA_last5 / xGA_last5)
+    #    → tutto riportato su base 90 minuti
+    # ------------------------------
+    MINUTES_5_MATCHES = 5 * 90
+
+    if opponent_xGA_last5 <= 0:
+        factor_overperf = 1.0
+    else:
+        xGA90_last5 = opponent_xGA_last5 / MINUTES_5_MATCHES * 90
+        GA90_last5 = opponent_GA_last5 / MINUTES_5_MATCHES * 90
+
+        # rapporto coerente
+        ratio = GA90_last5 / xGA90_last5
+        factor_overperf = np.clip(ratio, 0.7, 1.3)
+
+    # ------------------------------
+    # 3) Mix finale
+    # ------------------------------
+    final_factor = (
+        w_xga * factor_xGA +
+        w_overperf * factor_overperf
+    )
+    final_factor = np.clip(final_factor, 0.7, 1.3)
+
+    return base_xG * final_factor
+
+def tune_feature_weights(
+    X, y, cat_features, 
+    n_iter=20, 
+    random_seed=42
+):
+    """
+    Ottimizza i feature_weights per CatBoostRegressor usando Random Search + CV.
+    Ritorna:
+        - best_weights
+        - migliori metriche
+        - modello addestrato con i pesi migliori
+    """
+
+    np.random.seed(random_seed)
+    random.seed(random_seed)
+
+    weight_space = {
+        "sum_xG": (0.6, 2.0),                # deve rimanere dominante
+        "shot_quality_index": (0.5, 2.5),
+        "finishing_form_resid": (0.2, 1.5),
+        "overperf_combined": (0.05, 1.0),
+        "position_weighted": (0.2, 1.5)
+    }
+
+    best_rmse = np.inf
+    best_w = None
+
+    kf = KFold(n_splits=5, shuffle=True, random_state=random_seed)
+
+    for i in range(n_iter):
+        # Genera pesi casuali nel range scelto
+        w = {k: np.random.uniform(*rng) for k, rng in weight_space.items()}
+
+        rmses = []
+
+        for train_idx, val_idx in kf.split(X, y):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+            model = CatBoostRegressor(
+                depth=6,
+                iterations=800,
+                learning_rate=0.03,
+                min_data_in_leaf=5,
+                bagging_temperature=0.7,
+                l2_leaf_reg=10,
+                loss_function="Poisson",
+                bootstrap_type="Bayesian",
+                random_seed=random_seed,
+                verbose=False,
+                feature_weights=w
+            )
+
+            model.fit(X_train, y_train, cat_features=cat_features)
+
+            preds = model.predict(X_val)
+            rmse = np.sqrt(mean_squared_error(y_val, preds))
+            rmses.append(rmse)
+
+        mean_rmse = np.mean(rmses)
+
+        print(f"[{i+1}/{n_iter}] RMSE={mean_rmse:.4f} | weights={w}")
+
+        if mean_rmse < best_rmse:
+            best_rmse = mean_rmse
+            best_w = w
+
+    # Addestra modello finale
+    final_model = CatBoostRegressor(
+                depth=6,
+                iterations=800,
+                learning_rate=0.03,
+                min_data_in_leaf=5,
+                bagging_temperature=0.7,
+                l2_leaf_reg=10,
+                loss_function="Poisson",
+                bootstrap_type="Bayesian",
+                random_seed=random_seed,
+                verbose=False,
+                feature_weights=best_w
+            )
+
+    final_model.fit(X, y, cat_features=cat_features)
+
+    print("\n🏆 MIGLIORI PESI TROVATI:")
+    for k,v in best_w.items():
+        print(f"  {k}: {v:.3f}")
+    print(f"📉 RMSE migliore: {best_rmse:.4f}")
+
+    return final_model, best_w, best_rmse
 

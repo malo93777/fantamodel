@@ -514,6 +514,9 @@ class Preprocessor:
         # Calcolo finishing_form
         merged_df = self.compute_shot_quality(merged_df, window=12, use_rank=True, prod=False)
 
+        # Calcolo shot quality
+        merged_df = self.compute_shot_quality_index(merged_df, prod=False)
+
         # Calcolo cold_penalty
         merged_df = self.compute_cold_penalty(merged_df)
 
@@ -699,6 +702,86 @@ class Preprocessor:
         )
         return df
     
+    def compute_shot_quality_index(self, df, window=15, player_col="player", prod=False):
+        """
+        Calcola un indice di qualità tiro normalizzato 0–1 SENZA SCALER.
+        
+        - prod=False → training (usa shift per evitare leakage)
+        - prod=True  → produzione (non usa shift, usa tutto lo storico)
+        """
+
+        df = df.copy()
+        eps = 1e-6
+
+        # --------------------------------------------
+        # 1) Efficienza di tiro logaritmica
+        # --------------------------------------------
+        df["shot_eff_log"] = np.log1p(df["npgoals_perMatch"]) - np.log1p(df["npxG_perMatch"] + eps)
+
+        # --------------------------------------------
+        # 2) Difficoltà del tiro (premia gol difficili)
+        # --------------------------------------------
+        df["shot_difficulty"] = df["npgoals_perMatch"] * (1 - df["npxG_perMatch"].clip(0, 1))
+
+        # --------------------------------------------
+        # 3) Indice grezzo
+        # --------------------------------------------
+        df["shot_quality_raw"] = (
+             df["shot_eff_log"] +
+             df["shot_difficulty"]
+        )
+
+        # --------------------------------------------
+        # 4) Rolling window di stabilizzazione
+        # --------------------------------------------
+        df = df.sort_values([player_col, "date"])
+
+        if prod:
+            # 🚀 Produzione → usa anche la riga corrente
+            df["shot_quality_roll"] = (
+                df.groupby(player_col)["shot_quality_raw"]
+                .rolling(window=window, min_periods=1)
+                .mean()
+                .reset_index(level=0, drop=True)
+            )
+
+        else:
+            # 🎓 Training → shift per evitare leakage
+            df["shot_quality_shifted"] = df.groupby(player_col)["shot_quality_raw"].shift(1)
+
+            df["shot_quality_roll"] = (
+                df.groupby(player_col)["shot_quality_shifted"]
+                .rolling(window=window, min_periods=3)
+                .mean()
+                .reset_index(level=0, drop=True)
+            )
+
+            # fallback iniziale
+            df["shot_quality_roll"] = df["shot_quality_roll"].fillna(df["shot_quality_shifted"])
+
+        # --------------------------------------------
+        # 5) Normalizzazione 0–1 senza scaler
+        #    usando quantile clipping robusto (evita outlier)
+        # --------------------------------------------
+
+        # quantili robusti
+        q01 = df["shot_quality_roll"].quantile(0.01)
+        q99 = df["shot_quality_roll"].quantile(0.99)
+
+        # protezione
+        if q99 - q01 < 1e-6:
+            df["shot_quality_index"] = 0.5
+            return df
+
+        # normalizzazione
+        df["shot_quality_index"] = (df["shot_quality_roll"] - q01) / (q99 - q01)
+
+        # clipping finale
+        df["shot_quality_index"] = df["shot_quality_index"].clip(0, 1)
+
+        return df
+
+    
 def build_team_dataframe(team_data: dict) -> pd.DataFrame:
     """
         Converte un dizionario `team_data` in un DataFrame con tutte le partite
@@ -746,3 +829,5 @@ def build_team_dataframe(team_data: dict) -> pd.DataFrame:
     )
 
     return df
+
+    

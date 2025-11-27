@@ -82,7 +82,10 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
             )
 
         player_df = utils.add_overperformance_features(player_df, prod=True)
+        player_df = utils.compute_shot_quality_index(player_df,prod=True)
         player_df = utils.reduce_penalty_xg(player_df)
+
+        df_teams_curr = utils.compute_defensive_overperf_factor(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
 
         # applica al dataset
         player_df["position"] = player_df["position"].apply(utils.clean_position)
@@ -96,11 +99,15 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         # Rimuovo i "None"
         player_df = player_df[player_df["position"] != "None"]
 
+        player_df["position_weighted"] = player_df["position"].map(position_weights).fillna(0.3)
+
         # 3️⃣ Fill NaN con 0
         cols_to_check = ["sum_xG",  
                          #"xG_last5",
-                         "finishing_form", 
-                         "overperf_combined"  #viene tolta e sostituita dal residuo       
+                         "finishing_form", #viene tolta e sostituita dal residuo  
+                         "overperf_role_resid",
+                         "shot_quality_index", 
+                         #"position_weighted"       
                          #"cold_penalty",                       
                          #"opponent_xGA_90min",  
                          #"team_xG_90min"
@@ -139,20 +146,19 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         opponent_xGA_90min_last5 = utils.get_xGA_last5_team(opponent, df_teams_curr)
         team_xG_90_min_last5 = utils.get_xG_last5_team(team, df_teams_curr)
+        xGA_last5_opp, GA_last5_opp = utils.get_overperf_def_last5_team(opponent, df_teams_curr)
 
         # 5️⃣ Media storica del giocatore
-        #sum_xG_new = player_df["sum_xG"].mean()
+        sum_xG_new = player_df["sum_xG"].mean()
 
         #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
-        
-        #resid = player_df["finishing_form_resid"].iloc[-1]
 
-        #sum_xG_new = sum_xG_new * (1.0 + BOOST_RESID * resid)  #boost =1.0
-
-        sum_xG_new = utils.weighted_xg_vs_opponent(sum_xG_new, player_df, opponent_xGA_90min_last5)   
+        sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5, xGA_last5_opp, GA_last5_opp)
 
         sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min_last5, df_teams)
+
+        #sum_xG_new = utils.adjust_sumxg_by_defensive_factor(sum_xG_new, df_teams_curr["defensive_adjust_factor_last5"].iloc[-1])
 
         # Streak senza gol
         cold_penalty = utils.get_latest_cold_penalty(player_df)
@@ -170,6 +176,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         X_new = [[sum_xG_new,   
                   #xG_last5,                                                                                                               
                   player_df["overperf_combined"].iloc[-1],
+                  player_df["shot_quality_index"].iloc[-1],
+                 # player_df["position_weighted"].iloc[-1],
                   player_df["finishing_form_resid"].iloc[-1]
                                             
                   ]]
@@ -213,7 +221,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         )
         '''
         
-        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}")
+        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
 
         # (Facoltativo) per debugging:
         # print(f"λ previsto (expected goals): {lambda_pred:.4f}")
@@ -299,6 +307,7 @@ df["date"] = pd.to_datetime(df["date"], errors="coerce")
 df = df[df["date"] <= now].reset_index(drop=True)
 
 df = utils.add_overperformance_features(df,prod=False)
+df = utils.compute_shot_quality_index(df,prod=False)
 
 print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())
 
@@ -307,12 +316,14 @@ cols_to_check = [
     #"xG_last5",
     #"goals_per90_weighted_mean",
     "finishing_form",
-    "overperf_combined"
+    "overperf_role_resid",
+    "shot_quality_index",
+    
     #"opponent_xGA_90min",
     #"team_xG_90min"
 ]
 
-df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
+#df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
 
 #df = df.dropna(subset=cols_to_check)
 df[cols_to_check] = df[cols_to_check].fillna(0)
@@ -350,10 +361,10 @@ print(df.shape)
 #df = df[df["position"] != "None"]
 
 # One-hot encoding
-pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
+#pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
 
 # Aggiungo le colonne one-hot a X
-df = pd.concat([df, pos_dummies], axis=1)
+#df = pd.concat([df, pos_dummies], axis=1)
 
 # ===============================
 # ESEMPIO DI UTILIZZO
@@ -452,6 +463,17 @@ vif_df = pd.DataFrame({
 })
 print(vif_df)
 
+position_weights = {
+    "F": 1.00,
+    "FM": 0.85,
+    "M": 0.65,
+    "DM": 0.5,
+    "D": 0.35,
+    "DF": 0.35
+}
+
+df["position_weighted"] = df["position"].map(position_weights).fillna(0.3)
+#numeric_features.append("position_weighted")
 X =df[numeric_features]
 X = pd.concat([X, df["position"]], axis=1)
 X.head()
@@ -478,21 +500,64 @@ sample_weights = np.where(y_train == 1, pos_weight, 1)
 # ----------------------------
 # 1️⃣ TRAINING MODELLO POISSON
 # ----------------------------
+'''
 
 model = CatBoostRegressor(
-    depth=4,
-    learning_rate=0.01,
-    l2_leaf_reg=6,
-    bagging_temperature=0,
-    iterations=500,
-    random_strength=1.5,
+    depth=6,
+    iterations=800,
+    learning_rate=0.015,
+
+    l2_leaf_reg=10,
+    random_strength=0,
+    bagging_temperature=0.7,
+
+    border_count=128,
+    grow_policy="SymmetricTree",
+    min_data_in_leaf=30,
+
     bootstrap_type='Bayesian',
     loss_function='Poisson',
     verbose=False,
     random_seed=42,
-    cat_features=categorical_features
+    cat_features=categorical_features,
+
+    feature_weights = {
+        "sum_xG": 1.0,                 # dominante
+        "shot_quality_index": 1.5,     # seconda in importanza
+        "finishing_form_resid": 0.7,   # influenza moderata
+        "overperf_combined": 0.25 ,   # influenza bassa
+        "position_weighted": 1
+    }
+
 )
 
+RMSE=0.2209 | Params={'depth': 9, 'learning_rate': 0.005, 'l2_leaf_reg': 3, 'bagging_temperature': 1.0, 'iterations': 1200, 'random_strength': 0, 'min_data_in_leaf': 10,
+ 'bootstrap_type': 'Bayesian', 'loss_function': 'Poisson', 'verbose': False, 'random_seed': 42}
+ 
+RMSE=0.2207 | Params={'depth': 9, 'learning_rate': 0.01, 'l2_leaf_reg': 6, 'bagging_temperature': 0, 'iterations': 800, 'random_strength': 0, 
+ 'min_data_in_leaf': 50, 'bootstrap_type': 'Bayesian', 'loss_function': 'Poisson', 'verbose': False, 'random_seed': 42}
+
+RMSE=0.2209 | Params={'depth': 9, 'learning_rate': 0.005, 'l2_leaf_reg': 3, 'bagging_temperature': 1.0, 'iterations': 1200, 'random_strength': 0, 'min_data_in_leaf': 10, 
+ 'bootstrap_type': 'Bayesian', 'loss_function': 'Poisson', 'verbose': False, 'random_seed': 42
+'''
+
+#best_model, best_params = utils.tune_catboost_regressor(X_train, y_train, categorical_features, n_iter=15)
+#final_model, best_w, best_rmse = utils.tune_feature_weights(X_train, y_train, categorical_features)
+
+model = CatBoostRegressor(
+    depth=9,
+    learning_rate=0.01,
+    l2_leaf_reg=10,
+    bagging_temperature=0,
+    iterations=1000,
+    random_strength=2.0,
+    min_data_in_leaf= 15,
+    bootstrap_type='Bayesian',
+    loss_function='Poisson',
+    verbose=False,
+    random_seed=42,
+    cat_features=categorical_features,
+)
 
 model.fit(X_train, y_train, sample_weight=sample_weights)
 
@@ -537,8 +602,8 @@ y_test_proba  = apply_alpha_by_role(lambda_test,  X_test["position"])
 # ----------------------------
 # 3️⃣ BINARIZZA per metriche classiche (threshold = 0.5)
 # ----------------------------
-y_train_pred = (y_train_proba >= 0.30).astype(int)
-y_test_pred  = (y_test_proba  >= 0.30).astype(int)
+y_train_pred = (y_train_proba >= 0.27).astype(int)
+y_test_pred  = (y_test_proba  >= 0.27).astype(int)
 
 # ----------------------------
 # 4️⃣ METRICHE
@@ -635,6 +700,14 @@ print(X_test_sorted.head(30))
 print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
 wrong_preds = X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]]
 print(wrong_preds.head(30))
+
+print("\n📊 30 CASI PIù SBAGLIATI falsi negativi")
+false_negatives = X_test_sorted[(X_test_sorted["pred_label"] == 0) & (X_test_sorted["true_goal"] == 1)]
+print(false_negatives.head(30))
+
+print("\n📊 30 CASI PIù SBAGLIATI falsi positivi")
+false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_goal"] == 0)]
+print(false_positives.head(30))
 
 # Analisi media per ruolo
 print("\n📊 Probabilità media di gol per ruolo:")

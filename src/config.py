@@ -51,9 +51,9 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["gudmundsson", "kean","buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
-    "teams" : ["fiorentina","fiorentina", "udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["cagliari", "atalanta","ac milan","cagliari", "cagliari", "sassuolo","ac milan","cagliari","juventus","pisa","como", "juventus","lecce","udinese","atalanta","Sassuolo", "Torino", "udinese", "Juventus", "Sassuolo", "Fiorentina", "Bologna", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","sassuolo"]
+    "players": ["kostic","gudmundsson", "kean","buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["juventus","fiorentina","fiorentina", "udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["fiorentina","cagliari", "atalanta","ac milan","cagliari", "cagliari", "sassuolo","ac milan","cagliari","juventus","pisa","como", "juventus","lecce","udinese","atalanta","Sassuolo", "Torino", "udinese", "Juventus", "Sassuolo", "Fiorentina", "Bologna", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","sassuolo"]
 }
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]
