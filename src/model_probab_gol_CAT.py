@@ -1,4 +1,4 @@
-from config import CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
+from config import STATS_OVERPERF,CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
@@ -81,11 +81,11 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
                 CURRENT_SEASON
             )
 
-        player_df = utils.add_overperformance_features(player_df, prod=True)
+        player_df = utils.add_overperformance_features(player_df, STATS_OVERPERF, prod=True)
         player_df = utils.compute_shot_quality_index(player_df,prod=True)
         player_df = utils.reduce_penalty_xg(player_df)
 
-        df_teams_curr = utils.compute_defensive_overperf_factor(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
+        df_teams_curr = utils.compute_defensive_overperf_stats(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
 
         # applica al dataset
         player_df["position"] = player_df["position"].apply(utils.clean_position)
@@ -146,7 +146,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         opponent_xGA_90min_last5 = utils.get_xGA_last5_team(opponent, df_teams_curr)
         team_xG_90_min_last5 = utils.get_xG_last5_team(team, df_teams_curr)
-        xGA_last5_opp, GA_last5_opp = utils.get_overperf_def_last5_team(opponent, df_teams_curr)
+        xGA_last5_opp, GA_last5_opp = utils.get_overperf_last5_team(opponent, df_teams_curr)
 
         # 5️⃣ Media storica del giocatore
         sum_xG_new = player_df["sum_xG"].mean()
@@ -306,7 +306,8 @@ now = pd.Timestamp.now()
 df["date"] = pd.to_datetime(df["date"], errors="coerce")
 df = df[df["date"] <= now].reset_index(drop=True)
 
-df = utils.add_overperformance_features(df,prod=False)
+STATS_OVERPERF = utils.compute_role_mean_overperf(df)
+df = utils.add_overperformance_features(df, stats=STATS_OVERPERF, prod=False)
 df = utils.compute_shot_quality_index(df,prod=False)
 
 print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())

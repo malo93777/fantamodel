@@ -1378,25 +1378,61 @@ def predict_goal_probability(model, X_goal, player, role, get_alpha_for_role_fn)
 
     return goal_proba
 
+def compute_role_mean_overperf(global_df):
+    """
+    Calcola statistiche globali da tutto il dataset (training).
+    Queste saranno usate anche in produzione per evitare incoerenze.
+    """
+    stats = {}
+
+    # Media globale overperf_log su TUTTI i giocatori
+    stats["global_mean_overperf_log"] = (
+        np.log1p(global_df["npgoals_perMatch"]) - 
+        np.log1p(global_df["npxG_perMatch"] + 1e-6)
+    ).clip(-1.2, 1.2).mean()
+
+    # Media per ruolo (per residuo)
+    df_sorted = global_df.sort_values(["position", "date"])
+    role_median = (
+        df_sorted.groupby("position")["npgoals_perMatch"]
+        .rolling(40, min_periods=10)
+        .median()
+        .reset_index(level=0, drop=True)
+    )
+
+    # calcoliamo mean del rolling per ogni ruolo
+    role_df = global_df.copy()
+    role_df["role_median"] = role_median
+
+    stats["role_to_overperf_median"] = (
+        role_df.groupby("position")["role_median"].mean().to_dict()
+    )
+
+    return stats
+
+
 def add_overperformance_features(
     df: pd.DataFrame,
+    stats: dict,
     player_col: str = "player",
     prod: bool = False
 ):
     df = df.copy()
     df = df.sort_values([player_col, "date"])
 
+    GLOBAL_MEAN = stats["global_mean_overperf_log"]
+    ROLE_MEDIANS = stats["role_to_overperf_median"]
+
     # ============================================================
-    # 1️⃣ OVERPERFORMANCE LOG “DI BASE”
-    # più stabile, molto informativa, no outlier
+    # 1️⃣ BASE LOG OVERPERF
     # ============================================================
     df["overperf_log"] = (
-        np.log1p(df["npgoals_perMatch"]) - 
+        np.log1p(df["npgoals_perMatch"]) -
         np.log1p(df["npxG_perMatch"] + 1e-6)
     ).clip(-1.2, 1.2)
 
     # ============================================================
-    # 2️⃣ OVERPERFORMANCE ULTIME 5 (FORMA RECENTE)
+    # 2️⃣ ULTIME 5 (FORMA RECENTE)
     # ============================================================
     goals5 = (
         df.groupby(player_col)["npgoals_perMatch"]
@@ -1418,60 +1454,46 @@ def add_overperformance_features(
     ).clip(-1.0, 1.0)
 
     # ============================================================
-    # 3️⃣ PESO basato sull'incertezza (ottimo)
-    #   -> più tiri → più affidabile l’overperf_log storico
+    # 3️⃣ PESO basato sui tiri ultimi 20
     # ============================================================
     shots20 = (
         df.groupby(player_col)["shots_perMatch"]
           .rolling(20, min_periods=1).sum()
           .reset_index(level=0, drop=True)
     )
+
     if not prod:
         shots20 = shots20.shift()
-    df["shots_last20"] = shots20.fillna(0)
 
-    # peso: da 0.2 a 0.85
+    df["shots_last20"] = shots20.fillna(0)
     df["weight"] = 0.2 + 0.65 * (1 - np.exp(-df["shots_last20"] / 8))
     df["weight"] = df["weight"].clip(0.2, 0.85)
 
     # ============================================================
-    # 4️⃣ OVERPERFORMANCE BLEND (storico ↔ recente)
+    # 4️⃣ BLEND storico ↔ globale
     # ============================================================
-    global_mean = df["overperf_log"].mean()
-
     df["overperf_blend"] = (
         df["weight"] * df["overperf_log"] +
-        (1 - df["weight"]) * global_mean
+        (1 - df["weight"]) * GLOBAL_MEAN
     ).clip(-1.0, 1.0)
 
     # ============================================================
-    # 5️⃣ COMBINAZIONE FINALE (storia 60%, forma 40%)
+    # 5️⃣ COMBINAZIONE STORIA (27%) + FORMA (73%)
     # ============================================================
     df["overperf_combined"] = (
         0.27 * df["overperf_blend"] +
         0.73 * df["overperf_last5"]
-    )
+    ).clip(-1.2, 1.2)
 
     # ============================================================
-    # 6️⃣ RESIDUO DI RUOLO con rolling median
-    # più robusto di expanding mean
+    # 6️⃣ RESIDUO DI RUOLO **USANDO ROLE_MEDIANS (globale)**
     # ============================================================
-    role_mean = (
-        df.groupby("position")["overperf_combined"]
-          .rolling(40, min_periods=10)
-          .median()
-          .reset_index(level=0, drop=True)
-    )
-
-    if not prod:
-        role_mean = role_mean.shift()
-
+    df["role_median"] = df["position"].map(ROLE_MEDIANS).fillna(0)
     df["overperf_role_resid"] = (
-        df["overperf_combined"] - role_mean
-    ).fillna(0).clip(-1.5, 1.5)
+        df["overperf_combined"] - df["role_median"]
+    ).clip(-1.5, 1.5)
 
     return df
-
 
 
 def calibrate_by_role(df_val: pd.DataFrame, lambda_val: np.ndarray, y_val: np.ndarray, role_col: str = "position"):
