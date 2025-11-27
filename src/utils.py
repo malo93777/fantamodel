@@ -190,7 +190,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     df = compute_shot_quality_index(df,prod=True)
     df = reduce_penalty_xg(df)
 
-    df_teams_curr = compute_defensive_overperf_stats(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
+    df_teams_curr = compute_defensive_overperf_stats(df_teams_curr_season, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
     
     df["position"] = df["position"].apply(clean_position)
     # Rimuovo i "None"
@@ -245,12 +245,14 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     # 6️⃣ Ultimo residuo disponibile
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
-    overperf_value = df["overperf_combined"].iloc[-1]
+    overperf_value = df["overperf_role_resid"].iloc[-1]
+    shot_quality_index = df["shot_quality_index"].iloc[-1]
 
     # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
-        "overperf_combined": overperf_value,   
+        "overperf_role_resid": overperf_value,  
+        "shot_quality_index": shot_quality_index,
         "finishing_form_resid": finishing_form_resid
     }])
 
