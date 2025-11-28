@@ -85,7 +85,8 @@ def main():
             df_orig=df_orig_goal,
             df_teams=df_teams,
             df_teams_curr_season=df_teams_curr_season,
-            lin_model=models_goal["lin"]
+            lin_model=models_goal["lin"],
+            ROLE_STATS=config.ROLE_STATS
         )
 
         X_assist = prepare_features_assist(
