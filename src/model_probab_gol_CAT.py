@@ -1,4 +1,4 @@
-from config import STATS_OVERPERF,CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
+from config import CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, BOOST_RESID, BOOST_FACTORS_XGB, INPUT, MODEL_DIR, SCALER_DIR, CALIB_LOGISTIC_REG, SCALER, SERIE_A_TEAMS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
@@ -81,12 +81,6 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
                 CURRENT_SEASON
             )
 
-        player_df = utils.add_overperformance_features(player_df, STATS_OVERPERF, prod=True)
-        player_df = utils.compute_shot_quality_index(player_df,prod=True)
-        player_df = utils.reduce_penalty_xg(player_df)
-
-        df_teams_curr = utils.compute_defensive_overperf_stats(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
-
         # applica al dataset
         player_df["position"] = player_df["position"].apply(utils.clean_position)
 
@@ -99,7 +93,14 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         # Rimuovo i "None"
         player_df = player_df[player_df["position"] != "None"]
 
-        player_df["position_weighted"] = player_df["position"].map(position_weights).fillna(0.3)
+        #player_df["position_weighted"] = player_df["position"].map(position_weights).fillna(0.3)
+
+        player_df = utils.add_overperformance_features(player_df, stats, player_col="player", prod=True)
+
+        player_df = utils.compute_shot_quality_index(player_df,prod=True)
+        player_df = utils.reduce_penalty_xg(player_df)
+
+        df_teams_curr = utils.compute_defensive_overperf_stats(df_teams_curr, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
 
         # 3️⃣ Fill NaN con 0
         cols_to_check = ["sum_xG",  
@@ -177,7 +178,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
                   #xG_last5,                                                                                                               
                   player_df["overperf_combined"].iloc[-1],
                   player_df["shot_quality_index"].iloc[-1],
-                 # player_df["position_weighted"].iloc[-1],
+                  #player_df["position_weighted"].iloc[-1],
                   player_df["finishing_form_resid"].iloc[-1]
                                             
                   ]]
@@ -300,52 +301,6 @@ df_teams_curr_season = pd.read_csv(DATASET_DATA_DIR / CURRENT_SEASON_TEAMS_FILE)
 #copia df
 df = df_orig.copy()
 
-#*** DROP PARTITE FUTURE ***
-now = pd.Timestamp.now()
-# converto in datetime se non lo è già
-df["date"] = pd.to_datetime(df["date"], errors="coerce")
-df = df[df["date"] <= now].reset_index(drop=True)
-
-STATS_OVERPERF = utils.compute_role_mean_overperf(df)
-df = utils.add_overperformance_features(df, stats=STATS_OVERPERF, prod=False)
-df = utils.compute_shot_quality_index(df,prod=False)
-
-print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())
-
-cols_to_check = [
-    "sum_xG", 
-    #"xG_last5",
-    #"goals_per90_weighted_mean",
-    "finishing_form",
-    "overperf_role_resid",
-    "shot_quality_index",
-    
-    #"opponent_xGA_90min",
-    #"team_xG_90min"
-]
-
-#df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
-
-#df = df.dropna(subset=cols_to_check)
-df[cols_to_check] = df[cols_to_check].fillna(0)
-
-#corr = df[cols_to_check].corr(numeric_only=True)
-#plt.figure(figsize=(12, 10))
-#sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
-#plt.title("Correlation Matrix")
-#plt.show()
-#df.groupby(pd.qcut(df['finishing_efficiency_hist'], 4, duplicates='drop'))['is_goals'].mean().plot(kind='bar')
-#plt.title('Finishing Efficiency vs Goal Probability')
-#********** POSIZIONE *************
-'''
-print(df["position"].unique())
-plt.figure(figsize=(6,4))
-df["position"].value_counts().plot(kind="bar", edgecolor="black")
-plt.ylabel("numero osservazioni")
-plt.xlabel("Ruolo")
-plt.grid(axis="y", linestyle="--", alpha=0.6)
-plt.show()
-'''
 df = df[df["position"] != "GK"]
 df = df[df["position"] != "GKS"]
 
@@ -358,37 +313,29 @@ df["position"]= df["position"].dropna()
 # Conta le occorrenze
 
 print(df.shape)
-# Rimuovo i "None"
-#df = df[df["position"] != "None"]
+#df = df[df["minutes_played"] >= 5]
+#print(df.shape)
 
-# One-hot encoding
-#pos_dummies = pd.get_dummies(df["position"], prefix="pos", dtype=int)
+stats = utils.compute_role_overperf_stats(df)
+df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
 
-# Aggiungo le colonne one-hot a X
-#df = pd.concat([df, pos_dummies], axis=1)
+df = utils.compute_shot_quality_index(df,prod=False)
 
-# ===============================
-# ESEMPIO DI UTILIZZO
-# ===============================
+print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())
 
-'''
-#PESO XG IN BASE AL RUOLO
-goal_by_pos = (
-    df.groupby("position")["goals"]
-    .apply(lambda x: (x > 0).mean())  # frequenza partite con almeno un gol
-    .sort_values(ascending=False)
-)
-print(goal_by_pos)
+cols_to_check = [
+    "sum_xG", 
+    #"xG_last5",
+    #"goals_per90_weighted_mean",
+    "finishing_form",
+    "overperf_role_resid",
+    "shot_quality_index"
+]
 
-goal_by_pos_norm = goal_by_pos/goal_by_pos.max()
-pos_factors = goal_by_pos_norm.to_dict()
-print(pos_factors)
+#df = utils.fill_missing_values_player_df(df, cols_to_check, season_ref=CURRENT_SEASON)
 
-df = utils.adjust_sumxg_by_position(df, pos_factors)
-#df = df.drop(columns=["position"])
-'''
-# Aggiungo al dataset
-#df = pd.concat([df, pos_dummies], axis=1)
+#df = df.dropna(subset=cols_to_check)
+df[cols_to_check] = df[cols_to_check].fillna(0)
 
 #****** CONTROLLI STATISTICI *******
 #utils.analyze_feature_skewness(df, cols_to_check)
@@ -557,7 +504,7 @@ model = CatBoostRegressor(
     loss_function='Poisson',
     verbose=False,
     random_seed=42,
-    cat_features=categorical_features,
+    cat_features=categorical_features
 )
 
 model.fit(X_train, y_train, sample_weight=sample_weights)
@@ -603,8 +550,8 @@ y_test_proba  = apply_alpha_by_role(lambda_test,  X_test["position"])
 # ----------------------------
 # 3️⃣ BINARIZZA per metriche classiche (threshold = 0.5)
 # ----------------------------
-y_train_pred = (y_train_proba >= 0.27).astype(int)
-y_test_pred  = (y_test_proba  >= 0.27).astype(int)
+y_train_pred = (y_train_proba >= 0.36).astype(int)
+y_test_pred  = (y_test_proba  >= 0.36).astype(int)
 
 # ----------------------------
 # 4️⃣ METRICHE

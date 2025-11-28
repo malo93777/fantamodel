@@ -46,7 +46,7 @@ def main():
         #*** per test in locale ***
         #submitted = True
         #player = 'orban'
-        #team = "inter"
+        #team = "verona"
         #opponent = "cagliari"
 
     # --- Logica di predizione
@@ -67,7 +67,8 @@ def main():
                                                        df_orig_goal, 
                                                        df_teams, 
                                                        df_teams_curr_season, 
-                                                       models_goal["lin"]
+                                                       models_goal["lin"],
+                                                       config.ROLE_STATS
                                    )
             
             goal_proba = None

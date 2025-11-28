@@ -164,7 +164,7 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
 
     return X_new_df
 
-def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model):
+def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS):
     """
     Prepara le feature per la predizione goal probability con modello XGBoost.
     """
@@ -186,7 +186,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
-    df = add_overperformance_features(df, prod=True)
+    df = add_overperformance_features(df, ROLE_STATS, player_col="player", prod=True)
     df = compute_shot_quality_index(df,prod=True)
     df = reduce_penalty_xg(df)
 
@@ -1241,11 +1241,11 @@ def get_alpha_for_role(role: str) -> float:
     """
     role_alphas = {
        
-        "F": 0.655,     #0.659
-        "FM": 0.563,    #0.551
-        "M": 0.470,     #0.42
-        "DM": 0.446,    #0.30
-        "D": 0.35,     #0.33
+        "F": 0.63,     #0.659
+        "FM": 0.603,    #0.551
+        "M": 0.490,     #0.42
+        "DM": 0.556,    #0.30
+        "D": 0.3,     #0.33
         "DF": 0.300
     
     }
@@ -1378,37 +1378,52 @@ def predict_goal_probability(model, X_goal, player, role, get_alpha_for_role_fn)
 
     return goal_proba
 
-def compute_role_mean_overperf(global_df):
+def compute_role_overperf_stats(global_df):
     """
-    Calcola statistiche globali da tutto il dataset (training).
-    Queste saranno usate anche in produzione per evitare incoerenze.
+    Calcola statistiche globali dell'intero dataset (training).
+    Queste sono usate sia in training che in produzione.
     """
-    stats = {}
 
-    # Media globale overperf_log su TUTTI i giocatori
-    stats["global_mean_overperf_log"] = (
-        np.log1p(global_df["npgoals_perMatch"]) - 
+    # overperf_log calcolato su TUTTI i giocatori
+    all_overperf = (
+        np.log1p(global_df["npgoals_perMatch"]) -
         np.log1p(global_df["npxG_perMatch"] + 1e-6)
-    ).clip(-1.2, 1.2).mean()
+    ).clip(-1.2, 1.2)
 
-    # Media per ruolo (per residuo)
-    df_sorted = global_df.sort_values(["position", "date"])
-    role_median = (
-        df_sorted.groupby("position")["npgoals_perMatch"]
-        .rolling(40, min_periods=10)
+    # Mediana globale (più robusta della media)
+    global_median = float(all_overperf.median())
+
+    # Mediana per ruolo (molto robusta)
+    role_medians = (
+        global_df
+        .assign(overperf_log=all_overperf)
+        .groupby("position")["overperf_log"]
         .median()
-        .reset_index(level=0, drop=True)
+        .fillna(0)
+        .to_dict()
     )
 
-    # calcoliamo mean del rolling per ogni ruolo
-    role_df = global_df.copy()
-    role_df["role_median"] = role_median
+    # fallback per sicurezza
+    default_role_median = np.median(list(role_medians.values()))
 
-    stats["role_to_overperf_median"] = (
-        role_df.groupby("position")["role_median"].mean().to_dict()
-    )
+    # ----------------------------
+    # 3) divisore per normalizzare gli shot
+    #    robusto tramite quantili globali
+    # ----------------------------
+    shots_series = global_df["shots_perMatch"].fillna(0)
 
-    return stats
+    Q2 = shots_series.rolling(20, min_periods=5).sum().median()
+    Q3 = shots_series.rolling(20, min_periods=5).sum().quantile(0.75)
+
+    shots_divisor = max(5, (Q2 + Q3) / 2)
+
+    return {
+        "global_overperf_median": global_median,
+        "role_overperf_medians": role_medians,
+        "default_role_median": default_role_median,
+        "shots_divisor": shots_divisor
+    }
+
 
 
 def add_overperformance_features(
@@ -1417,14 +1432,12 @@ def add_overperformance_features(
     player_col: str = "player",
     prod: bool = False
 ):
+
     df = df.copy()
     df = df.sort_values([player_col, "date"])
 
-    GLOBAL_MEAN = stats["global_mean_overperf_log"]
-    ROLE_MEDIANS = stats["role_to_overperf_median"]
-
     # ============================================================
-    # 1️⃣ BASE LOG OVERPERF
+    # 1️⃣ OVERPERFORMANCE LOG DI BASE
     # ============================================================
     df["overperf_log"] = (
         np.log1p(df["npgoals_perMatch"]) -
@@ -1432,7 +1445,7 @@ def add_overperformance_features(
     ).clip(-1.2, 1.2)
 
     # ============================================================
-    # 2️⃣ ULTIME 5 (FORMA RECENTE)
+    # 2️⃣ FORMA RECENTE (5 PARTITE)
     # ============================================================
     goals5 = (
         df.groupby(player_col)["npgoals_perMatch"]
@@ -1445,6 +1458,7 @@ def add_overperformance_features(
           .reset_index(level=0, drop=True)
     )
 
+    # anti-leak
     if not prod:
         goals5 = goals5.shift()
         xg5 = xg5.shift()
@@ -1454,7 +1468,7 @@ def add_overperformance_features(
     ).clip(-1.0, 1.0)
 
     # ============================================================
-    # 3️⃣ PESO basato sui tiri ultimi 20
+    # 3️⃣ PESO BASATO SUI TIRI (ULTIME 20)
     # ============================================================
     shots20 = (
         df.groupby(player_col)["shots_perMatch"]
@@ -1466,33 +1480,40 @@ def add_overperformance_features(
         shots20 = shots20.shift()
 
     df["shots_last20"] = shots20.fillna(0)
-    df["weight"] = 0.2 + 0.65 * (1 - np.exp(-df["shots_last20"] / 8))
-    df["weight"] = df["weight"].clip(0.2, 0.85)
 
-    # ============================================================
-    # 4️⃣ BLEND storico ↔ globale
-    # ============================================================
+    # normalizzazione usando divisore globale
+    div = stats["shots_divisor"]
+
+    df["weight"] = 0.2 + 0.65 * (1 - np.exp(-df["shots_last20"] / div))
+    df["weight"] = df["weight"].clip(0.2, 1.0)
+
+
+    # 4️⃣ BLEND STORICO ↔ MEDIANA DEL RUOLO
+    role_medians = stats["role_overperf_medians"]
+    default_median = stats["default_role_median"]
+
+    #ora prendo, usando la chiave che è la posizione del giocatore, la mediana corrispondente
+    df["gmedian_role"] = df["position"].map(role_medians).fillna(default_median)
+
     df["overperf_blend"] = (
         df["weight"] * df["overperf_log"] +
-        (1 - df["weight"]) * GLOBAL_MEAN
+        (1 - df["weight"]) * df["gmedian_role"]
     ).clip(-1.0, 1.0)
 
     # ============================================================
-    # 5️⃣ COMBINAZIONE STORIA (27%) + FORMA (73%)
+    # 5️⃣ COMBINAZIONE: 27% storico + 73% forma recente
     # ============================================================
     df["overperf_combined"] = (
-        0.27 * df["overperf_blend"] +
-        0.73 * df["overperf_last5"]
-    ).clip(-1.2, 1.2)
-
-    # ============================================================
-    # 6️⃣ RESIDUO DI RUOLO **USANDO ROLE_MEDIANS (globale)**
-    # ============================================================
-    df["role_median"] = df["position"].map(ROLE_MEDIANS).fillna(0)
-    df["overperf_role_resid"] = (
-        df["overperf_combined"] - df["role_median"]
+        0.37 * df["overperf_blend"] +
+        0.63 * df["overperf_last5"]
     ).clip(-1.5, 1.5)
 
+
+    df["overperf_role_resid"] = (
+        df["overperf_combined"] - df["gmedian_role"]
+    ).clip(-1.5, 1.5)
+
+    df.drop(columns=["gmedian_role"], inplace=True)
     return df
 
 
@@ -1877,8 +1898,8 @@ def compute_shot_quality_index(df, window=20, player_col="player", prod=False):
     # 3) Indice grezzo
     # --------------------------------------------
     df["shot_quality_raw"] = (
-        0.25 * df["shot_eff_log"] +
-        0.75 * df["shot_difficulty"]
+        0.2 * df["shot_eff_log"] +
+        0.8 * df["shot_difficulty"]
     )
 
     # --------------------------------------------
@@ -2159,7 +2180,7 @@ def weighted_xg_vs_opponent_mixed(
         return base_xG
 
     factor_xGA = opponent_xGA_90min / avg_opponent_xGA
-    factor_xGA = np.clip(factor_xGA, 0.7, 1.3)
+    factor_xGA = np.clip(factor_xGA, 0.5, 1.5)
 
     # ------------------------------
     # 2) Fattore reale (GA_last5 / xGA_last5)
@@ -2175,7 +2196,7 @@ def weighted_xg_vs_opponent_mixed(
 
         # rapporto coerente
         ratio = GA90_last5 / xGA90_last5
-        factor_overperf = np.clip(ratio, 0.7, 1.3)
+        factor_overperf = np.clip(ratio, 0.5, 1.5)
 
     # ------------------------------
     # 3) Mix finale
@@ -2184,7 +2205,7 @@ def weighted_xg_vs_opponent_mixed(
         w_xga * factor_xGA +
         w_overperf * factor_overperf
     )
-    final_factor = np.clip(final_factor, 0.7, 1.3)
+    final_factor = np.clip(final_factor, 0.5, 1.5)
 
     return base_xG * final_factor
 

@@ -50,14 +50,30 @@ BOOST_FACTORS_XGB = {
 
 BOOST_RESID = 1.0
 
-#Dizionari da popolare con overperformance stats
-STATS_OVERPERF = {}
-
 INPUT = {
     "players": ["kostic","gudmundsson", "kean","buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
     "teams" : ["juventus","fiorentina","fiorentina", "udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["fiorentina","cagliari", "atalanta","ac milan","cagliari", "cagliari", "sassuolo","ac milan","cagliari","juventus","pisa","como", "juventus","lecce","udinese","atalanta","Sassuolo", "Torino", "udinese", "Juventus", "Sassuolo", "Fiorentina", "Bologna", "Lecce", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "lazio","roma","pisa", "napoli", "roma","sassuolo"]
+    "opponents" : ["cagliari","atalanta", "milan","ac sassuolo","cagliari", "napoli", "sassuolo","ac milan","cagliari","juventus","pisa","cagliari", "juventus","lecce","udinese","atalanta","AC MILAN", "Sassuolo", "Juventus", "genoa", "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"]
 }
+
+ROLE_STATS = {
+    "global_overperf_median": -0.000001,
+    
+    "role_overperf_medians": {
+        "D":    -0.000001,
+        "DF":   -0.000001,
+        "DM":   -0.000001,
+        "F":    -0.03560790906571769,
+        "FM":   -0.028906161706381748,
+        "M":    -0.000001,
+        "None": -0.000001,
+    },
+
+    "default_role_median": -0.000001,
+
+    "shots_divisor": 21.5
+}
+
 
 top_teams = ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Atalanta", "Lazio"]
 mid_teams = ["Fiorentina", "Torino", "Bologna", "Sassuolo", "Udinese"]
