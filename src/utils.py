@@ -396,6 +396,50 @@ def save_models_assist(model, scaler, is_baseline=False):
 def multiply_by_factor(X, factor=2.0):
     return X * factor
 
+def get_player_data(df: pd.DataFrame, player_name: str):
+    """
+    Cerca i dati di un giocatore nel dataframe, gestendo:
+    - accenti (Martínez -> Martinez)
+    - case-insensitivity
+    - match esatto o parola intera
+    - ambiguità se esistono più giocatori con lo stesso nome
+    """
+
+    # Normalizza i nomi
+    df = df.copy()
+    df["player_norm"] = df["player"].apply(lambda x: unidecode(str(x)).lower())
+    player_norm = unidecode(player_name).lower()
+
+    # 1️⃣ Match esatto
+    player_df = df[df["player_norm"] == player_norm]
+
+    # 2️⃣ Se non trovato, prova con parola intera (regex)
+    if player_df.empty:
+        player_df = df[df["player_norm"].str.contains(rf"\b{re.escape(player_norm)}\b", case=False, na=False)]
+
+    # 3️⃣ Se ancora vuoto
+    if player_df.empty:
+        print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
+        return pd.DataFrame()
+
+    # 4️⃣ Se più giocatori hanno lo stesso nome
+    matching_players = player_df["player"].unique()
+    if len(matching_players) > 1:
+        print(f"⚠️ Trovati più giocatori con nome simile a '{player_name}':")
+        for i, p in enumerate(matching_players, 1):
+            teams = ", ".join(df[df["player"] == p]["player_team"].dropna().unique())
+            print(f"   {i}. {p} ({teams})")
+
+        # Chiede all'utente quale scegliere
+        try:
+            choice = int(input("👉 Inserisci il numero del giocatore desiderato: ")) - 1
+            chosen_player = matching_players[choice]
+            player_df = df[df["player"] == chosen_player]
+        except (ValueError, IndexError):
+            print("❌ Scelta non valida, interrotto.")
+            return pd.DataFrame()
+
+    return player_df.sort_values("date").reset_index(drop=True)
 
 
 def weighted_xg_vs_opponent(base_xG, player_df, opponent_xGA_90min):
@@ -1243,8 +1287,8 @@ def get_alpha_for_role(role: str) -> float:
        
         "F": 0.63,     #0.659
         "FM": 0.603,    #0.551
-        "M": 0.490,     #0.42
-        "DM": 0.556,    #0.30
+        "M": 0.500,     #0.42
+        "DM": 0.476,    #0.30
         "D": 0.3,     #0.33
         "DF": 0.300
     

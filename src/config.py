@@ -51,9 +51,9 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["kostic","gudmundsson", "kean","buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
-    "teams" : ["juventus","fiorentina","fiorentina", "udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
-    "opponents" : ["cagliari","atalanta", "milan","ac sassuolo","cagliari", "napoli", "sassuolo","ac milan","cagliari","juventus","pisa","cagliari", "juventus","lecce","udinese","atalanta","AC MILAN", "Sassuolo", "Juventus", "genoa", "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"]
+    "players": ["scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban" , "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic","paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic", "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco", "guendouzi", "loftus", "giovane", "giovane", "soule", "pinamonti", "gimenez", "bonny", "doig", "krstovic"],
+    "teams" : ["atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona", "juventus","juventus","napoli", "juventus","torino","juventus","como","como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna", "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan", "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"],
+    "opponents" : ["fiorentina","verona","atalanta", "milan","ac sassuolo","cagliari", "napoli", "sassuolo","ac milan","cagliari","juventus","pisa","cagliari", "juventus","lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa", "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta", "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"]
 }
 
 ROLE_STATS = {

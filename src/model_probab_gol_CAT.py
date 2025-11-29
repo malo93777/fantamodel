@@ -2,10 +2,8 @@ from config import CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATAS
 import utils
 from first_preproc import Preprocessor
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier 
+from catboost import CatBoostRegressor
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import seaborn as sns
 from seaborn import heatmap
@@ -20,10 +18,8 @@ from sklearn.metrics import precision_recall_curve,average_precision_score
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.inspection import permutation_importance
-from sklearn.calibration import CalibratedClassifierCV
 import statsmodels.api as sm
 import imblearn
-from imblearn.over_sampling import SMOTE
 from unidecode import unidecode
 
 ### *** GLOBALS ***
@@ -353,19 +349,12 @@ df["xG_last5"] = np.log1p(df["xG_last5"])
 y = df["is_goals"]
 y_binary = (y > 0).astype(int)
 
-#******* boosting feature stato di forma giocatore (last5) e media cumulativa (cummean) *********
-# 8️⃣ Applica boost
-for feature, factor in boosts.items():
-    df[feature] = df[feature] * factor
-
 numeric_features = cols_to_check
 
 # ======================================
 # 1️⃣ Calcolo della feature residua PRIMA dello split
 # ======================================
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.preprocessing import PolynomialFeatures
-
+from sklearn.linear_model import LinearRegression
 # --- Calcolo residuo lineare (prima di qualsiasi scaling/log) ---
 
 df["xg_mean_12"] = (
@@ -410,7 +399,7 @@ vif_df = pd.DataFrame({
     "VIF": [variance_inflation_factor(df[numeric_features].values, i) for i in range(len(numeric_features))]
 })
 print(vif_df)
-
+'''
 position_weights = {
     "F": 1.00,
     "FM": 0.85,
@@ -419,8 +408,8 @@ position_weights = {
     "D": 0.35,
     "DF": 0.35
 }
-
-df["position_weighted"] = df["position"].map(position_weights).fillna(0.3)
+'''
+#df["position_weighted"] = df["position"].map(position_weights).fillna(0.3)
 #numeric_features.append("position_weighted")
 X =df[numeric_features]
 X = pd.concat([X, df["position"]], axis=1)
@@ -437,8 +426,6 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_train_full, y_train_full, test_size=0.3, random_state=42, stratify=y_train_full
 )
 # --- Split train / validation ---
-
-from catboost import CatBoostRegressor, Pool
 
 # Dataset: X (features), y (target: 0/1 se segna o no)
 # Esempio: y = df["goal"]
