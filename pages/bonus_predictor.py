@@ -44,7 +44,7 @@ def main():
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
         if num_giornate >= 10:
-            
+
             is_home = False
             is_away = False
 
@@ -60,11 +60,11 @@ def main():
 
 
         #*** per test in locale ***
-        submitted = True
-        player = 'orban'
-        team = "verona"
-        opponent = "cagliari"
-        is_home = True
+        #submitted = True
+        #player = 'orban'
+        #team = "verona"
+        #opponent = "cagliari"
+        #is_home = True
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
