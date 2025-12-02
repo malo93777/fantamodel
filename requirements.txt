@@ -12,3 +12,4 @@ seaborn
 xgboost
 catboost
 tqdm
+unidecode
