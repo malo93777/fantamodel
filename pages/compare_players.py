@@ -17,6 +17,12 @@ CURRENT_SEASON = config.CURRENT_SEASON
 # ⚔️ FUNZIONE PRINCIPALE
 # ======================================================
 def main():
+
+    is_home1 = False
+    is_away1 = False
+    is_home2 = False
+    is_away2 = False    
+
     st.set_page_config(page_title="Confronto Giocatori ⚔️", layout="centered")
 
     st.title("⚔️ Confronta Giocatori")
@@ -33,7 +39,7 @@ def main():
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
     teams = sorted(df_teams[df_teams['season'] == CURRENT_SEASON]['Team'].dropna().unique().tolist())
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
-
+    num_giornate = count_matchdays(df_teams_curr_season)
     # ======================================================
     # 🔗 Gestione query parameters
     # ======================================================
@@ -57,7 +63,10 @@ def main():
         team1 = st.selectbox("🏟️ Squadra 1", [""] + teams,
                              index=teams.index(default_team1) + 1 if default_team1 in teams else 0)
         opponent1 = st.selectbox("⚔️ Avversario 1", [""] + opponents,
-                                 index=opponents.index(default_opponent1) + 1 if default_opponent1 in opponents else 0)
+                                 index=opponents.index(default_opponent1) + 1 if default_opponent1 in opponents else 0)     
+        if num_giornate >= 10:
+            is_home1 = st.checkbox("🏠 Giocatore 1 gioca in casa")
+            is_away1 = st.checkbox("✈️ Giocatore 1 gioca in trasferta")
 
     with col2:
         player2 = st.selectbox("👤 Giocatore 2", [""] + players,
@@ -66,16 +75,19 @@ def main():
                              index=teams.index(default_team2) + 1 if default_team2 in teams else 0)
         opponent2 = st.selectbox("⚔️ Avversario 2", [""] + opponents,
                                  index=opponents.index(default_opponent2) + 1 if default_opponent2 in opponents else 0)
+        if num_giornate >= 10:
+            is_home2 = st.checkbox("🏠 Giocatore 2 gioca in casa")
+            is_away2 = st.checkbox("✈️ Giocatore 2 gioca in trasferta")
 
     compare_btn = st.button("🔍 Confronta")
 
     # ======================================================
     # 📊 FUNZIONE PER CALCOLARE FEATURE E PROBABILITÀ
     # ======================================================
-    def get_player_data(player, team, opponent):
+    def get_player_data(player, team, opponent,h_a_player=False):
         features_names_goal = list(models_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
-            features_names_goal.remove("finishing_form_resid")
+            features_names_goal.remove("finishing_form_resid")   
 
         X_goal, role = prepare_features_xgb(
             features_names=features_names_goal,
@@ -86,7 +98,8 @@ def main():
             df_teams=df_teams,
             df_teams_curr_season=df_teams_curr_season,
             lin_model=models_goal["lin"],
-            ROLE_STATS=config.ROLE_STATS
+            ROLE_STATS=config.ROLE_STATS,
+            h_a_player=h_a_player
         )
 
         X_assist = prepare_features_assist(
@@ -144,8 +157,22 @@ def main():
                 "opponent2": opponent2
             })
 
-            p1 = get_player_data(player1, team1, opponent1)
-            p2 = get_player_data(player2, team2, opponent2)
+            if is_home1 and not is_away1:
+                h_a_player1 = 'h'   
+            elif is_away1 and not is_home1:
+                h_a_player1 = 'a'
+            else:
+                h_a_player1 = None
+
+            if is_home2 and not is_away2:
+                h_a_player2 = 'h'   
+            elif is_away2 and not is_home2:
+                h_a_player2 = 'a'
+            else:
+                h_a_player2 = None
+
+            p1 = get_player_data(player1, team1, opponent1, h_a_player=h_a_player1)
+            p2 = get_player_data(player2, team2, opponent2, h_a_player=h_a_player2)
 
             if p1 and p2:
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
@@ -153,9 +180,9 @@ def main():
                 col1, col2 = st.columns(2)
                 with col1:
                     st.subheader(p1["player"])
-                    st.metric("xG medio", f"{p1['sum_xG']:.2f}")
+                    st.metric("xG medio in Serie A", f"{p1['sum_xG']:.2f}")
                     st.metric("xG medio ultime 5 partite", f"{p1['xG_last5']:.2f}")
-                    st.metric("xAssist medio", f"{p1['sum_xA']:.2f}")
+                    st.metric("xAssist medio in Serie A", f"{p1['sum_xA']:.2f}")
                     st.metric("xAssist medio ultime 5 partite", f"{p1['xA_last5']:.2f}")
                     st.metric("Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
                     st.metric("Prob. Assist", f"{p1['prob_assist']*100:.1f}%")

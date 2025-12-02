@@ -298,6 +298,36 @@ def full_training_pipeline(df):
     # Metriche
     metrics = evaluate_model(y_test, y_test_prob, threshold=best_threshold)
 
+    print(best_threshold)
+
+    # Aggiungi y_true, pred prob e pred label
+    X_test["true_goal"] = y_test.values
+    X_test["pred_prob"] = y_test_prob
+    X_test["pred_label"] = (y_test_prob >= best_threshold).astype(int)
+
+    # Ordina per probabilità discendente
+    X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
+
+    # Stampa un riepilogo
+    print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI GOL (TEST):")
+    print(X_test_sorted.head(30))
+
+    print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
+    wrong_preds = X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]]
+    print(wrong_preds.head(30))
+
+    print("\n📊 30 CASI PIù SBAGLIATI falsi negativi")
+    false_negatives = X_test_sorted[(X_test_sorted["pred_label"] == 0) & (X_test_sorted["true_goal"] == 1)]
+    print(false_negatives.head(30))
+
+    print("\n📊 30 CASI PIù SBAGLIATI falsi positivi")
+    false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_goal"] == 0)]
+    print(false_positives.head(30))
+
+    # Analisi media per ruolo
+    print("\n📊 Probabilità media di gol per ruolo:")
+    print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+
     return {
         "model": model,
         "lin_reg": lin_reg,
@@ -311,12 +341,12 @@ def full_training_pipeline(df):
         "stats": stats
     }
 
-def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, numeric_features, categorical_features, stats):
+def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, numeric_features, categorical_features, stats, h_a_player):
     results = []
 
     df_records = pd.DataFrame()
     preproc = Preprocessor(serie_a_teams=SERIE_A_TEAMS)
-    for player, team, opponent in zip(players, teams, opponents):
+    for player, team, opponent, h_a_player in zip(players, teams, opponents, h_a_player):
         print(f"\n➡️ {player} ({team} vs {opponent})")
         
         # 1️⃣ Filtra storico del giocatore
@@ -376,7 +406,6 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         #player_df = utils.adjust_sumxg_by_position(player_df, pos_factors)
 
         player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
-        player_df["xG_last5"] = np.log1p(player_df["xG_last5"])
 
         # Calcolo residuo  per finishing_form
         player_df["xg_mean_12"] = (
@@ -393,24 +422,35 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         cols_to_check.remove("finishing_form")
         cols_to_check.append("finishing_form_resid")
        
-        # 4️⃣ Ottieni info squadre
-        season = player_df["season"].iloc[-1]
-        #opponent_xGA_90min = utils.get_Xga_90min_opp_team(opponent, season, df_teams)
-        #team_xG_90_min = utils.get_Xg_90min_team(team, season, df_teams)
-
-        opponent_xGA_90min_last5 = utils.get_xGA_last5_team(opponent, df_teams_curr)
-        team_xG_90_min_last5 = utils.get_xG_last5_team(team, df_teams_curr)
-        xGA_last5_opp, GA_last5_opp = utils.get_overperf_last5_team(opponent, df_teams_curr)
-
-        # 5️⃣ Media storica del giocatore
-        sum_xG_new = player_df["sum_xG"].mean()
-
-        #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
         sum_xG_new = (player_df["sum_xG"].tail(12).mean())
 
-        sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5, xGA_last5_opp, GA_last5_opp)
+        # 4️⃣ Ottieni info squadre. se le partite del giocatore della corrente stagione sono superiori a 5 uso quelle
+        num_giornate = utils.count_matchdays(df_teams_curr)
 
-        sum_xG_new = utils.weighted_xg_by_team_strength(sum_xG_new, player_df, team_xG_90_min_last5, df_teams)
+        #se ho un numero sufficiente di giornate, applico discriminante home/away
+        if num_giornate >= 10: 
+            h_a = utils.get_h_a_opponent(h_a_player)
+            #OPPONENT TEAM DATA home/away 
+            opponent_xGA_90min_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+            xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+            #PLAYER TEAM DATA home/away
+            team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+        else:
+            #OPPONENT TEAM DATA
+            opponent_xGA_90min_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+            xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent,"", df_teams)
+
+            #PLAYER TEAM DATA
+            team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
+            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
+        #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
+        
+
+        sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+
+        sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, player_df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
         #sum_xG_new = utils.adjust_sumxg_by_defensive_factor(sum_xG_new, df_teams_curr["defensive_adjust_factor_last5"].iloc[-1])
 
@@ -471,7 +511,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         )
         '''
         
-        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
+        print(f"✅ Probabilità che {player} segni contro {opponent}: {prob_goal:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f} giocando in:{h_a_player} ")
 
         # (Facoltativo) per debugging:
         # print(f"λ previsto (expected goals): {lambda_pred:.4f}")
@@ -498,6 +538,7 @@ def main():
     players = INPUT["players"]
     teams = INPUT["teams"]
     opponents = INPUT["opponents"]
+    h_a = INPUT["h_a"]
 
     df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -517,7 +558,7 @@ def main():
     pred_df = predict_goal_probabilities(players, teams, opponents,
                                      df_orig, df_teams, df_teams_curr_season,
                                      model, lin_reg,
-                                     numeric_features, categorical_features, stats)
+                                     numeric_features, categorical_features, stats, h_a)
     
     utils.save_models(model=model, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
 

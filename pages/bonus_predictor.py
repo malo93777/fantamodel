@@ -32,6 +32,7 @@ def main():
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
     teams = sorted(df_teams[df_teams['season'] == config.CURRENT_SEASON]['Team'].dropna().unique().tolist())
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
+    num_giornate = utils.count_matchdays(df_teams_curr_season)
 
     with st.form("predict_form"):
         col1, col2 = st.columns(2)
@@ -39,16 +40,31 @@ def main():
             player = st.selectbox("👤 Giocatore", options=[""] + players)
         with col2:
             team = st.selectbox("🏟️ Squadra", options=[""] + teams)
+
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
-        submitted = st.form_submit_button("Prevedi Bonus")
+        if num_giornate >= 10:
+            
+            is_home = False
+            is_away = False
+
+            st.markdown("### ⚑ Il giocatore gioca in:")
+
+            col_home, col_away = st.columns(2)
+            with col_home:
+                is_home = st.checkbox("🏠 Casa")
+            with col_away:
+                is_away = st.checkbox("✈️ Trasferta")
+
+            submitted = st.form_submit_button("Prevedi Bonus")
+
 
         #*** per test in locale ***
-        #submitted = True
-        #player = 'orban'
-        #team = "verona"
-        #opponent = "cagliari"
-
+        submitted = True
+        player = 'orban'
+        team = "verona"
+        opponent = "cagliari"
+        is_home = True
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
@@ -58,7 +74,14 @@ def main():
             #tolgo finishing_form_resid perchè va ancora calcolata
             features_names_goal = list(models_goal["poiss_reg"].feature_names_)
             if "finishing_form_resid" in features_names_goal:
-                features_names_goal.remove("finishing_form_resid")         
+                features_names_goal.remove("finishing_form_resid") 
+
+            if is_home and not is_away:
+                h_a_player = 'h'   
+            elif is_away and not is_home:
+                h_a_player = 'a'
+            else:
+                h_a_player = None
 
             X_goal, role = utils.prepare_features_xgb(features_names_goal,
                                                        player, 
@@ -68,7 +91,8 @@ def main():
                                                        df_teams, 
                                                        df_teams_curr_season, 
                                                        models_goal["lin"],
-                                                       config.ROLE_STATS
+                                                       config.ROLE_STATS,
+                                                       h_a_player       
                                    )
             
             goal_proba = None

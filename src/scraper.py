@@ -19,7 +19,9 @@ class Scraper:
                 #costruisco dataframe squadre con rolling features
                 
                 team_data = understat.league(league="Serie_A").get_team_data(season=str(config.CURRENT_SEASON)) 
-                teams_df = first_preproc.build_team_dataframe(team_data)
+                
+                preprocessor = first_preproc.Preprocessor(config.SERIE_A_TEAMS)
+                teams_df = preprocessor.build_team_dataframe(team_data)
                 
                 #ciclo giocatori che sono in serie a attuale e prendo loro dati partite passate in serie a
                 league_player_data = understat.league(league="Serie_A").get_player_data(season=str(config.CURRENT_SEASON))

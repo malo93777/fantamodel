@@ -7,6 +7,7 @@ import re
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
+from unidecode import unidecode
 import os
 from pathlib import Path
 import config
@@ -164,7 +165,7 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
 
     return X_new_df
 
-def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS):
+def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
     """
     Prepara le feature per la predizione goal probability con modello XGBoost.
     """
@@ -216,23 +217,36 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     pred_lin = lin_model.predict(df[["xg_mean_12"]])
     df["finishing_form_resid"] = df["finishing_form"] - pred_lin
 
-    # 3️⃣ Calcolo xG_last5 e goals_last5 (media ultime 5 partite)
-    if len(df) >= 5:
-        xG_last5 = df["sum_xG"].iloc[-5:].mean()
-    else:
-        xG_last5 = df["sum_xG"].mean()
+    #numero giornate già giocate nella stagione corrente
+    num_giornate = count_matchdays(df_teams_curr)
 
-    # 4️⃣ Ottieni opponent info squadre partita da giocare
-    season = df["season"].iloc[-1]
-    opponent_xGA_90min_last5 = get_xGA_last5_team(opponent, df_teams_curr_season)
-    team_xG_90_min_last5 = get_xG_last5_team(team, df_teams_curr_season)
-    xGA_last5_opp, GA_last5_opp = get_overperf_last5_team(opponent, df_teams_curr)
-
+    #prendo xg base player
     sum_xG_new = (df["sum_xG"].tail(12).mean())
 
+    #se ho un numero sufficiente di giornate, applico discriminante home/away
+    if num_giornate >= 10: 
+        h_a = get_h_a_opponent(h_a_player)
+        #OPPONENT TEAM DATA home/away 
+        opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+        xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+        #PLAYER TEAM DATA home/away
+        team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+        xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+    else:
+        #OPPONENT TEAM DATA
+        opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+        xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
+
+        #PLAYER TEAM DATA
+        team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
+        G_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
+    
+
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
-    sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5, xGA_last5_opp, GA_last5_opp)
-    sum_xG_new = weighted_xg_by_team_strength(sum_xG_new, df, team_xG_90_min_last5, df_teams)
+    sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+
+    sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
     # Streak senza gol
     cold_penalty = get_latest_cold_penalty(df)
@@ -523,88 +537,147 @@ def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
         return row["XG_90min"].values[0]
     else:
         return np.nan
-    
-def get_xG_last5_team(team: str, teams_df: pd.DataFrame) -> float:
+
+def get_xGA_last5_team_h_a_mean(team: str, h_a: str, teams_df: pd.DataFrame) -> float:
     """
-    Restituisce l'ultimo valore di xG_last5 per una squadra dal DataFrame partite.
-
-    Args:
-        team (str): nome della squadra (non necessariamente perfettamente uguale)
-        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
-
-    Returns:
-        float: ultimo valore di xG_last5, oppure np.nan se non trovato
+    Restituisce l'xGA medio delle ultime 5 partite,
+    con filtro opzionale per casa (h) o trasferta (a).
     """
     team_norm = normalize_team_name(team)
-    teams_df = teams_df.copy()
-    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
 
-    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+    df = teams_df.copy()
+    df["team_name"] = df["team_name"].apply(normalize_team_name)
+
+    team_rows = df[df["team_name"] == team_norm].sort_values("date")
 
     if team_rows.empty:
         return np.nan
 
-    # Prende le ultime 5 partite, includendo l'ultima giocata
-    recent_rows = team_rows.tail(5)
-
-    # Usa la colonna xG "grezza" e non xG_last5 per evitare feedback loop
-    return recent_rows["xG"].mean()
-
-
-def get_xGA_last5_team(team: str, teams_df: pd.DataFrame) -> float:
-    """
-    Restituisce l'ultimo valore di xGA_last5 per una squadra dal DataFrame partite.
-
-    Args:
-        team (str): nome della squadra
-        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
-
-    Returns:
-        float: ultimo valore di xGA_last5, oppure np.nan se non trovato
-    """
-    team_norm = normalize_team_name(team)
-    teams_df = teams_df.copy()
-    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
-
-    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+    # filtro casa/trasferta solo se richiesto
+    if h_a in ["h", "a"]:
+        team_rows = team_rows[team_rows["h_a"] == h_a]
 
     if team_rows.empty:
         return np.nan
 
-    # Prende le ultime 5 partite, includendo l'ultima giocata
-    recent_rows = team_rows.tail(5)
+    recent = team_rows.tail(5)
+    return recent["xGA"].mean()
 
-    return recent_rows["xGA"].mean()
-
-def get_overperf_last5_team(team: str, teams_df: pd.DataFrame) -> float:
+def get_xG_last5_team_h_a_mean(team: str, h_a: str, teams_df: pd.DataFrame) -> float:
     """
-    Restituisce l'ultimo valore di xG_last5 per una squadra dal DataFrame partite.
-
-    Args:
-        team (str): nome della squadra (non necessariamente perfettamente uguale)
-        teams_df (pd.DataFrame): DataFrame prodotto da build_team_dataframe()
-
-    Returns:
-        float: ultimo valore di xG_last5, oppure np.nan se non trovato
+    Restituisce l'xG medio delle ultime 5 partite.
+    Se h_a ∈ {h, a} filtra casa/trasferta.
+    Altrimenti usa tutte le partite.
     """
     team_norm = normalize_team_name(team)
-    teams_df = teams_df.copy()
-    teams_df["team_name"] = teams_df["team_name"].apply(normalize_team_name)
 
-    team_rows = teams_df[teams_df["team_name"] == team_norm].sort_values("date")
+    df = teams_df.copy()
+    df["team_name"] = df["team_name"].apply(normalize_team_name)
+
+    team_rows = df[df["team_name"] == team_norm]
 
     if team_rows.empty:
         return np.nan
 
-    # Prende le ultime 5 partite, includendo l'ultima giocata
-    last_row = team_rows.tail(1)
-    xGA_last5 = last_row["xGA_last5"].iloc[-1]  #somma cumulativa
-    GA_last5 = last_row["GA_last5"].iloc[-1]
+    # Filtra per home/away solo se richiesto
+    if h_a in ["h", "a"]:
+        team_rows = team_rows[team_rows["h_a"] == h_a]
 
-    # Usa la colonna xG "grezza" e non xG_last5 per evitare feedback loop
+    if team_rows.empty:
+        return np.nan
+
+    recent = team_rows.tail(5)
+
+    return recent["xG"].mean()
+
+def get_xGA_last5_team_h_a(team: str, h_a: str, teams_df: pd.DataFrame) -> float:
+    """
+    Restituisce l'xGA medio delle ultime 5 partite,
+    filtrando per casa/trasferta solo se h_a è valido.
+    """
+    team_norm = normalize_team_name(team)
+
+    df = teams_df.copy()
+    df["team_name"] = df["team_name"].apply(normalize_team_name)
+
+    team_rows = df[df["team_name"] == team_norm]
+
+    if team_rows.empty:
+        return np.nan
+
+    # ───────────────────────────────────────────────
+    # Se h_a è 'h' o 'a', filtra. Altrimenti usa tutto.
+    # ───────────────────────────────────────────────
+    if h_a in ["h", "a"]:
+        team_rows = team_rows[team_rows["h_a"] == h_a]
+
+    if team_rows.empty:
+        return np.nan
+
+    recent = team_rows.tail(5)
+    return recent["xGA"].mean()
+
+
+def get_def_data_last5_team_h_a(team: str, h_a: str, teams_df: pd.DataFrame) -> tuple:
+    """
+    Restituisce (xGA_last5, GA_last5) filtrando per h/a solo se richiesto.
+    """
+    team_norm = normalize_team_name(team)
+
+    df = teams_df.copy()
+    df["team_name"] = df["team_name"].apply(normalize_team_name)
+
+    team_rows = df[df["team_name"] == team_norm]
+
+    if team_rows.empty:
+        return np.nan, np.nan
+
+    # ───────────────────────────────────────────────
+    # Se h_a è 'h' o 'a', filtra. Altrimenti usa tutto.
+    # ───────────────────────────────────────────────
+    if h_a in ["h", "a"]:
+        team_rows = team_rows[team_rows["h_a"] == h_a]
+
+    if team_rows.empty:
+        return np.nan, np.nan
+
+    recent = team_rows.tail(5)
+
+    xGA_last5 = recent["xGA"].sum()
+    GA_last5  = recent["missed"].sum()
+
     return xGA_last5, GA_last5
-      
 
+def get_att_data_last5_team_h_a(team: str, h_a: str, teams_df: pd.DataFrame) -> tuple:
+    """
+    Restituisce (xGA_last5, GA_last5) filtrando solo le partite
+    giocate in casa (h) o fuori (a).
+    """
+    team_norm = normalize_team_name(team)
+
+    df = teams_df.copy()
+    df["team_name"] = df["team_name"].apply(normalize_team_name)
+
+    team_rows = df[df["team_name"] == team_norm]
+
+    if team_rows.empty:
+        return np.nan, np.nan
+
+    # filtro casa/trasferta
+    side_rows = team_rows[team_rows["h_a"] == h_a].sort_values("date")
+
+    if side_rows.empty:
+        return np.nan, np.nan
+
+    recent = side_rows.tail(5)
+
+    xG_last5 = recent["xG"].sum()
+    Goal_last5  = recent["scored"].sum()
+
+    return xG_last5, Goal_last5  
+
+
+    
 def clean_position(pos):
     """
     Pulisce e classifica la posizione di un calciatore:
@@ -2249,7 +2322,54 @@ def weighted_xg_vs_opponent_mixed(
         w_xga * factor_xGA +
         w_overperf * factor_overperf
     )
-    final_factor = np.clip(final_factor, 0.5, 1.5)
+    final_factor = np.clip(final_factor, 0.6, 1.4)
+
+    return base_xG * final_factor
+
+def weighted_xg_team_mixed(
+        base_xG,
+        player_df,
+        df_teams,
+        team_xG_90min,
+        team_xG_last5,
+        team_Goal_last5,
+        w_xga=0.4,
+        w_overperf=0.6
+    ):
+    """
+    Pesa il base_xG del giocatore con:
+        1) forza difensiva attesa (xGA/90min)
+        2) performance reale difesa (GA90_last5 / xGA90_last5)
+    """
+
+    # ------------------------------
+    # 1) Fattore atteso (xGA/90)
+    # ------------------------------
+    factor_xG = weighted_xg_by_team_strength(base_xG, player_df, team_xG_90min, df_teams)
+    # ------------------------------
+    # 2) Fattore reale (GA_last5 / xGA_last5)
+    #    → tutto riportato su base 90 minuti
+    # ------------------------------
+    MINUTES_5_MATCHES = 5 * 90
+
+    if team_xG_last5 <= 0:
+        factor_overperf = 1.0
+    else:
+        xGA90_last5 = team_xG_last5 / MINUTES_5_MATCHES * 90
+        GA90_last5 = team_Goal_last5 / MINUTES_5_MATCHES * 90
+
+        # rapporto coerente
+        ratio = GA90_last5 / xGA90_last5
+        factor_overperf = np.clip(ratio, 0.7, 1.3)
+
+    # ------------------------------
+    # 3) Mix finale
+    # ------------------------------
+    final_factor = (
+        w_xga * factor_xG +
+        w_overperf * factor_overperf
+    )
+    final_factor = np.clip(final_factor, 0.7, 1.3)
 
     return base_xG * final_factor
 
@@ -2344,3 +2464,24 @@ def tune_feature_weights(
 
     return final_model, best_w, best_rmse
 
+def count_matchdays(teams_df: pd.DataFrame) -> int:
+    """
+    Restituisce quante giornate sono state giocate nella stagione corrente,
+    contando quante partite ha disputato la prima squadra trovata nel df.
+    """
+
+    # Prende la prima squadra presente nel df
+    first_team = teams_df["team_name"].iloc[0]
+
+    # Filtra tutte le sue partite (home o away)
+    team_matches = teams_df[teams_df["team_name"] == first_team]
+
+    # Il numero di partite è il numero di giornate
+    return len(team_matches)
+
+def get_h_a_opponent(h_a_player):
+    if h_a_player == "h":
+        h_a = "a"
+    elif h_a_player == "a":
+        h_a = "h"
+    return h_a

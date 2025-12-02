@@ -780,56 +780,82 @@ class Preprocessor:
         df["shot_quality_index"] = df["shot_quality_index"].clip(0, 1)
 
         return df
-
     
-def build_team_dataframe(team_data: dict) -> pd.DataFrame:
-    """
-        Converte un dizionario `team_data` in un DataFrame con tutte le partite
-        e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
+    def add_home_away_xg_features(self,df):
 
-        Args:
-            team_data (dict): dizionario del tipo {
-                '94': {'id': '94', 'title': 'Verona', 'history': [ {...}, {...}, ... ]},
-                '95': {'id': '95', 'title': 'Roma', 'history': [ {...}, {...}, ... ]},
-                ...
-            }
+        df = df.copy()
 
-        Returns:
-            pd.DataFrame: DataFrame completo con colonne xG_last5 e xGA_last5
-    """
+        # xG prodotto in casa / fuori
+        df["xG_h"] = (
+            df.groupby("team_name")["xG"]
+            .transform(lambda s: s.where(df["h_a"]=="h").fillna(0))
+        )
+        df["xG_a"] = (
+            df.groupby("team_name")["xG"]
+            .transform(lambda s: s.where(df["h_a"]=="a").fillna(0))
+        )
 
-    rows = []
+        # xGA concesso in casa / fuori
+        df["xGA_h"] = (
+            df.groupby("team_name")["xGA"]
+            .transform(lambda s: s.where(df["h_a"]=="h").fillna(0))
+        )
+        df["xGA_a"] = (
+            df.groupby("team_name")["xGA"]
+            .transform(lambda s: s.where(df["h_a"]=="a").fillna(0))
+        )
 
-    # 1️⃣ Espandi il dizionario in righe
-    for team_id, team in team_data.items():
-        title = team.get("title", "")
-        history = team.get("history", [])
-        for match in history:
-            rows.append({**match, "team_id": team_id, "team_name": title})
-
-    # 2️⃣ Crea il DataFrame
-    df = pd.DataFrame(rows)
-
-    # Se non ci sono partite, ritorna subito
-    if df.empty:
         return df
 
-    # 3️⃣ Converti la colonna "date" in datetime e ordina
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.sort_values(["team_name", "date"]).reset_index(drop=True)
-
-    # 4️⃣ Calcola medie mobili (ultime 5 partite, escludendo quella corrente)
-    df["xG_last5"] = (
-        df.groupby("team_name")["xG"]
-        .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
-    )
-    df["xGA_last5"] = (
-        df.groupby("team_name")["xGA"]
-        .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
-    )
-
     
+    def build_team_dataframe(self,team_data: dict) -> pd.DataFrame:
+        """
+            Converte un dizionario `team_data` in un DataFrame con tutte le partite
+            e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
 
-    return df
+            Args:
+                team_data (dict): dizionario del tipo {
+                    '94': {'id': '94', 'title': 'Verona', 'history': [ {...}, {...}, ... ]},
+                    '95': {'id': '95', 'title': 'Roma', 'history': [ {...}, {...}, ... ]},
+                    ...
+                }
+
+            Returns:
+                pd.DataFrame: DataFrame completo con colonne xG_last5 e xGA_last5
+        """
+
+        rows = []
+
+        # 1️⃣ Espandi il dizionario in righe
+        for team_id, team in team_data.items():
+            title = team.get("title", "")
+            history = team.get("history", [])
+            for match in history:
+                rows.append({**match, "team_id": team_id, "team_name": title})
+
+        # 2️⃣ Crea il DataFrame
+        df = pd.DataFrame(rows)
+
+        # Se non ci sono partite, ritorna subito
+        if df.empty:
+            return df
+
+        # 3️⃣ Converti la colonna "date" in datetime e ordina
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values(["team_name", "date"]).reset_index(drop=True)
+
+        # 4️⃣ Calcola medie mobili (ultime 5 partite, escludendo quella corrente)
+        df["xG_last5_mean"] = (
+            df.groupby("team_name")["xG"]
+            .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
+        )
+        df["xGA_last5_mean"] = (
+            df.groupby("team_name")["xGA"]
+            .transform(lambda x: x.shift().rolling(5, min_periods=1).mean())
+        )
+
+        df = self.add_home_away_xg_features(df)
+
+        return df
 
     
