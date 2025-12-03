@@ -19,26 +19,37 @@ def main():
     st.set_page_config(page_title="Bonus Predictor ⚽", page_icon="✨", layout="centered")
     
     st.markdown("""
-    <style>
+        <style>
 
-    /* Sfondo blu notte */
-    .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-    }
+        /* Sfondo blu chiaro */
+        .stApp {
+            background: linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%) !important;
+        }
 
-    /* Contenuti su sfondo trasparente */
-    .main, .stAppViewContainer, .block-container {
-        background: transparent !important;
-    }
+        /* Contenitori trasparenti */
+        .main, .stAppViewContainer, .block-container {
+            background: transparent !important;
+        }
+        [data-testid="stAppViewContainer"] {
+            background-color: transparent !important;
+        }
 
-    [data-testid="stAppViewContainer"] {
-        background-color: transparent !important;
-    }
+        /* 🔥 TESTO ULTRA LEGGIBILE */
+        html, body, [class*="css"], .stMarkdown, .stText, .stSelectbox label, .stRadio label,
+        .stMetric, .stMetric label, .stRadio, .stSelectbox, .stButton, .stAlert {
+            color: #ffffff !important;       /* Testo bianco purissimo */
+            font-weight: 600 !important;     /* Leggermente più marcato */
+            text-shadow: 1px 1px 2px #00000066;  /* Leggera ombra per super contrasto */
+        }
 
-    </style>
-    """, unsafe_allow_html=True)
+        /* Titolo */
+        h1, h2, h3, h4, h5 {
+            color: #ffffff !important;
+            text-shadow: 2px 2px 4px #00000055;
+        }
 
-
+        </style>
+        """, unsafe_allow_html=True)
 
     st.title("🎯 Bonus Predictor")
     st.markdown("Prevedi la probabilità che un giocatore **segni o faccia assist** nella prossima partita.")
