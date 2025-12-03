@@ -65,10 +65,9 @@ def main():
         opponent1 = st.selectbox("⚔️ Avversario 1", [""] + opponents,
                                  index=opponents.index(default_opponent1) + 1 if default_opponent1 in opponents else 0)     
         if num_giornate >= 10:
-            st.markdown(f"### ⚑ {player1} gioca in:")
 
             place = st.radio(
-                f"Dove gioca {player1}?👤",
+                f"## Dove gioca {player1}?👤",
                 ["🏠 Casa", "✈️ Trasferta"],
                 horizontal=True
             )
@@ -93,7 +92,7 @@ def main():
             st.markdown(f"### ⚑ {player2} gioca in:")
 
             place = st.radio(
-                f"👤Dove gioca {player2}?",
+                f"##👤Dove gioca {player2}?",
                 ["🏠 Casa", "✈️ Trasferta"],
                 horizontal=True
             )
