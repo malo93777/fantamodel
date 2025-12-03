@@ -156,8 +156,6 @@ def main():
             df_p = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]
             df_p_assist = df_orig_assist[df_orig_assist["player"].str.contains(player, case=False, na=False)]
 
-            st.markdown("### 📊 Statistiche a confronto (Serie A)")
-
             col1, col2 = st.columns(2)
 
             with col1:
@@ -193,7 +191,7 @@ def main():
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
 
             st.markdown("---")
-            st.caption("🧠 Basato su xG, forma recente, efficienza di finalizzazione e forza difensiva avversaria.")
+            st.caption("🧠 Basato su xG, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
 
 # =====================================================
 # 🔹 Run app

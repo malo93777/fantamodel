@@ -65,8 +65,22 @@ def main():
         opponent1 = st.selectbox("⚔️ Avversario 1", [""] + opponents,
                                  index=opponents.index(default_opponent1) + 1 if default_opponent1 in opponents else 0)     
         if num_giornate >= 10:
-            is_home1 = st.checkbox("🏠 Giocatore 1 gioca in casa")
-            is_away1 = st.checkbox("✈️ Giocatore 1 gioca in trasferta")
+            st.markdown(f"### ⚑ {player1} gioca in:")
+
+            place = st.radio(
+                "",
+                ["🏠 Casa", "✈️ Trasferta"],
+                horizontal=True
+            )
+            if place == "🏠 Casa":
+                is_home1 = True
+                is_away1 = False
+            elif place == "✈️ Trasferta":
+                is_home1 = False
+                is_away1 = True
+            else:
+                is_home1 = False
+                is_away1 = False
 
     with col2:
         player2 = st.selectbox("👤 Giocatore 2", [""] + players,
@@ -76,8 +90,23 @@ def main():
         opponent2 = st.selectbox("⚔️ Avversario 2", [""] + opponents,
                                  index=opponents.index(default_opponent2) + 1 if default_opponent2 in opponents else 0)
         if num_giornate >= 10:
-            is_home2 = st.checkbox("🏠 Giocatore 2 gioca in casa")
-            is_away2 = st.checkbox("✈️ Giocatore 2 gioca in trasferta")
+            st.markdown(f"### ⚑ {player2} gioca in:")
+
+            place = st.radio(
+                "",
+                ["🏠 Casa", "✈️ Trasferta"],
+                horizontal=True
+            )
+            if place == "🏠 Casa":
+                is_home2 = True
+                is_away2 = False
+            elif place == "✈️ Trasferta":
+                is_home2 = False
+                is_away2 = True
+            else:
+                is_home2 = False
+                is_away2 = False
+
 
     compare_btn = st.button("🔍 Confronta")
 
@@ -264,6 +293,8 @@ def main():
                     height=600
                 )
                 st.plotly_chart(radar, use_container_width=True)
+
+                st.caption("🧠 Basato su xG, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
 
                 # Link di condivisione
                 #st.markdown("### 🔗 Condividi questo confronto")
