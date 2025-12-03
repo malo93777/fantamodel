@@ -3,6 +3,22 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="FantaModel", layout="wide")
 
+# Nascondi sidebar
+hide_sidebar = """
+    <style>
+        [data-testid="stSidebar"] { 
+            display: none;
+        }
+        .block-container {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            padding-top: 0 !important;
+        }
+    </style>
+"""
+
+st.markdown(hide_sidebar, unsafe_allow_html=True)
+
 # HTML completo
 html_code = """
 <style>
