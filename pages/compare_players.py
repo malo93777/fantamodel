@@ -292,7 +292,7 @@ def main():
                 )
                 st.plotly_chart(radar, use_container_width=True)
 
-                st.caption("🧠 Basato su xG, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
+                st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
 
                 # Link di condivisione
                 #st.markdown("### 🔗 Condividi questo confronto")
