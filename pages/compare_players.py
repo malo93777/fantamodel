@@ -27,25 +27,25 @@ def main():
 
      # 🔵 Sfondo blu rilassante
     st.markdown("""
-        <style>
+    <style>
 
-        /* Sfondo generale */
-        .stApp {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-        }
+    /* Sfondo generale più chiaro */
+    .stApp {
+        background: linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%) !important;
+    }
 
-        /* Sfondo container contenuti */
-        .main, .stAppViewContainer, .block-container {
-            background: transparent !important;
-        }
+    /* Rendi i contenuti visibili */
+    .main, .stAppViewContainer, .block-container {
+        background: transparent !important;
+    }
 
-        /* Rimuovi eventuali layer bianchi */
-        [data-testid="stAppViewContainer"] {
-            background-color: transparent !important;
-        }
+    [data-testid="stAppViewContainer"] {
+        background-color: transparent !important;
+    }
 
-        </style>
-        """, unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
+
 
     st.title("⚔️ Confronta Giocatori")
     st.markdown("Confronta due giocatori su **forma**, **xG**, e probabilità di **goal, assist o bonus totale.**")
