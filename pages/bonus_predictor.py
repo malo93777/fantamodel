@@ -18,27 +18,26 @@ from sklearn.preprocessing import StandardScaler
 def main():
     st.set_page_config(page_title="Bonus Predictor ⚽", page_icon="✨", layout="centered")
     
-    # 🔵 Sfondo blu rilassante
     st.markdown("""
-        <style>
+    <style>
 
-        /* Sfondo generale */
-        .stApp {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-        }
+    /* Sfondo blu notte */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    }
 
-        /* Sfondo container contenuti */
-        .main, .stAppViewContainer, .block-container {
-            background: transparent !important;
-        }
+    /* Contenuti su sfondo trasparente */
+    .main, .stAppViewContainer, .block-container {
+        background: transparent !important;
+    }
 
-        /* Rimuovi eventuali layer bianchi */
-        [data-testid="stAppViewContainer"] {
-            background-color: transparent !important;
-        }
+    [data-testid="stAppViewContainer"] {
+        background-color: transparent !important;
+    }
 
-        </style>
-        """, unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
+
 
 
     st.title("🎯 Bonus Predictor")
