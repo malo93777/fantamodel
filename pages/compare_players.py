@@ -25,8 +25,34 @@ def main():
 
     st.set_page_config(page_title="Confronto Giocatori ⚔️", layout="centered")
 
+     # 🔵 Sfondo blu rilassante
+    st.markdown("""
+        <style>
+
+        /* Sfondo generale */
+        .stApp {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+        }
+
+        /* Sfondo container contenuti */
+        .main, .stAppViewContainer, .block-container {
+            background: transparent !important;
+        }
+
+        /* Rimuovi eventuali layer bianchi */
+        [data-testid="stAppViewContainer"] {
+            background-color: transparent !important;
+        }
+
+        </style>
+        """, unsafe_allow_html=True)
+
     st.title("⚔️ Confronta Giocatori")
     st.markdown("Confronta due giocatori su **forma**, **xG**, e probabilità di **goal, assist o bonus totale.**")
+
+     # 🔙 Pulsante torna alla Home
+    if st.button("🏠 Torna alla Home"):
+        st.switch_page("app.py")
 
     # Carica dati e modelli
     models_goal = utils.load_models()
@@ -256,12 +282,12 @@ def main():
 
                     colA2, colB2 = st.columns(2)
                     with colA2:
-                        st.metric("📊 xG medio SA", f"{p2['sum_xG']:.2f}")
+                        st.metric("📊 xG medio", f"{p2['sum_xG']:.2f}")
                         st.metric("🔥 xG ultime 5", f"{p2['xG_last5']:.2f}")
                         st.metric("🎯 xA ultime 5", f"{p2['xA_last5']:.2f}")
 
                     with colB2:
-                        st.metric("📈 xA medio SA", f"{p2['sum_xA']:.2f}")
+                        st.metric("📈 xA medio", f"{p2['sum_xA']:.2f}")
                         st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
                         st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
 

@@ -21,14 +21,25 @@ def main():
     # 🔵 Sfondo blu rilassante
     st.markdown("""
         <style>
-            body {
-                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-            }
-            .stApp {
-                background: transparent !important;
-            }
+
+        /* Sfondo generale */
+        .stApp {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+        }
+
+        /* Sfondo container contenuti */
+        .main, .stAppViewContainer, .block-container {
+            background: transparent !important;
+        }
+
+        /* Rimuovi eventuali layer bianchi */
+        [data-testid="stAppViewContainer"] {
+            background-color: transparent !important;
+        }
+
         </style>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
 
     st.title("🎯 Bonus Predictor")
     st.markdown("Prevedi la probabilità che un giocatore **segni o faccia assist** nella prossima partita.")
