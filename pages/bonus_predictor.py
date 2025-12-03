@@ -17,8 +17,24 @@ from sklearn.preprocessing import StandardScaler
 # =====================================================
 def main():
     st.set_page_config(page_title="Bonus Predictor ⚽", page_icon="✨", layout="centered")
+    
+    # 🔵 Sfondo blu rilassante
+    st.markdown("""
+        <style>
+            body {
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+            }
+            .stApp {
+                background: transparent !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.title("🎯 Bonus Predictor")
     st.markdown("Prevedi la probabilità che un giocatore **segni o faccia assist** nella prossima partita.")
+    # 🔙 Pulsante torna alla Home
+    if st.button("🏠 Torna alla Home"):
+        st.switch_page("app.py")
 
     # --- Carica dataset e modelli
     models_goal = utils.load_models()  # modelli goal
