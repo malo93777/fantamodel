@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from utils import prepare_features_xgb, prepare_features_assist, load_models, load_models_assist,predict_goal_probability,get_alpha_for_role
+import utils
 
 DATASET_DATA_DIR = config.DATASET_DATA_DIR
 PROD_DATA_FILE_GOALS = config.PROD_DATA_FILE_GOALS
@@ -29,8 +29,8 @@ def main():
     st.markdown("Confronta due giocatori su **forma**, **xG**, e probabilità di **goal, assist o bonus totale.**")
 
     # Carica dati e modelli
-    models_goal = load_models()
-    models_assist = load_models_assist()
+    models_goal = utils.load_models()
+    models_assist = utils.load_models_assist()
     df_orig_goal = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -39,7 +39,7 @@ def main():
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
     teams = sorted(df_teams[df_teams['season'] == CURRENT_SEASON]['Team'].dropna().unique().tolist())
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
-    num_giornate = count_matchdays(df_teams_curr_season)
+    num_giornate = utils.count_matchdays(df_teams_curr_season)
     # ======================================================
     # 🔗 Gestione query parameters
     # ======================================================
@@ -89,7 +89,7 @@ def main():
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")   
 
-        X_goal, role = prepare_features_xgb(
+        X_goal, role = utils.prepare_features_xgb(
             features_names=features_names_goal,
             player=player,
             team=team,
@@ -102,7 +102,7 @@ def main():
             h_a_player=h_a_player
         )
 
-        X_assist = prepare_features_assist(
+        X_assist = utils.prepare_features_assist(
             features_names=models_assist["log_reg_assist"].feature_names_in_,
             player=player,
             team=team,
@@ -115,12 +115,12 @@ def main():
         if X_goal is None or X_assist is None:
             return None
 
-        proba_goal = predict_goal_probability(
+        proba_goal = utils.predict_goal_probability(
                     model=models_goal["poiss_reg"],
                     X_goal=X_goal,
                     player=player,
                     role=role,
-                    get_alpha_for_role_fn=get_alpha_for_role
+                    get_alpha_for_role_fn=utils.get_alpha_for_role
                     )    
         proba_assist = models_assist["log_reg_assist"].predict_proba(X_assist)[0, 1]
         proba_bonus = 1 - (1 - proba_goal) * (1 - proba_assist)
@@ -175,35 +175,84 @@ def main():
             p2 = get_player_data(player2, team2, opponent2, h_a_player=h_a_player2)
 
             if p1 and p2:
+
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
                 col1, col2 = st.columns(2)
+
+                # --- PLAYER 1 ---
                 with col1:
-                    st.subheader(p1["player"])
-                    st.metric("xG medio in Serie A", f"{p1['sum_xG']:.2f}")
-                    st.metric("xG medio ultime 5 partite", f"{p1['xG_last5']:.2f}")
-                    st.metric("xAssist medio in Serie A", f"{p1['sum_xA']:.2f}")
-                    st.metric("xAssist medio ultime 5 partite", f"{p1['xA_last5']:.2f}")
-                    st.metric("Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
-                    st.metric("Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
+                    st.markdown(
+                        f"""
+                        <div style='
+                            background-color:#1f2937;
+                            padding:16px;
+                            border-radius:12px;
+                            text-align:center;
+                            margin-bottom:12px;
+                        '>
+                            <h3 style='color:white; margin:0;'>{p1["player"]}</h3>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    colA, colB = st.columns(2)
+                    with colA:
+                        st.metric("📊 xG medio SA", f"{p1['sum_xG']:.2f}")
+                        st.metric("🔥 xG ultime 5", f"{p1['xG_last5']:.2f}")
+                        st.metric("🎯 xA ultime 5", f"{p1['xA_last5']:.2f}")
+
+                    with colB:
+                        st.metric("📈 xA medio SA", f"{p1['sum_xA']:.2f}")
+                        st.metric("⚽ Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
+                        st.metric("✨ Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
+
                     st.metric("💎 Prob. Bonus Totale", f"{p1['prob_bonus']*100:.1f}%")
 
+                # --- PLAYER 2 ---
                 with col2:
-                    st.subheader(p2["player"])
-                    st.metric("xG medio", f"{p2['sum_xG']:.2f}")
-                    st.metric("xG medio ultime 5 partite", f"{p2['xG_last5']:.2f}")
-                    st.metric("xAssist medio", f"{p2['sum_xA']:.2f}")
-                    st.metric("xAssist medio ultime 5 partite", f"{p2['xA_last5']:.2f}")
-                    st.metric("Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
-                    st.metric("Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+                    st.markdown(
+                        f"""
+                        <div style='
+                            background-color:#1f2937;
+                            padding:16px;
+                            border-radius:12px;
+                            text-align:center;
+                            margin-bottom:12px;
+                        '>
+                            <h3 style='color:white; margin:0;'>{p2["player"]}</h3>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    colA2, colB2 = st.columns(2)
+                    with colA2:
+                        st.metric("📊 xG medio SA", f"{p2['sum_xG']:.2f}")
+                        st.metric("🔥 xG ultime 5", f"{p2['xG_last5']:.2f}")
+                        st.metric("🎯 xA ultime 5", f"{p2['xA_last5']:.2f}")
+
+                    with colB2:
+                        st.metric("📈 xA medio SA", f"{p2['sum_xA']:.2f}")
+                        st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
+                        st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+
                     st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
-                # Grafico Radar
+                # --- RADAR PLOT ---
                 radar = go.Figure()
                 categories = ["xG medio in Serie A", "xG ultime 5", "xA ultime 5", "Prob. Goal", "Prob. Assist", "Prob. Bonus"]
 
-                p1_values = [p1["sum_xG"], p1["xG_last5"], p1["xA_last5"], p1["prob_goal"], p1["prob_assist"], p1["prob_bonus"]]
-                p2_values = [p2["sum_xG"], p2["xG_last5"], p2["xA_last5"], p2["prob_goal"], p2["prob_assist"], p2["prob_bonus"]]
+                p1_values = [
+                    p1["sum_xG"], p1["xG_last5"], p1["xA_last5"],
+                    p1["prob_goal"], p1["prob_assist"], p1["prob_bonus"]
+                ]
+
+                p2_values = [
+                    p2["sum_xG"], p2["xG_last5"], p2["xA_last5"],
+                    p2["prob_goal"], p2["prob_assist"], p2["prob_bonus"]
+                ]
 
                 radar.add_trace(go.Scatterpolar(r=p1_values, theta=categories, fill='toself', name=p1["player"], line_color="dodgerblue"))
                 radar.add_trace(go.Scatterpolar(r=p2_values, theta=categories, fill='toself', name=p2["player"], line_color="orange"))

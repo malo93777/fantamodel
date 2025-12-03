@@ -50,11 +50,20 @@ def main():
 
             st.markdown("### ⚑ Il giocatore gioca in:")
 
-            col_home, col_away = st.columns(2)
-            with col_home:
-                is_home = st.checkbox("🏠 Casa")
-            with col_away:
-                is_away = st.checkbox("✈️ Trasferta")
+            place = st.radio(
+                "",
+                ["🏠 Casa", "✈️ Trasferta"],
+                horizontal=True
+            )
+            if place == "🏠 Casa":
+                is_home = True
+                is_away = False
+            elif place == "✈️ Trasferta":
+                is_home = False
+                is_away = True
+            else:
+                is_home = False
+                is_away = False
 
             submitted = st.form_submit_button("Prevedi Bonus")
 
@@ -142,7 +151,46 @@ def main():
             st.metric(label="Probabilità complessiva", value=f"{prob_any*100:.1f}%")
 
             # Barra di progressione
-            st.progress(float(prob_any))   
+            st.progress(float(prob_any))  
+
+            df_p = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]
+            df_p_assist = df_orig_assist[df_orig_assist["player"].str.contains(player, case=False, na=False)]
+
+            st.markdown("### 📊 Statistiche a confronto (Serie A)")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                curr_season_df = df_p[df_p['season'] == config.CURRENT_SEASON]
+                curr_season_df_assist = df_p_assist[df_p_assist['season'] == config.CURRENT_SEASON]
+
+                st.markdown(
+                    f"""
+                    <div style='
+                        background-color:#1f2937;
+                        padding:18px;
+                        border-radius:12px;
+                        text-align:center;
+                        margin-bottom:12px;
+                    '>
+                        <h2 style='color:white; margin:0;'>{df_p["player"].iloc[0]}</h2>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                # Metriche in griglia
+                colA, colB = st.columns(2)
+                with colA:
+                    st.metric("📅 Presenze", f"{curr_season_df.shape[0]}")
+                    st.metric("⚽ Gol segnati", f"{int(curr_season_df['goals'].sum())}")
+                    st.metric("🎯 Assist forniti", f"{int(curr_season_df_assist['assists'].sum())}")
+
+                with colB:
+                    st.metric("📊 xG medio stagione", f"{curr_season_df['sum_xG'].mean():.2f}")
+                    st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
+                    st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
+                    st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, forma recente, efficienza di finalizzazione e forza difensiva avversaria.")
