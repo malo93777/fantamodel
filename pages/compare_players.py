@@ -68,7 +68,7 @@ def main():
             st.markdown(f"### ⚑ {player1} gioca in:")
 
             place = st.radio(
-                f"Dove gioca {player1}?",
+                f"Dove gioca {player1}?👤",
                 ["🏠 Casa", "✈️ Trasferta"],
                 horizontal=True
             )
@@ -93,7 +93,7 @@ def main():
             st.markdown(f"### ⚑ {player2} gioca in:")
 
             place = st.radio(
-                f"Dove gioca {player2}?",
+                f"👤Dove gioca {player2}?",
                 ["🏠 Casa", "✈️ Trasferta"],
                 horizontal=True
             )
