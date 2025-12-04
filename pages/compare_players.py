@@ -259,6 +259,10 @@ def main():
                     )
 
                     colA, colB = st.columns(2)
+
+                    # -----------------------
+                    # 📍 COLONNA SINISTRA (STATISTICHE)
+                    # -----------------------
                     with colA:
                         st.metric("📊 xG medio", f"{p1['sum_xG']:.2f}")
                         st.metric("🔥 xG ultime 5", f"{p1['xG_last5']:.2f}")
@@ -267,26 +271,15 @@ def main():
                         st.metric("📅 Presenze", f"{p1['appearances']}")
                         st.metric("⚽ Gol segnati", f"{int(p1['goals'])}")
                         st.metric("🎯 Assist forniti", f"{int(p1['assists'])}")
-                    
-                    with colB:
-                        st.markdown("""
-                            <div style="
-                                background-color: #10b98122;      /* verde chiaro trasparente */
-                                border: 2px solid #10b981;        /* verde */
-                                border-radius: 12px;
-                                padding: 16px;
-                                margin-top: 10px;
-                            ">
-                        """, unsafe_allow_html=True)
 
-                        colA, colB, colC = st.columns(3)
-                        with colA:
-                            st.metric("⚽ Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
-                        with colB:
-                            st.metric("✨ Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
-                        with colC:
-                            st.metric("💎 Prob. Bonus Totale", f"{p1['prob_bonus']*100:.1f}%")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                    # -----------------------
+                    # 📍 COLONNA DESTRA (PROBABILITÀ)
+                    # -----------------------
+                    with colB:
+                        st.metric("⚽ Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
+                        st.metric("✨ Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
+                        st.metric("💎 Prob. Bonus Totale", f"{p1['prob_bonus']*100:.1f}%")
+
 
                 # --- PLAYER 2 ---
                 with col2:
