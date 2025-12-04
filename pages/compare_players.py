@@ -183,12 +183,18 @@ def main():
         if df_p.empty or df_p_assist.empty:
             return None
 
+        curr_season_df = df_p[df_p['season'] == config.CURRENT_SEASON]
+        curr_season_df_assist = df_p_assist[df_p_assist['season'] == config.CURRENT_SEASON]
+
         return {
             "player": player,
-            "sum_xG": df_p["sum_xG"].mean(),
-            "xG_last5": df_p["sum_xG"].rolling(5).mean().iloc[-1],
-            "sum_xA": df_p_assist["sum_xA"].mean(),
-            "xA_last5": df_p_assist["sum_xA"].rolling(5).mean().iloc[-1],
+            "sum_xG": curr_season_df["sum_xG"].mean(),
+            "xG_last5": curr_season_df["sum_xG"].rolling(5).mean().iloc[-1],
+            "sum_xA": curr_season_df_assist["sum_xA"].mean(),
+            "xA_last5": curr_season_df_assist["sum_xA"].rolling(5).mean().iloc[-1],
+            "goals": curr_season_df["goals"].sum(),
+            "assists": curr_season_df_assist["assists"].sum(),
+            "appearances": curr_season_df.shape[0],
             "prob_goal": proba_goal,
             "prob_assist": proba_assist,
             "prob_bonus": proba_bonus
@@ -229,10 +235,7 @@ def main():
 
             if p1 and p2:
 
-                curr_season_df_p1 = p1[p1['season'] == config.CURRENT_SEASON]
-                curr_season_df_assist_p1 = p1[p1['season'] == config.CURRENT_SEASON]
-                curr_season_df_p2 = p2[p2['season'] == config.CURRENT_SEASON]
-                curr_season_df_assist_p2 = p2[p2['season'] == config.CURRENT_SEASON]
+
 
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
@@ -257,13 +260,13 @@ def main():
 
                     colA, colB = st.columns(2)
                     with colA:
-                        st.metric("📊 xG medio", f"{curr_season_df_p1['sum_xG']:.2f}")
-                        st.metric("🔥 xG ultime 5", f"{curr_season_df_p1['xG_last5']:.2f}")
-                        st.metric("📈 xA medio", f"{curr_season_df_assist_p1['sum_xA']:.2f}")
-                        st.metric("🎯 xA ultime 5", f"{curr_season_df_assist_p1['xA_last5']:.2f}")
-                        st.metric("📅 Presenze", f"{curr_season_df_p1.shape[0]}")
-                        st.metric("⚽ Gol segnati", f"{int(curr_season_df_p1['goals'].sum())}")
-                        st.metric("🎯 Assist forniti", f"{int(curr_season_df_assist_p1['assists'].sum())}")
+                        st.metric("📊 xG medio", f"{p1['sum_xG']:.2f}")
+                        st.metric("🔥 xG ultime 5", f"{p1['xG_last5']:.2f}")
+                        st.metric("📈 xA medio", f"{p1['sum_xA']:.2f}")
+                        st.metric("🎯 xA ultime 5", f"{p1['xA_last5']:.2f}")
+                        st.metric("📅 Presenze", f"{p1['appearances']}")
+                        st.metric("⚽ Gol segnati", f"{int(p1['goals'])}")
+                        st.metric("🎯 Assist forniti", f"{int(p1['assists'])}")
                     
                     with colB:
                         st.markdown("""
