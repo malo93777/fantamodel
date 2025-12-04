@@ -5,6 +5,7 @@ from style import hide_streamlit_ui
 hide_streamlit_ui()
 
 st.set_page_config(page_title="FantaModel", layout="wide")
+hide_streamlit_ui()
 
 # 🔵 Nascondi completamente sidebar + barra superiore Streamlit
 HIDE_ALL = """
