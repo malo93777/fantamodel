@@ -3,21 +3,34 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="FantaModel", layout="wide")
 
-# Nascondi sidebar
-hide_sidebar = """
-    <style>
-        [data-testid="stSidebar"] { 
-            display: none;
-        }
-        .block-container {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-            padding-top: 0 !important;
-        }
-    </style>
+# 🔵 Nascondi completamente sidebar + barra superiore Streamlit
+HIDE_ALL = """
+<style>
+    /* Nasconde sidebar */
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+
+    /* Nasconde barra superiore (hamburger + "Made with Streamlit") */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    
+    /* Rimuove spazio superiore */
+    .block-container {
+        padding-top: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Rimuove pallino menu laterale mobile */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+</style>
 """
 
-st.markdown(hide_sidebar, unsafe_allow_html=True)
+st.markdown(HIDE_ALL, unsafe_allow_html=True)
 
 # HTML completo
 html_code = """
