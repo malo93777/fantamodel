@@ -315,26 +315,16 @@ def main():
                         st.metric("⚽ Gol segnati", f"{int(p2['goals'])}")
                         st.metric("🎯 Assist forniti", f"{int(p2['assists'])}")
 
-                    with colB2:
-                        st.markdown("""
-                            <div style="
-                                background-color: #10b98122;      /* verde chiaro trasparente */
-                                border: 2px solid #10b981;        /* verde */
-                                border-radius: 12px;
-                                padding: 16px;
-                                margin-top: 10px;
-                            ">
-                        """, unsafe_allow_html=True)
+                    with colB2:                   
 
-                        colA, colB, colC = st.columns(3)
+                        colA, colB = st.columns(2)
                         with colA:
                             st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
                         with colB:
                             st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
-                        with colC:
-                            st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
-
-                        st.markdown("</div>", unsafe_allow_html=True)
+                            
+                    st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")           
+                    st.markdown("</div>", unsafe_allow_html=True)
         
 
                 # --- RADAR PLOT ---
