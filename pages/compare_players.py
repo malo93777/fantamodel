@@ -317,15 +317,12 @@ def main():
 
                     with colB2:                   
 
-                        colA, colB = st.columns(2)
-                        with colA:
-                            st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
-                        with colB:
-                            st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
-                            
-                    st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")           
-                    st.markdown("</div>", unsafe_allow_html=True)
-        
+                      with colB2:
+                        st.metric("📈 xA medio", f"{p2['sum_xA']:.2f}")
+                        st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
+                        st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+
+                    st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
                 # --- RADAR PLOT ---
                 radar = go.Figure()
