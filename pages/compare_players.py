@@ -306,6 +306,10 @@ def main():
                     )
 
                     colA2, colB2 = st.columns(2)
+
+                    # -----------------------
+                    # 📍 COLONNA SINISTRA (STATISTICHE)
+                    # -----------------------
                     with colA2:
                         st.metric("📊 xG medio", f"{p2['sum_xG']:.2f}")
                         st.metric("🔥 xG ultime 5", f"{p2['xG_last5']:.2f}")
@@ -315,14 +319,14 @@ def main():
                         st.metric("⚽ Gol segnati", f"{int(p2['goals'])}")
                         st.metric("🎯 Assist forniti", f"{int(p2['assists'])}")
 
-                    with colB2:                   
-
-                      with colB2:
-                        st.metric("📈 xA medio", f"{p2['sum_xA']:.2f}")
+                    # -----------------------
+                    # 📍 COLONNA DESTRA (PROBABILITÀ)
+                    # -----------------------
+                    with colB2:
                         st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
                         st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+                        st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
-                    st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
                 # --- RADAR PLOT ---
                 radar = go.Figure()
