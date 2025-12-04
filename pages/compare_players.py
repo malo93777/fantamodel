@@ -281,12 +281,11 @@ def main():
 
                         colA, colB, colC = st.columns(3)
                         with colA:
-                            st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
+                            st.metric("⚽ Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
                         with colB:
-                            st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+                            st.metric("✨ Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
                         with colC:
-                            st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
-
+                            st.metric("💎 Prob. Bonus Totale", f"{p1['prob_bonus']*100:.1f}%")
                         st.markdown("</div>", unsafe_allow_html=True)
 
                 # --- PLAYER 2 ---
