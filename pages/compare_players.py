@@ -308,13 +308,13 @@ def main():
 
                     colA2, colB2 = st.columns(2)
                     with colA2:
-                        st.metric("📊 xG medio", f"{curr_season_df_p2['sum_xG']:.2f}")
-                        st.metric("🔥 xG ultime 5", f"{curr_season_df_p2['xG_last5']:.2f}")
-                        st.metric("📈 xA medio", f"{curr_season_df_assist_p2['sum_xA']:.2f}")
-                        st.metric("🎯 xA ultime 5", f"{curr_season_df_assist_p2['xA_last5']:.2f}")
-                        st.metric("📅 Presenze", f"{curr_season_df_p2.shape[0]}")
-                        st.metric("⚽ Gol segnati", f"{int(curr_season_df_p2['goals'].sum())}")
-                        st.metric("🎯 Assist forniti", f"{int(curr_season_df_assist_p2['assists'].sum())}")
+                        st.metric("📊 xG medio", f"{p2['sum_xG']:.2f}")
+                        st.metric("🔥 xG ultime 5", f"{p2['xG_last5']:.2f}")
+                        st.metric("📈 xA medio", f"{p2['sum_xA']:.2f}")
+                        st.metric("🎯 xA ultime 5", f"{p2['xA_last5']:.2f}")
+                        st.metric("📅 Presenze", f"{p2['appearances']}")
+                        st.metric("⚽ Gol segnati", f"{int(p2['goals'])}")
+                        st.metric("🎯 Assist forniti", f"{int(p2['assists'])}")
 
                     with colB2:
                         st.markdown("""
