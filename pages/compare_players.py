@@ -316,74 +316,26 @@ def main():
                         st.metric("🎯 Assist forniti", f"{int(p2['assists'])}")
 
                     with colB2:
-                        st.markdown(
-                            f"""
+                        st.markdown("""
                             <div style="
-                                background-color: #10b98133;   /* verde chiaro */
-                                padding: 18px;
-                                border-radius: 14px;
-                                text-align: center;
-                                color: #065f46;
-                                font-family: sans-serif;
+                                background-color: #10b98122;      /* verde chiaro trasparente */
+                                border: 2px solid #10b981;        /* verde */
+                                border-radius: 12px;
+                                padding: 16px;
                                 margin-top: 10px;
                             ">
-                                <div style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">
-                                    📈 Probabilità
-                                </div>
+                        """, unsafe_allow_html=True)
 
-                                <div style="display: flex; justify-content: space-around;">
+                        colA, colB, colC = st.columns(3)
+                        with colA:
+                            st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
+                        with colB:
+                            st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+                        with colC:
+                            st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
-                                    <div>
-                                        <div style="font-size: 14px;">⚽ Goal</div>
-                                        <div style="
-                                            font-size: 22px;
-                                            font-weight: 700;
-                                            background: #10b981;
-                                            color: white;
-                                            padding: 6px 14px;
-                                            border-radius: 8px;
-                                            margin-top: 4px;
-                                        ">
-                                            {p2['prob_goal']*100:.1f}%
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style="font-size: 14px;">✨ Assist</div>
-                                        <div style="
-                                            font-size: 22px;
-                                            font-weight: 700;
-                                            background: #10b981;
-                                            color: white;
-                                            padding: 6px 14px;
-                                            border-radius: 8px;
-                                            margin-top: 4px;
-                                        ">
-                                            {p2['prob_assist']*100:.1f}%
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style="font-size: 14px;">💎 Totale</div>
-                                        <div style="
-                                            font-size: 22px;
-                                            font-weight: 700;
-                                            background: #10b981;
-                                            color: white;
-                                            padding: 6px 14px;
-                                            border-radius: 8px;
-                                            margin-top: 4px;
-                                        ">
-                                            {p2['prob_bonus']*100:.1f}%
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-          
+                        st.markdown("</div>", unsafe_allow_html=True)
+        
 
                 # --- RADAR PLOT ---
                 radar = go.Figure()
