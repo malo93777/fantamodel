@@ -253,6 +253,9 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
         
     main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
 
+    if player == "nico paz":
+        main_role = "FM" 
+
     sum_xG_new = penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
 
     sum_xG_new = adjust_xg_by_minutes(sum_xG_new,df["minutes_played"].rolling(window=5, min_periods=1).mean())
@@ -1609,6 +1612,11 @@ def add_overperformance_features(
     role_medians = stats["role_overperf_medians"]
     default_median = stats["default_role_median"]
 
+    #print("Unique POS:", df["position"].unique())
+    #print("Role medians keys:", list(role_medians.keys()))
+
+     #clean position column
+    df["position"] = df["position"].apply(clean_position)
     #ora prendo, usando la chiave che è la posizione del giocatore, la mediana corrispondente
     df["gmedian_role"] = df["position"].map(role_medians).fillna(default_median)
 

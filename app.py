@@ -2,8 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 from style import hide_streamlit_ui
 
-hide_streamlit_ui()
-
 st.set_page_config(page_title="FantaModel", layout="wide")
 hide_streamlit_ui()
 

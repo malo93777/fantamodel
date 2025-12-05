@@ -231,34 +231,6 @@ class Preprocessor:
         )
 
         return merged_df
-   
-    def add_cold_penalty(self, df):
-        """
-        Combina xG e efficienza di finalizzazione in una metrica 'finishing_form',
-        includendo penalità per assenza di gol e smoothing temporale per stabilità.
-        La standardizzazione finale è su tutto il dataset (non per giocatore).
-
-        Parametri:
-            df (pd.DataFrame): dati con colonne ['player', 'date', 'sum_xG', 'finishing_eff_weighted', 'goals']
-            use_rank (bool): se True usa ranks invece di z-score
-            smooth_span (int): span per smoothing EMA
-            mode (str): 'balanced' (default) o 'strict' per penalizzazioni più forti
-        """
-        df = df.copy()
-
-        # 1️⃣ Calcolo streak di partite senza gol
-        df["no_goal_streak"] = (
-            df.groupby("player")["goals"]
-            .apply(lambda g: g.eq(0).astype(int)
-                .groupby(g.ne(0).cumsum()).cumsum().shift(1))
-            .reset_index(level=0, drop=True)
-            .fillna(0)
-        )
-
-        # 2️⃣ Penalità logistica più morbida (chi non segna da molto viene penalizzato)
-        df["cold_penalty"] = 1 / (1 + np.exp(0.25 * (df["no_goal_streak"] - 8)))
-     
-        return df
 
     def compute_cold_penalty(self, df, streak_col="no_goal_streak", a=0.25, b=8, min_penalty=0.4):
         """

@@ -376,7 +376,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         # Rimuovo i "None"
         player_df = player_df[player_df["position"] != "None"]
 
-        #player_df["position_weighted"] = player_df["position"].map(position_weights).fillna(0.3)
+        main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
 
         player_df = utils.add_overperformance_features(player_df, stats, player_col="player", prod=True)
 
@@ -445,7 +445,6 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
             #PLAYER TEAM DATA
             team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
-        #Media ultime 12 partite del giocatore (status giocatore ultimi 3 mesi, utile per il Fanta)
         
 
         sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
@@ -455,9 +454,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         #sum_xG_new = utils.adjust_sumxg_by_defensive_factor(sum_xG_new, df_teams_curr["defensive_adjust_factor_last5"].iloc[-1])
 
         # Streak senza gol
-        cold_penalty = utils.get_latest_cold_penalty(player_df)
-        
-        main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
+        cold_penalty = utils.get_latest_cold_penalty(player_df)     
 
         sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
 
