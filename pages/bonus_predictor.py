@@ -227,7 +227,7 @@ def main():
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
                 with colC:
-                                    # ===============================
+                    # ===============================
                     # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
                     # ===============================
 
@@ -237,7 +237,6 @@ def main():
                     last5_xg = curr_season_df.sort_values("date").tail(5)
                     last5_xa = curr_season_df_assist.sort_values("date").tail(5)
 
-                    # Uniamo xG + xA sulle stesse date (outer join)
                     plot_df = pd.merge(
                         last5_xg[["date", "sum_xG"]],
                         last5_xa[["date", "sum_xA"]],
@@ -245,15 +244,43 @@ def main():
                         how="outer"
                     ).sort_values("date")
 
-                    # Rinomino colonne per estetica
                     plot_df.rename(columns={"sum_xG": "xG", "sum_xA": "xA"}, inplace=True)
 
-                    # Streamlit line chart
-                    st.line_chart(
-                        plot_df.set_index("date"),
-                        height=250,
-                        width=400,
+                    # ---- Plotly ----
+                    import plotly.graph_objects as go
+
+                    fig = go.Figure()
+
+                    fig.add_trace(go.Scatter(
+                        x=plot_df["date"],
+                        y=plot_df["xG"],
+                        mode="lines+markers",
+                        name="xG",
+                        line=dict(color="#3b82f6", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig.add_trace(go.Scatter(
+                        x=plot_df["date"],
+                        y=plot_df["xA"],
+                        mode="lines+markers",
+                        name="xA",
+                        line=dict(color="#10b981", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig.update_layout(
+                        height=330,
+                        width=520,   # <--- LARGHEZZA MAGGIORE
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=False),
+                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)")
                     )
+
+                    st.plotly_chart(fig, use_container_width=False)
+
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
