@@ -226,6 +226,33 @@ def main():
                     st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
+            with col2:
+                                    # ===============================
+                    # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
+                    # ===============================
+
+                    st.markdown("### 📉 Andamento xG / xA nelle ultime 5 partite giocate")
+
+                    # Prendiamo solo le ultime 5 partite del giocatore
+                    last5_xg = curr_season_df.sort_values("date").tail(5)
+                    last5_xa = curr_season_df_assist.sort_values("date").tail(5)
+
+                    # Uniamo xG + xA sulle stesse date (outer join)
+                    plot_df = pd.merge(
+                        last5_xg[["date", "sum_xG"]],
+                        last5_xa[["date", "sum_xA"]],
+                        on="date",
+                        how="outer"
+                    ).sort_values("date")
+
+                    # Rinomino colonne per estetica
+                    plot_df.rename(columns={"sum_xG": "xG", "sum_xA": "xA"}, inplace=True)
+
+                    # Streamlit line chart
+                    st.line_chart(
+                        plot_df.set_index("date"),
+                        height=250
+                    )
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
