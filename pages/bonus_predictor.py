@@ -106,11 +106,11 @@ def main():
 
 
         #*** per test in locale ***
-        submitted = True
-        player = 'nico paz'
-        team = "como"
-        opponent = "cagliari"
-        is_home = True
+        #submitted = True
+        #player = 'nico paz'
+        #team = "como"
+        #opponent = "cagliari"
+        #is_home = True
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
@@ -251,7 +251,8 @@ def main():
                     # Streamlit line chart
                     st.line_chart(
                         plot_df.set_index("date"),
-                        height=250
+                        height=250,
+                        width=400,
                     )
 
             st.markdown("---")
