@@ -226,7 +226,7 @@ def main():
                     st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
-                with colC:
+            with col2:
                     # ===============================
                     # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
                     # ===============================
