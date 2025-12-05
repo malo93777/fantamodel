@@ -262,7 +262,7 @@ def main():
 
                     fig.add_trace(go.Scatter(
                         x=plot_df["date"],
-                        y=plot_df["goals"],
+                        y=plot_df["Goal"],
                         mode="lines+markers",
                         name="Goals",
                         line=dict(color="#10b981", width=3),
