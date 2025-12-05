@@ -231,7 +231,7 @@ def main():
                     # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
                     # ===============================
 
-                    st.markdown("### 📉 Andamento xG / xA nelle ultime 10 partite giocate")
+                    st.markdown("### 📉 Andamento xG / Goal nelle ultime 10 partite giocate")
 
                     # Prendiamo solo le ultime 10 partite del giocatore
                     recente_df_goals = curr_season_df.sort_values("date").tail(10)
