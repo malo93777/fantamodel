@@ -239,7 +239,7 @@ def main():
 
                     plot_df = pd.merge(
                         recente_df_goals[["date", "sum_xG"]],                  
-                        recente_df_assist[["date", "goals"]],
+                        recente_df_goals[["date", "goals"]],
                         on="date",
                         how="outer"
                     ).sort_values("date")
@@ -287,23 +287,20 @@ def main():
 
                     st.markdown("### 📉 Andamento xA / Assist nelle ultime 10 partite giocate")
 
-                    recente_df_goals = curr_season_df.sort_values("date").tail(10)
-                    recente_df_assist = curr_season_df_assist.sort_values("date").tail(10)
-
                     plot_df2 = pd.merge(
-                        recente_df_goals[["date", "sum_xA"]],
+                        recente_df_assist[["date", "sum_xA"]],
                         recente_df_assist[["date", "assists"]],
                         on="date",
                         how="outer"
                     ).sort_values("date")
 
-                    plot_df2.rename(columns={"sum_xA": "xA", "assists": "Assist"}, inplace=True)
+                    plot_df2.rename(columns={"sum_xA": "xAssist", "assists": "Assist"}, inplace=True)
 
                     fig2 = go.Figure()
 
                     fig2.add_trace(go.Scatter(
                         x=plot_df2["date"],
-                        y=plot_df2["xA"],
+                        y=plot_df2["xAssist"],
                         mode="lines+markers",
                         name="xA",
                         line=dict(color="#10b981", width=3),
