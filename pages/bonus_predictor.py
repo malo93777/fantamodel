@@ -215,7 +215,7 @@ def main():
                 )
 
                 # Metriche in griglia
-                colA, colB = st.columns(2)
+                colA, colB, colC = st.columns(3)
                 with colA:
                     st.metric("📅 Presenze", f"{curr_season_df.shape[0]}")
                     st.metric("⚽ Gol segnati", f"{int(curr_season_df['goals'].sum())}")
@@ -226,7 +226,7 @@ def main():
                     st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
-            with col2:
+                with colC:
                                     # ===============================
                     # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
                     # ===============================
