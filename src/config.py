@@ -25,14 +25,12 @@ CURRENT_SEASON_TEAMS_FILE = "teams_current_season.csv"
 GOALS_DATA_FILE_ALL_LEAGUES = "all_leagues_goals.csv"
 
 # Modelli
-CALIB_LOGISTIC_REG = "calibrated_lr.pkl"
 SCALER = "scaler.pkl"
 SCALER_XG = "scaler_xg.pkl"
-POLY_TRANSFORMER = "poly.pkl"
 LIN_POLY = "lin_poly.pkl"
 LIN = "lin.pkl"
-
 POISS_MODEL = "poisson_regressor.pkl"
+POISS_MODEL_ASSIST = "poisson_regressor_assist.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
@@ -52,7 +50,7 @@ BOOST_RESID = 1.0
 
 INPUT = {
     "players": [
-        "scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
+        "david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
         "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco",
@@ -60,21 +58,21 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
+        "juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
         "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan",
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "fiorentina","verona","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "bologna","lazio","fiorentina","verona","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","cagliari","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
         "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"
     ],
     "h_a": [
-        "h","a","h","a","h","a","a",
+        "a","h","a","h","a","h","a","a",
         "h","a","h","a","h","h",
         "a","h","a","a","h","h","a",
         "a","h","a","h","a","h",

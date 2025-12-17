@@ -15,81 +15,74 @@ class TeamsXGAScraper:
 
         return soup
 
-    def mod_df_teams(self, df):
-
-        #*** funzione per aggiungere colonne al df di base che non sono presenti nel dataset originale ***
-
-        df_mod = df.copy()
-        df_mod.index = df_mod.index + 1
-
-        #aggiungo dati per differenza tra xG e gol, xGA e gol subiti
-        df_mod['diff_XG_GOL'] = df_mod['xG'] - df_mod['G']
-        df_mod['diff_xGA_GOLAG'] = df_mod['xGA'] - df_mod['GA']
-        df_mod['XGA_90min'] = df_mod['xGA'] / df_mod['M']# xGAgainst per 90 minuti
-        df_mod['XG_90min'] = df_mod['xG'] / df_mod['M'] # xG per 90 minuti
-
-        #tronco a 2 valori decimali i float
-        df_mod = df_mod.round({"diff_XG_GOL": 2, "diff_xGA_GOLAG": 2, "XGA_90min": 2})
-
-        return df_mod
-
-
     def load_teams(self, soup):
-
-        #soup = get_url_data()
-        # Trova lo script con "teamsData"
-        scripts = soup.find_all("script")
 
         scripts = soup.find_all("script")
         print(f"Trovati {len(scripts)} script nella pagina.")
 
+        # Regex per catturare il JSON interno
+        pattern = r"JSON\.parse\(\s*'([^']+)'\s*\)"
+        
+        teams_data = None
+
+        # Proviamo a trovare il JSON corretto
         for i, script in enumerate(scripts):
             if not script.string:
                 continue
-            text = script.string
-            # cerca pattern JSON.parse(
-            if "JSON.parse" in text:
-                print(f"\n--- Script {i} con JSON.parse ---")
-                # mostra i primi 500 caratteri per capire
-                print(text[:500])
-            # cerca parole chiave
-            if re.search(r"\b(teamsData|leagueTable|standingsData|positions)\b", text):
-                print(f"\n--- Script {i} con parola chiave alternativa ---")
-                print(text[:500])
 
-        target = None
-        for script in scripts:
-            if "teamsData" in script.text:
-                target = script.string
+            match = re.search(pattern, script.string, re.DOTALL)
+            if not match:
+                continue
+
+            raw_json = match.group(1)
+
+            try:
+                decoded = raw_json.encode('utf-8').decode('unicode_escape')
+                data = json.loads(decoded)
+            except Exception:
+                continue
+
+            # Qui cerchiamo veramente i dati delle squadre
+            if "teamsData" in data:
+                print(f"Trovato teamsData nello script {i}")
+                teams_data = data["teamsData"]
                 break
 
-        # Estrai il JSON da JSON.parse(' ... ')
-        start = target.find("JSON.parse('") + len("JSON.parse('")
-        end = target.find("')", start)
-        json_raw = target[start:end]
-        json_raw = json_raw.encode('utf-8').decode('unicode_escape')
+            # A volte è annidato
+            if isinstance(data, dict):
+                for key, val in data.items():
+                    if isinstance(val, dict) and "teamsData" in val:
+                        print(f"Trovato teamsData annidato nello script {i}")
+                        teams_data = val["teamsData"]
+                        break
 
-        teams_data = json.loads(json_raw)
+            if teams_data is not None:
+                break
 
+        if teams_data is None:
+            raise ValueError("ERRORE: impossibile estrarre 'teamsData' — struttura Understat cambiata?")
+
+        # 🎯 --- COSTRUZIONE DEL DATAFRAME COME FA LA TUA VERSIONE ORIGINALE ---
         rows = []
+
         for team_id, team_info in teams_data.items():
             team_name = team_info['title']
             history = team_info['history']
-            
+
             matches = len(history)
             wins = sum(1 for h in history if int(h['scored']) > int(h['missed']))
             draws = sum(1 for h in history if int(h['scored']) == int(h['missed']))
             loses = matches - wins - draws
             goals_for = sum(int(h['scored']) for h in history)
             goals_against = sum(int(h['missed']) for h in history)
-            points = wins*3 + draws
-            
-        # Somma degli expected stats
+            points = wins * 3 + draws
+
+            # expected stats
             xG = round(sum(float(h['xG']) for h in history), 2)
             xGA = round(sum(float(h['xGA']) for h in history), 2)
             npxG = round(sum(float(h['npxG']) for h in history), 2)
             npxGA = round(sum(float(h['npxGA']) for h in history), 2)
-            
+
             rows.append({
                 "Team": team_name,
                 "M": matches,
@@ -106,8 +99,8 @@ class TeamsXGAScraper:
             })
 
         df_teams = self.mod_df_teams(pd.DataFrame(rows))
-
         return df_teams
+
 
     def run(self, seasons):
         all_teams_df = pd.DataFrame()

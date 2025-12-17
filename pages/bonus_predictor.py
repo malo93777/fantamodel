@@ -107,10 +107,10 @@ def main():
 
         #*** per test in locale ***
         #submitted = True
-        #player = 'nico paz'
-        #team = "como"
-        #opponent = "cagliari"
-        #is_home = True
+        player = 'odgaard'
+        team = "bologna"
+        opponent = "lazio"
+        is_home = False
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:

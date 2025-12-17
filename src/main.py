@@ -21,7 +21,7 @@ def get_goals_data():
 
     # 1. Scraping
     scraper = Scraper()
-    scraper.run(debug=False)
+    scraper.run()
 
     # 2. Preprocessa dataset tiri
     goals_df = preproc.preproc_goals_dataset(
@@ -45,7 +45,7 @@ def get_goals_data():
     # 5. Crea feature XGA per 90 min della squadra avversaria
     teams_df, goals_df = preproc.create_XgA_90min_opponent(teams_df, goals_df)
 
-    print("Dataset con team_xG_90min aggiunto:")
+    #print("Dataset con team_xG_90min aggiunto:")
     print(goals_df.head())
 
     #to csv
@@ -53,15 +53,15 @@ def get_goals_data():
 
 def get_assists_data():
 
-    assist_df_path = config.DATASET_DATA_DIR / config.ASSIST_DATA_FILE
+    raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
 
     # 1. Scraping
-    scraper = AssistScraper()
-    scraper.run(debug=False)
+    #scraper = AssistScraper()
+    #scraper.run(debug=False)
 
     # 2. Preprocessing
     assist_df = preproc.preproc_assists_dataset(
-        input_path=assist_df_path, 
+        input_path=raw_df_path, 
         df_to_merge_path=all_season_player_df_path
     )
 

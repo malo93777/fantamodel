@@ -1,84 +1,99 @@
-import requests
-from bs4 import BeautifulSoup
-import json
 import pandas as pd
-import re
-from understatapi import UnderstatClient
-from teamscraper import TeamsXGAScraper
 import config
 import first_preproc
+import asyncio
+import json
+import aiohttp
+from understat import Understat
 
 class Scraper:
 
-    def run(self, debug):
+    async def run(self):
 
-        if debug == False:
+        async with aiohttp.ClientSession() as session:
 
-            with UnderstatClient() as understat:
-                
-                #costruisco dataframe squadre con rolling features
-                
-                team_data = understat.league(league="Serie_A").get_team_data(season=str(config.CURRENT_SEASON)) 
-                
+                understat = Understat(session)
+                # -----------------------------
+                # 1) TEAM DATA
+                # -----------------------------
+                print("Scarico dati squadre stagione corrente...")
+                team_data = await understat.get_teams("Serie_A", str(config.CURRENT_SEASON))
+
                 preprocessor = first_preproc.Preprocessor(config.SERIE_A_TEAMS)
                 teams_df = preprocessor.build_team_dataframe(team_data)
-                
-                #ciclo giocatori che sono in serie a attuale e prendo loro dati partite passate in serie a
-                league_player_data = understat.league(league="Serie_A").get_player_data(season=str(config.CURRENT_SEASON))
+
+                teams_df.to_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE, index=False)
+                print("Salvato:", config.CURRENT_SEASON_TEAMS_FILE)
+
+                # -----------------------------
+                # 2) PLAYER MATCH DATA (tutte le stagioni)
+                # -----------------------------
+                print("Scarico giocatori della stagione corrente...")
+                league_players = await understat.get_league_players("Serie_A", str(config.CURRENT_SEASON))
+
                 shots_df = pd.DataFrame()
-                # Get the name and id of every player
-                for index, player in enumerate(league_player_data):
-                    player_id = player["id"]
-                    player_name = player["player_name"]
-                    print(f"Player ID: {player_id}, Player Name: {player_name}")
 
-                    # Get the name and id of one of the player
-                    #player_id, player_name = league_player_data[index]["id"], league_player_data[index]["player_name"]
-                    
-                    # Get data for every match this player has taken in a league match (for all seasons)
-                    player_match_data = understat.player(player=player_id).get_match_data()
-                    player_match_data_df = pd.DataFrame(player_match_data)
-                    #creo colonna player
-                    player_match_data_df.insert(0, "player", player_name)    
+                for player in league_players:
+                    pid = player["id"]
+                    pname = player["player_name"]
 
-                    if shots_df.empty:
-                        shots_df = player_match_data_df
+                    print(f"→ Match di {pname} ({pid})")
+
+                    matches = await understat.get_player_matches(pid)
+                    df = pd.DataFrame(matches)
+                    df.insert(0, "player", pname)
+
+                    shots_df = pd.concat([shots_df, df], ignore_index=True)
+
+                shots_df.to_csv(config.DATASET_DATA_DIR / config.RAW_DATA_FILE, index=False)
+                print("Salvato RAW players match:", config.RAW_DATA_FILE)
+
+                # -----------------------------
+                # 3) PLAYER SEASONS DATA
+                # -----------------------------
+                print("Scarico dati giocatori per tutte le stagioni...")
+
+                players_seasons_df = pd.DataFrame()
+                seasons = [str(year) for year in range(2014, config.CURRENT_SEASON + 1)]
+
+                for season in seasons:
+                    print("Stagione:", season)
+                    pdata = await understat.get_league_players("Serie_A", season)
+                    pdf = pd.DataFrame(pdata)
+                    pdf["season"] = season
+                    players_seasons_df = pd.concat([players_seasons_df, pdf], ignore_index=True)
+
+                players_seasons_df.to_csv(config.DATASET_DATA_DIR / config.PLAYERS_ALL_SEASON_FILE, index=False)
+                print("Salvato: players_all_seasons.csv")
+
+                # -----------------------------
+                # 4) TEAM TABLES PER STAGIONE
+                # -----------------------------
+                print("Scarico dati squadre per tutte le stagioni...")
+
+                all_teams_df = pd.DataFrame()
+                seasons = [str(year) for year in range(2014, config.CURRENT_SEASON + 1)]
+                for season in seasons:
+                    print("Stagione:", season)
+                    teamdata = await understat.get_league_table("Serie_A", season)
+                    # Se la prima riga contiene i nomi delle colonne
+                    if teamdata and isinstance(teamdata[0], list) and all(isinstance(x, str) for x in teamdata[0]):
+                        columns = teamdata[0]
+                        data = teamdata[1:]
+                        teams_df = pd.DataFrame(data, columns=columns)
                     else:
-                        #aaggiungo player_match_data_df senza header a shots_df
-                        shots_df = pd.concat([shots_df, player_match_data_df], ignore_index=True)
+                        teams_df = pd.DataFrame(teamdata)
 
-            shots_df.to_csv(config.DATASET_DATA_DIR / config.RAW_DATA_FILE, index=False)
-            print("Dati salvati in {config.RAW_DATA_FILE}")
-            teams_df.to_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE, index=False)
-            print("Dati salvati in {config.CURRENT_SEASON_TEAMS_FILE}")
+                    teams_df["season"] = season
+                    all_teams_df = pd.concat([all_teams_df, teams_df], ignore_index=True)                
+                
+                all_teams_df = preprocessor.mod_df_teams(all_teams_df)
+                all_teams_df.to_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE, index=False)
+                print("Data saved to teams_2014_2025.csv")    
 
-            #Get overall data for a player in a season          
-            players_seasons_df = pd.DataFrame()
-            seasons = [str(year) for year in range(2014, 2026)]
-            
-            for season in seasons:
-                print(f"Processing season: {season}")
-                league_player_data_for_season = understat.league(league="Serie_A").get_player_data(season=season)
-                league_player_data_for_season_df = pd.DataFrame(league_player_data_for_season)
-                league_player_data_for_season_df['season'] = season
-                if players_seasons_df.empty:
-                    players_seasons_df = league_player_data_for_season_df
-                else:                 
-                    players_seasons_df = pd.concat([players_seasons_df, league_player_data_for_season_df], ignore_index=True)
-            
-            players_seasons_df.to_csv(config.DATASET_DATA_DIR / config.PLAYERS_ALL_SEASON_FILE, index=False)
-            print("Dati salvati in players_all_seasons.csv")
-
-            #*****  scraping classifiche stagioni per squadra*******
-            teams_scraper = TeamsXGAScraper()
-            seasons = [str(year) for year in range(2014, 2026)]
-            teams_scraper.run(seasons) 
-        else:
-                     
-            teams_scraper = TeamsXGAScraper()
-            seasons = [str(year) for year in range(2014, 2026)]
-            teams_scraper.run(seasons)       
 
 if __name__ == "__main__":
-    scraper = Scraper()
-    scraper.run(False)
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(Scraper().run())

@@ -156,13 +156,14 @@ def main():
         )
 
         X_assist = utils.prepare_features_assist(
-            features_names=models_assist["log_reg_assist"].feature_names_in_,
+            features_names=models_assist["poisson_model_assist"].feature_names_in_,
             player=player,
             team=team,
             opponent=opponent,
             df_orig=df_orig_assist,
             df_teams=df_teams,
-            scaler=models_assist["scaler_features_assist"]
+            df_teams_curr_season=df_teams_curr_season,
+            h_a_player=h_a_player
         )
 
         if X_goal is None or X_assist is None:
@@ -175,7 +176,7 @@ def main():
                     role=role,
                     get_alpha_for_role_fn=utils.get_alpha_for_role
                     )    
-        proba_assist = models_assist["log_reg_assist"].predict_proba(X_assist)[0, 1]
+        proba_assist = models_assist["poisson_model_assist"].predict_proba(X_assist)[0, 1]
         proba_bonus = 1 - (1 - proba_goal) * (1 - proba_assist)
 
         df_p = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]

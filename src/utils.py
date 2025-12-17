@@ -32,10 +32,8 @@ from tqdm import trange  # opzionale, per barra di progresso
 def load_models():
     return {
         "scaler_sumxg": joblib.load(config.SCALER_DIR / config.SCALER_XG),
-        "poly": joblib.load(config.MODEL_DIR / config.POLY_TRANSFORMER),
         "lin_poly": joblib.load(config.MODEL_DIR / config.LIN_POLY),
         "scaler_features": joblib.load(config.SCALER_DIR / config.SCALER),
-        "clf": joblib.load(config.MODEL_DIR / config.CALIB_LOGISTIC_REG),
         "poiss_reg":joblib.load(config.MODEL_DIR / config.POISS_MODEL),
         "lin": joblib.load(config.MODEL_DIR / config.LIN)
     }
@@ -43,75 +41,10 @@ def load_models():
 def load_models_assist():
     return {
         "scaler_features_assist": joblib.load(config.SCALER_DIR_ASSIST / config.SCALER),
-        "log_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.CALIB_LOGISTIC_REG)
+        "poisson_model_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
-# =====================================================
-# 🔹 Prepara feature giocatore per BASELIN LOG REGRESSION GOAL PRED
-# =====================================================
-def prepare_player_features(player, team, opponent, df_orig, df_teams, models):
-    df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
-    if df.empty:
-        st.warning(f"Nessun dato disponibile per {player}.")
-        return None
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[df["date"] <= datetime.now()].reset_index(drop=True)
-
-    # Log-transform
-    df["sum_xG"] = np.log1p(df["sum_xG"])
-    clip_val = df["sum_xG"].quantile(0.99)
-    df["sum_xG"] = df["sum_xG"].clip(upper=clip_val)
-
-    # Residuo polinomiale
-    sumxg_scaled = models["scaler_sumxg"].transform(df[["sum_xG"]])
-    pred_poly = models["lin_poly"].predict(models["poly"].transform(sumxg_scaled))
-
-    #boost del residuo della capacità di finalizzazione
-    df["finishing_form_resid"] = 2 * (df["finishing_form"] - pred_poly)
-
-    # Feature principali
-    # Calcolo goals_last5 per la riga da prevedere
-    if len(df) >= 5:
-        # Prendi le ultime 5 partite, includendo l'ultima
-        goals_last5 = df["goals"].iloc[-5:].mean()
-    else:
-        # Se ci sono meno di 5 partite, usa tutte le partite disponibili
-        goals_last5 = df["goals"].mean()
-
-    # Calcolo xG_last5 per partita da prevedere
-    if len(df) >= 5:
-        xG_last5 = df["sum_xG"].iloc[-5:].mean()
-    else:
-        xG_last5 = df["sum_xG"].mean()
-
-    #**** Ricalcolo sum_Xg attesi dal giocatore in base alla sua forma nel medio periodo 
-    # e xgAgainst per partita avversario ***
-    
-    # 1. Ottieni info squadre
-    season = df["season"].iloc[-1]
-    opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
-
-    # 2. pesa l'xg in base all'avversario
-    sum_xG_new = weighted_xg_vs_opponent(df, opponent_xGA_90min)
-    finishing_form_resid = df["finishing_form_resid"].iloc[-1]
-
-    #df con features e valori
-    X_new = [[sum_xG_new, xG_last5, goals_last5, finishing_form_resid]]
-    feature_names = config.FEATURES_LR
-    X_new_df = pd.DataFrame(X_new, columns=feature_names)
-
-    # 3. Applica boost 
-
-    boosts = config.BOOST_FACTORS
-    for feature, factor in boosts.items():
-        X_new_df[feature] = X_new_df[feature] * factor
-
-    X_scaled = models["scaler_features"].transform(X_new_df[feature_names])
-
-    return X_scaled
-
-def prepare_features_assist(features_names, player, team, opponent, df_orig, df_teams, scaler):
+def prepare_features_assist(features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
 
      # 1️⃣ Filtra storico giocatore
     df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
@@ -135,17 +68,35 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
     df[features_names] = df[features_names].fillna(0)
 
     # 4️⃣ Recupera dati della squadra e avversario
-    
-    opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
-    #team_xG_90min = get_Xg_90min_team(team, season, df_teams)
 
-    # trasformazione logaritmica
-    df["sum_xA"] = np.log1p(df["sum_xA"])
+    num_giornate = count_matchdays(df_teams_curr)
 
+        #se ho un numero sufficiente di giornate, applico discriminante home/away
+    if num_giornate >= 10: 
+            h_a = get_h_a_opponent(h_a_player)
+            #OPPONENT TEAM DATA home/away 
+            opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+            xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+            #PLAYER TEAM DATA home/away
+            team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+            xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+    else:
+            #OPPONENT TEAM DATA
+            opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+            xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
+
+            #PLAYER TEAM DATA
+            team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
+            xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
+        
     # 5️⃣ Calcola statistiche base del giocatore
     sum_xA = df["sum_xA"].tail(12).mean()
 
-    sum_xA_new = weighted_xA_vs_opponent(sum_xA, df, opponent_xGA_90min)
+    sum_xA_weighted = weighted_xg_vs_opponent_mixed(sum_xA, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+
+    sum_xA_weighted = weighted_xg_team_mixed(sum_xA_weighted, df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
+
 
     # Calcolo goals_last5 per la riga da prevedere
     if len(df) >= 5:
@@ -157,11 +108,9 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
 
         # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
-        "sum_xA": sum_xA_new,
+        "sum_xA": sum_xA_weighted,
         "xA_last5": xA_last5    
     }])
-
-    X_new_df = scaler.transform(X_new_df)
 
     return X_new_df
 
@@ -188,7 +137,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
     df = add_overperformance_features(df, ROLE_STATS, player_col="player", prod=True)
-    df = compute_shot_quality_index(df,prod=True)
+    df = compute_shot_quality_index_per_shot(df,prod=True)
     df = reduce_penalty_xg(df)
 
     df_teams_curr = compute_defensive_overperf_stats(df_teams_curr_season, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
@@ -201,7 +150,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     df[features_names] = df[features_names].fillna(0)
 
-    df["sum_xG"] = np.log1p(df["sum_xG"])
+    #df["sum_xG"] = np.log1p(df["sum_xG"])
 
      # Calcolo residuo  per finishing_form
     df["xg_mean_12"] = (
@@ -211,7 +160,7 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     )
     df["xg_mean_12"] = df["xg_mean_12"].fillna(0)
 
-    df = compute_shot_quality(df, window=12, use_rank=True, prod=True)
+    df = compute_finishing_form(df, window=12, use_rank=True, prod=True)
 
     # 2️⃣ Calcolo residuo lineare della finishing_form
     pred_lin = lin_model.predict(df[["xg_mean_12"]])
@@ -219,9 +168,6 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
 
     #numero giornate già giocate nella stagione corrente
     num_giornate = count_matchdays(df_teams_curr)
-
-    #prendo xg base player
-    sum_xG_new = (df["sum_xG"].tail(12).mean())
 
     #se ho un numero sufficiente di giornate, applico discriminante home/away
     if num_giornate >= 10: 
@@ -242,21 +188,20 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
         team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
         G_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
     
+    #prendo xg base player
+    sum_xG_new = (df["sum_xG"].tail(12).mean())
+
+    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.2)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
 
     sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
-
-    # Streak senza gol
-    cold_penalty = get_latest_cold_penalty(df)
         
     main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
 
-    if player == "nico paz":
+    if player == "nico paz" or player == "odgaard":
         main_role = "FM" 
-
-    sum_xG_new = penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
 
     sum_xG_new = adjust_xg_by_minutes(sum_xG_new,df["minutes_played"].rolling(window=5, min_periods=1).mean())
 
@@ -291,7 +236,7 @@ def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False
 
     # Percorsi completi dei file
     if is_baseline:
-         model_path = config.MODEL_DIR / config.CALIB_LOGISTIC_REG if model is not None else None
+         model_path = config.MODEL_DIR / config.POISS_MODEL_ASSIST if model is not None else None
     else:        
         model_path = config.MODEL_DIR / config.POISS_MODEL if model is not None else None
     
@@ -373,15 +318,15 @@ def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False
         joblib.dump(lin, lin_path)
         print(f"✅ Lin model salvato in: {lin_path}")
 
-def save_models_assist(model, scaler, is_baseline=False):
+def save_models_assist(model):
 
-    scaler_path = config.SCALER_DIR_ASSIST / config.SCALER if scaler is not None else None
-    model_path = config.MODEL_DIR_ASSIST / config.CALIB_LOGISTIC_REG if model is not None else None    
+    #scaler_path = config.SCALER_DIR_ASSIST / config.SCALER if scaler is not None else None
+    model_path = config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST if model is not None else None    
 
     # Crea le cartelle se non esistono
     os.makedirs(config.MODEL_DIR_ASSIST, exist_ok=True)
-    if scaler_path:
-        os.makedirs(config.SCALER_DIR_ASSIST, exist_ok=True)
+    #if scaler_path:
+        #os.makedirs(config.SCALER_DIR_ASSIST, exist_ok=True)
     if model_path:
         os.makedirs(config.MODEL_DIR_ASSIST, exist_ok=True)
 
@@ -398,14 +343,14 @@ def save_models_assist(model, scaler, is_baseline=False):
         print(f"✅ Modello salvato in: {model_path}")
 
     # --- Salvataggio scaler ---
-    if scaler_path:
-        if scaler_path.exists():
-            overwrite = input(f"⚠️ Il file '{scaler_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
-            if overwrite != "y":
-                print("❌ Salvataggio scaler annullato.")
-                return
-        joblib.dump(scaler, scaler_path)
-        print(f"✅ Scaler salvato in: {scaler_path}")
+    #if scaler_path:
+        #if scaler_path.exists():
+            #overwrite = input(f"⚠️ Il file '{scaler_path.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+        if overwrite != "y":
+            print("❌ Salvataggio scaler annullato.")
+            return
+        #joblib.dump(scaler, scaler_path)
+        #print(f"✅ Scaler salvato in: {scaler_path}")
 
 
 
@@ -1045,78 +990,6 @@ def get_latest_cold_penalty(player_df):
     penalty = low + (high - low) * base_sigmoid
     return float(penalty)
 
-def tune_catboost(X, y, cat_features, n_iter=15, random_seed=42):
-    """
-    Esegue una ricerca casuale di iperparametri per CatBoostClassifier
-    e restituisce il miglior modello addestrato e le metriche medie.
-    """
-    random.seed(random_seed)
-    np.random.seed(random_seed)
-    
-    param_grid = {
-        "depth": [3, 4, 5, 6, 7, 8, 9],
-        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1],
-        "l2_leaf_reg": [1, 2, 3, 4, 5, 6, 8, 10, 20],
-        "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
-        "iterations": [500, 800, 1000, 1200],
-        "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
-    }
-    
-    best_logloss = np.inf
-    best_params = None
-    best_model = None
-    
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_seed)
-    
-    for i in range(n_iter):
-        params = {
-            "depth": random.choice(param_grid["depth"]),
-            "learning_rate": random.choice(param_grid["learning_rate"]),
-            "l2_leaf_reg": random.choice(param_grid["l2_leaf_reg"]),
-            "bagging_temperature": random.choice(param_grid["bagging_temperature"]),
-            "iterations": random.choice(param_grid["iterations"]),
-            "random_strength": random.choice(param_grid["random_strength"]),
-            "bootstrap_type": "Bayesian",
-            "loss_function": "Logloss",
-            "eval_metric": "Logloss",
-            "verbose": False,
-            "random_seed": random_seed,
-        }
-
-        losses, f1s = [], []
-        
-        for train_idx, val_idx in cv.split(X, y):
-            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-            
-            model = CatBoostRegressor(**params)
-            model.fit(X_train, y_train, cat_features=cat_features)
-            
-            preds = model.predict_proba(X_val)[:, 1]
-            pred_labels = (preds > 0.5).astype(int)
-            
-            losses.append(log_loss(y_val, preds))
-            f1s.append(f1_score(y_val, pred_labels))
-        
-        mean_loss = np.mean(losses)
-        mean_f1 = np.mean(f1s)
-
-        print(f"[{i+1}/{n_iter}] LogLoss={mean_loss:.4f} | F1={mean_f1:.4f} | Params={params}")
-
-        if mean_loss < best_logloss:
-            best_logloss = mean_loss
-            best_params = params
-
-    # 🔁 Allena di nuovo il modello migliore su tutti i dati
-    best_model = CatBoostRegressor(**best_params)
-    best_model.fit(X, y, cat_features=cat_features, verbose=False)
-
-    print("\n🏆 Miglior combinazione trovata:")
-    print(best_params)
-    print(f"📉 Best LogLoss: {best_logloss:.4f}")
-    
-    return best_model, best_params
-
 def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
     """
     Random Search per CatBoostRegressor (Poisson) con cross-validation.
@@ -1150,7 +1023,7 @@ def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
             "iterations": random.choice(param_grid["iterations"]),
             "random_strength": random.choice(param_grid["random_strength"]),
             "min_data_in_leaf": random.choice(param_grid["min_data_in_leaf"]),
-           
+          
 
             "bootstrap_type": "Bayesian",
             "loss_function": "Poisson",
@@ -1361,7 +1234,7 @@ def get_alpha_for_role(role: str) -> float:
     """
     role_alphas = {
        
-        "F": 0.63,     #0.659
+        "F": 0.65,     #0.659
         "FM": 0.603,    #0.551
         "M": 0.500,     #0.42
         "DM": 0.476,    #0.30
@@ -1546,7 +1419,7 @@ def compute_role_overperf_stats(global_df):
 
 
 
-def add_overperformance_features(
+def add_overperformance_features_old(
     df: pd.DataFrame,
     stats: dict,
     player_col: str = "player",
@@ -1641,6 +1514,97 @@ def add_overperformance_features(
     df.drop(columns=["gmedian_role"], inplace=True)
     return df
 
+def add_overperformance_features(
+    df: pd.DataFrame,
+    stats: dict,
+    player_col: str = "player",
+    prod: bool = False
+):
+    df = df.copy()
+
+    # ORDINAMENTO + RESET INDEX (FONDAMENTALE)
+    df = df.sort_values([player_col, "date"]).reset_index(drop=True)
+
+    # ============================================================
+    # 1️⃣ OVERPERFORMANCE LOG BASE
+    # ============================================================
+    df["overperf_log"] = (
+        np.log1p(df["npgoals_perMatch"]) -
+        np.log1p(df["npxG_perMatch"].clip(lower=0) + 1e-6)
+    ).clip(-1.2, 1.2)
+
+    # ============================================================
+    # 2️⃣ FORMA RECENTE (ULTIME 5 PARTITE) — SAFE
+    # ============================================================
+    goals5 = (
+        df.groupby(player_col)["npgoals_perMatch"]
+          .transform(lambda s: s.rolling(5, min_periods=1).sum())
+    )
+
+    xg5 = (
+        df.groupby(player_col)["npxG_perMatch"]
+          .transform(lambda s: s.rolling(5, min_periods=1).sum())
+    )
+
+    if not prod:
+        goals5 = goals5.groupby(df[player_col]).shift()
+        xg5 = xg5.groupby(df[player_col]).shift()
+
+    df["overperf_last5"] = (
+        np.log1p(goals5.fillna(0)) -
+        np.log1p(xg5.fillna(0) + 1e-6)
+    ).clip(-1.0, 1.0)
+
+    # ============================================================
+    # 3️⃣ PESO BASATO SUI TIRI (ULTIME 20) — SAFE
+    # ============================================================
+    shots20 = (
+        df.groupby(player_col)["shots_perMatch"]
+          .transform(lambda s: s.rolling(20, min_periods=1).sum())
+    )
+
+    if not prod:
+        shots20 = shots20.groupby(df[player_col]).shift()
+
+    shots20 = shots20.fillna(0)
+
+    div = stats["shots_divisor"]
+
+    df["weight"] = (
+        0.2 + 0.65 * (1 - np.exp(-shots20 / div))
+    ).clip(0.2, 1.0)
+
+    # ============================================================
+    # 4️⃣ MEDIANA DI RUOLO
+    # ============================================================
+    role_medians = stats["role_overperf_medians"]
+    default_median = stats["default_role_median"]
+
+    df["position"] = df["position"].apply(clean_position)
+    df["gmedian_role"] = (
+        df["position"].map(role_medians).fillna(default_median)
+    )
+
+    df["overperf_blend"] = (
+        df["weight"] * df["overperf_log"] +
+        (1 - df["weight"]) * df["gmedian_role"]
+    ).clip(-1.0, 1.0)
+
+    # ============================================================
+    # 5️⃣ COMBINAZIONE FINALE
+    # ============================================================
+    df["overperf_combined"] = (
+        0.37 * df["overperf_blend"] +
+        0.63 * df["overperf_last5"]
+    ).clip(-1.5, 1.5)
+
+    df["overperf_role_resid"] = (
+        df["overperf_combined"] - df["gmedian_role"]
+    ).clip(-1.5, 1.5)
+
+    df.drop(columns=["gmedian_role"], inplace=True)
+
+    return df
 
 def calibrate_by_role(df_val: pd.DataFrame, lambda_val: np.ndarray, y_val: np.ndarray, role_col: str = "position"):
     """
@@ -1847,7 +1811,7 @@ def add_finishing_efficiency_hist(df, window=20, prod=False):
         return df
 
 
-def weight_efficiency_shots(df, prod=False):
+def weight_efficiency_shots_old(df, prod=False):
     """
         Aggiunge una colonna 'finishing_eff_weighted' che combina
         l'efficienza di finalizzazione con l'esperienza (numero totale di tiri storici).
@@ -1883,6 +1847,26 @@ def weight_efficiency_shots(df, prod=False):
     weight = np.clip(weight, 0, 1)
 
     df["finishing_eff_weighted"] = df["finishing_efficiency_hist"] * weight
+    return df
+
+def weight_efficiency_shots(df, prod=False):
+    df = df.copy()
+
+    # Calcolo dei tiri storici
+    if prod:
+        df["shots_hist"] = df.groupby("player")["shots_perMatch"].cumsum()
+    else:
+        df["shots_hist"] = df.groupby("player")["shots_perMatch"].cumsum().shift(1)
+
+    df["shots_hist"] = df["shots_hist"].fillna(0)
+
+    # Sigmoid weighting
+    k = 0.02        # slope
+    midpoint = 80   # saturazione intorno ai 70 tiri
+    weight = 1 / (1 + np.exp(-k * (df["shots_hist"] - midpoint)))
+
+    df["finishing_eff_weighted"] = df["finishing_efficiency_hist"] * weight
+
     return df
 
     
@@ -1924,7 +1908,7 @@ def combine_sumxg_efficiency(df, use_rank=False):
 
 # ---------------------------------------------------------------
 
-def compute_shot_quality(df, window=20, use_rank=True, prod=False):
+def compute_finishing_form(df, window=20, use_rank=True, prod=False):
     """
         Esegue in sequenza:
         1) add_finishing_efficiency_hist
@@ -1954,46 +1938,56 @@ def compute_shot_quality(df, window=20, use_rank=True, prod=False):
 
     return merged_df
 
-def adjust_xg_by_minutes(sum_xg, minutes_last5):
+def adjust_xg_by_minutes(sum_xg, minutes_last5, decay=0.75):
     """
-    Aggiusta sum_xG in base ai minuti giocati nelle ultime 5 partite.
+    Aggiusta sum_xG in base ai minuti giocati nelle ultime partite.
 
-    Logica:
-        - Penalizza chi gioca molto meno della media (68').
-        - Non aumenta mai sum_xg quando i minuti sono sopra la media.
-        - Usa una curva concava (potenza) per penalizzare più chi gioca poco.
-        - Accetta scalar o pd.Series.
+    Migliorie:
+        - Le partite più recenti pesano di più (decadimento esponenziale)
+        - Penalizza chi gioca molto meno della media
+        - Non aumenta MAI sum_xG
+        - Curva concava + clipping di sicurezza
     """
 
-    # Gestione input Series → prendi ultimo valore
+    # ===============================
+    # 1️⃣ Estrazione minuti (weighted)
+    # ===============================
     if isinstance(minutes_last5, pd.Series):
         if minutes_last5.empty:
             return sum_xg
-        minutes_val = minutes_last5.iloc[-1]
-    else:
-        minutes_val = minutes_last5
 
-    # Protezioni
-    try:
-        minutes_val = float(minutes_val)
-    except:
-        return sum_xg
+        mins = minutes_last5.dropna().values
+        if len(mins) == 0:
+            return sum_xg
+
+        # Pesi esponenziali (ultima partita pesa di più)
+        weights = np.array([decay ** i for i in range(len(mins)-1, -1, -1)])
+        weights = weights / weights.sum()
+
+        minutes_val = np.sum(mins * weights)
+
+    else:
+        try:
+            minutes_val = float(minutes_last5)
+        except:
+            return sum_xg
 
     if minutes_val <= 0 or np.isnan(minutes_val):
         return sum_xg
 
-    # Media reale dei minuti giocati nel dataset
+    # ===============================
+    # 2️⃣ Penalizzazione concava
+    # ===============================
     mean_minutes_overall = 68.0
-
-    # Rapporto rispetto alla media
     ratio = minutes_val / mean_minutes_overall
 
-    # Curva concava → penalizza molto chi gioca poco, ma poco chi gioca un po' di meno
-    # Non permettere MAI aumento: min(weight, 1.0)
+    # Curva concava (robusta)
     weight = ratio ** 0.6
+
+    # Mai boost
     weight = min(weight, 1.0)
 
-    # Clipping inferiore → mai scendere sotto 0.20
+    # Clipping inferiore
     weight = max(weight, 0.20)
 
     return sum_xg * weight
@@ -2078,79 +2072,86 @@ def compute_shot_quality_index(df, window=20, player_col="player", prod=False):
     return df
 
 def compute_shot_quality_index_per_shot(
-        df,
-        player_col="player",
-        xg_col="sum_xG",
-        goals_col="npgoals_perMatch",
-        shots_col="shots_perMatch",
-        date_col="date",
-        window=20,
-        prod=False
-    ):
-        """
-        Indice 0-1 focalizzato sulla qualità PER TIRO / PER MATCH,
-        evita di premiare chi tira tanto ma non converte.
-        """
+    df,
+    player_col="player",
+    xg_col="sum_xG",
+    goals_col="npgoals_perMatch",
+    shots_col="shots_perMatch",
+    date_col="date",
+    window=20,
+    prod=False
+):
+    """
+    Shot Quality Index 0–1 (semplificato)
+    - qualità PER TIRO
+    - rolling mean
+    - shrink su campione
+    - anti-leakage
+    """
 
-        df = df.copy()
-        eps = 1e-6
+    df = df.copy()
+    eps = 1e-6
 
-        # safety
-        df[xg_col] = df[xg_col].astype(float)
-        df[goals_col] = df[goals_col].astype(float)
-        df[shots_col] = df[shots_col].astype(float)
+    df = df.sort_values([player_col, date_col])
 
-        # ordine
-        df = df.sort_values([player_col, date_col])
+    # ---------------------------
+    # 1) Residuo per tiro
+    # ---------------------------
+    df["xg_per_shot"] = df[xg_col] / (df[shots_col] + eps)
+    df["goals_per_shot"] = df[goals_col] / (df[shots_col] + eps)
 
-        # 1) metriche per-shot / per-90 (per-match)
-        df["xg_per_shot"] = df[xg_col] / (df[shots_col] + eps)
-        df["goals_per_shot"] = df[goals_col] / (df[shots_col] + eps)
-        df["conv_minus_xg_per_shot"] = df["goals_per_shot"] - df["xg_per_shot"]  # quanto sopra/ sotto aspettativa PER TIRO
+    df["shot_quality_raw"] = (
+        df["goals_per_shot"] - df["xg_per_shot"]
+    ).clip(-1, 1)
 
-        # 2) shot difficulty per shot (premia chi converte su tiri a bassa xG)
-        # normalizziamo per shot: (goals/shots) * (1 - xg_per_shot)
-        df["shot_difficulty_per_shot"] = (df["goals_per_shot"]) * (1 - df["xg_per_shot"])
-        df["shot_difficulty_per_shot"] = df["shot_difficulty_per_shot"].clip(-1, 1)
+    # ---------------------------
+    # 2) Rolling mean (anti-leak)
+    # ---------------------------
+    grouped = df.groupby(player_col)["shot_quality_raw"]
 
-        # 3) metrica grezza per-match (per-shot based)
-        # pesi: di solito qualità per-shot è più affidabile; difficulty è secondario
-        df["shot_quality_raw_ps"] = 0.7 * df["conv_minus_xg_per_shot"] + 0.3 * df["shot_difficulty_per_shot"]
+    if prod:
+        roll = grouped.rolling(window, min_periods=3).mean()
+    else:
+        roll = grouped.shift(1).rolling(window, min_periods=3).mean()
 
-        # 4) rolling mean per giocatore (window impostabile), con shift in training per evitare leakage
-        grouped = df.groupby(player_col)["shot_quality_raw_ps"]
+    df["shot_quality_roll"] = roll.reset_index(level=0, drop=True)
+    df["shot_quality_roll"] = df["shot_quality_roll"].fillna(df["shot_quality_raw"])
 
-        if prod:
-            roll = grouped.rolling(window=window, min_periods=1).mean().reset_index(level=0, drop=True)
-        else:
-            roll = grouped.shift(1).rolling(window=window, min_periods=3).mean().reset_index(level=0, drop=True)
+    # ---------------------------
+    # 3) Shrink semplice su volume
+    # ---------------------------
+    if prod:
+        shot_count = df.groupby(player_col)[shots_col].rolling(window).sum()
+    else:
+        shot_count = df.groupby(player_col)[shots_col].shift(1).rolling(window).sum()
 
-        df["shot_quality_roll"] = roll.fillna(df["shot_quality_raw_ps"])
+    shot_count = shot_count.reset_index(level=0, drop=True).fillna(0)
 
-        # 5) shrink by sample size: compute shot_count in window to downweight noisy players
-        if prod:
-            shot_count = df.groupby(player_col)[shots_col].rolling(window=window, min_periods=1).sum().reset_index(level=0, drop=True)
-        else:
-            shot_count = df.groupby(player_col)[shots_col].shift(1).rolling(window=window, min_periods=1).sum().reset_index(level=0, drop=True)
+    # peso 0–1: pochi tiri → poco peso
+    weight = (shot_count / (shot_count + 10)).clip(0, 1)
 
-        # normalize shot_count to [0,1] for shrink factor
-        shot_count_norm = np.log1p(shot_count) / np.log1p(window * 5)  # window*5 shots ~ many shots
-        shot_count_norm = shot_count_norm.clip(0,1)
+    global_median = df["shot_quality_roll"].median()
 
-        # shrink: blend towards global median when shot_count_norm small
-        global_median = df["shot_quality_roll"].median()
-        df["shot_quality_shrunk"] = shot_count_norm * df["shot_quality_roll"] + (1 - shot_count_norm) * global_median
+    df["shot_quality_shrunk"] = (
+        weight * df["shot_quality_roll"] +
+        (1 - weight) * global_median
+    )
 
-        # 6) robust min-max normalization using quantiles (no external scaler)
-        q_lo = df["shot_quality_shrunk"].quantile(0.01)
-        q_hi = df["shot_quality_shrunk"].quantile(0.99)
-        if q_hi - q_lo < 1e-8:
-            df["shot_quality_index"] = 0.5
-        else:
-            df["shot_quality_index"] = (df["shot_quality_shrunk"] - q_lo) / (q_hi - q_lo)
-            df["shot_quality_index"] = df["shot_quality_index"].clip(0,1)
+    # ---------------------------
+    # 4) Normalizzazione robusta
+    # ---------------------------
+    q_lo = df["shot_quality_shrunk"].quantile(0.05)
+    q_hi = df["shot_quality_shrunk"].quantile(0.95)
 
-        return df
+    if q_hi - q_lo < 1e-6:
+        df["shot_quality_index"] = 0.5
+    else:
+        df["shot_quality_index"] = (
+            (df["shot_quality_shrunk"] - q_lo) / (q_hi - q_lo)
+        ).clip(0, 1)
+
+    return df
+
 
 def compute_shot_quality_index_v2(df, window=30, player_col="player", prod=False):
     """
@@ -2334,52 +2335,58 @@ def weighted_xg_vs_opponent_mixed(
 
     return base_xG * final_factor
 
+import numpy as np
+
 def weighted_xg_team_mixed(
-        base_xG,
-        player_df,
-        df_teams,
-        team_xG_90min,
-        team_xG_last5,
-        team_Goal_last5,
-        w_xga=0.4,
-        w_overperf=0.6
-    ):
+    sum_xG_player,
+    df_teams,
+    team_xG_90_min_last5,
+    xG_last5_team,
+    goals_last5_team,
+    max_boost=0.25  # ±25% massimo
+):
     """
-    Pesa il base_xG del giocatore con:
-        1) forza difensiva attesa (xGA/90min)
-        2) performance reale difesa (GA90_last5 / xGA90_last5)
+    Applica un bonus/malus moderato all'xG del giocatore
+    in base al contesto offensivo della squadra.
     """
 
-    # ------------------------------
-    # 1) Fattore atteso (xGA/90)
-    # ------------------------------
-    factor_xG = weighted_xg_by_team_strength(base_xG, player_df, team_xG_90min, df_teams)
-    # ------------------------------
-    # 2) Fattore reale (GA_last5 / xGA_last5)
-    #    → tutto riportato su base 90 minuti
-    # ------------------------------
-    MINUTES_5_MATCHES = 5 * 90
+    # =========================
+    # 1️⃣ Media campionato
+    # =========================
+    league_avg_xG = df_teams[df_teams["season"]==config.CURRENT_SEASON]["XG_90min"].mean()
 
-    if team_xG_last5 <= 0:
-        factor_overperf = 1.0
-    else:
-        xGA90_last5 = team_xG_last5 / MINUTES_5_MATCHES * 90
-        GA90_last5 = team_Goal_last5 / MINUTES_5_MATCHES * 90
+    # =========================
+    # 2️⃣ Quanto la squadra produce (vs media)
+    # =========================
+    prod_ratio = team_xG_90_min_last5 / league_avg_xG
+    prod_ratio = np.clip(prod_ratio, 0.85, 1.15)
 
-        # rapporto coerente
-        ratio = GA90_last5 / xGA90_last5
-        factor_overperf = np.clip(ratio, 0.7, 1.3)
+    # =========================
+    # 3️⃣ Quanto la squadra converte (gol vs xG)
+    # =========================
+    finishing_ratio = goals_last5_team / max(xG_last5_team, 0.01)
+    finishing_ratio = np.clip(finishing_ratio, 0.85, 1.15)
 
-    # ------------------------------
-    # 3) Mix finale
-    # ------------------------------
-    final_factor = (
-        w_xga * factor_xG +
-        w_overperf * factor_overperf
+    # =========================
+    # 4️⃣ Peso ridotto (non aggressivo)
+    # =========================
+    team_factor = (
+        0.6 * prod_ratio +
+        0.4 * finishing_ratio
     )
-    final_factor = np.clip(final_factor, 0.7, 1.3)
 
-    return base_xG * final_factor
+    # =========================
+    # 5️⃣ Normalizzazione finale
+    # =========================
+    team_factor = np.clip(team_factor, 1 - max_boost, 1 + max_boost)
+
+    # =========================
+    # 6️⃣ Applica al giocatore
+    # =========================
+    sum_xG_adjusted = sum_xG_player * team_factor
+
+    return sum_xG_adjusted
+
 
 def tune_feature_weights(
     X, y, cat_features, 
@@ -2493,3 +2500,53 @@ def get_h_a_opponent(h_a_player):
     elif h_a_player == "a":
         h_a = "h"
     return h_a
+
+
+def progressive_weighted_mean(values, alpha=0.15):
+    """
+    Calcola una media pesata progressiva (EWMA) su una serie di valori.
+    Le partite più recenti pesano di più.
+
+    Args:
+        values (list/array): valori tipo xG/xA ordinati cronologicamente.
+        alpha (float): fattore di decadimento. 
+                       Più alto = più peso al recente (0.1–0.3 consigliato).
+    Returns:
+        float: media pesata progressiva.
+    """
+    if len(values) == 0:
+        return 0.0
+    
+    # EWMA: Exponentially Weighted Moving Average
+    weighted = 0.0
+    weight_sum = 0.0
+    weight = 1.0
+    
+    for v in reversed(values):  # parte dalla più recente
+        weighted += weight * v
+        weight_sum += weight
+        weight *= (1 - alpha)   # peso decresce progressivamente
+    
+    return weighted / weight_sum if weight_sum > 0 else 0.0
+
+def poisson_goal_probs(lam):
+    """
+    Calcola le probabilità Poisson per 0, 1, 2, 3+ gol e almeno 1 gol dato λ.
+    Restituisce un dizionario con chiavi: lambda, p0, p1, p2, p3plus, p_any.
+    """
+    from scipy.stats import poisson
+    # Estrai scalare se necessario
+    def scalar(x): return float(x.item()) if isinstance(x, np.ndarray) else float(x)
+    p0 = poisson.pmf(0, lam)
+    p1 = poisson.pmf(1, lam)
+    p2 = poisson.pmf(2, lam)
+    p3plus = 1 - (p0 + p1 + p2)
+    p_any = 1 - p0
+    return {
+        "lambda": scalar(lam),
+        "p0": scalar(p0),
+        "p1": scalar(p1),
+        "p2": scalar(p2),
+        "p3plus": scalar(p3plus),
+        "p_any": scalar(p_any)
+    }

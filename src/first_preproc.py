@@ -3,7 +3,8 @@ import ast  # per convertire le stringhe tipo "{'id':...}" in dict
 import config 
 import unicodedata
 import numpy as np
-from sklearn.preprocessing import StandardScaler 
+from sklearn.preprocessing import StandardScaler
+import utils
 
 class Preprocessor:
     def __init__(self, serie_a_teams=None):
@@ -34,6 +35,24 @@ class Preprocessor:
         df["opponent_team"] = df.apply(get_opponent, axis=1)
 
         return df
+    
+    def mod_df_teams(self, df):
+
+        #*** funzione per aggiungere colonne al df di base che non sono presenti nel dataset originale ***
+
+        df_mod = df.copy()
+        df_mod.index = df_mod.index + 1
+
+        #aggiungo dati per differenza tra xG e gol, xGA e gol subiti
+        df_mod['diff_XG_GOL'] = df_mod['xG'] - df_mod['G']
+        df_mod['diff_xGA_GOLAG'] = df_mod['xGA'] - df_mod['GA']
+        df_mod['XGA_90min'] = df_mod['xGA'] / df_mod['M']# xGAgainst per 90 minuti
+        df_mod['XG_90min'] = df_mod['xG'] / df_mod['M'] # xG per 90 minuti
+
+        #tronco a 2 valori decimali i float
+        df_mod = df_mod.round({"diff_XG_GOL": 2, "diff_xGA_GOLAG": 2, "XGA_90min": 2})
+
+        return df_mod
 
     def normalize_name(self, name):
         if pd.isna(name):
@@ -424,7 +443,10 @@ class Preprocessor:
                 goals=("goals", "sum"),
                 npgoals_perMatch=("npg", "sum"),
                 shots_perMatch=("shots", "sum"),
-                npxG_perMatch=("npxG", "sum"),          
+                npxG_perMatch=("npxG", "sum"),
+                xGChain_perMatch=("xGChain", "sum"),
+                xGBuildUp_perMatch=("xGBuildup", "sum"),
+                key_passes_perMatch=("key_passes", "sum"),          
                 season=("season", "first"),
                 date=("date", "first"),
                 minutes_played = ("time", "sum"),
@@ -484,13 +506,13 @@ class Preprocessor:
         merged_df = self.calculate_roll_features(merged_df)
 
         # Calcolo finishing_form
-        merged_df = self.compute_shot_quality(merged_df, window=12, use_rank=True, prod=False)
+        merged_df = utils.compute_finishing_form(merged_df, window=12, use_rank=True, prod=False)
 
         # Calcolo shot quality
-        merged_df = self.compute_shot_quality_index(merged_df, prod=False)
+        merged_df = utils.compute_shot_quality_index(merged_df, prod=False)
 
         # Calcolo cold_penalty
-        merged_df = self.compute_cold_penalty(merged_df)
+        #merged_df = self.compute_cold_penalty(merged_df)
 
         if is_SerieA:
             # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
@@ -629,6 +651,9 @@ class Preprocessor:
         """
         Crea colonna team_xG_90min e merge con dataset dei giocatori.
         """
+        rows = []
+
+        #RIPARTITE DA QUA, MANCA XG_90
         teams_df["XG_90min"] = round(teams_df["XG_90min"], 2)
 
         players_df = players_df.merge(
@@ -780,7 +805,7 @@ class Preprocessor:
         return df
 
     
-    def build_team_dataframe(self,team_data: dict) -> pd.DataFrame:
+    def build_team_dataframe(self,team_data: list) -> pd.DataFrame:
         """
             Converte un dizionario `team_data` in un DataFrame con tutte le partite
             e calcola le colonne xG_last5 e xGA_last5 per ogni squadra.
@@ -799,7 +824,8 @@ class Preprocessor:
         rows = []
 
         # 1️⃣ Espandi il dizionario in righe
-        for team_id, team in team_data.items():
+        for team in team_data:
+            team_id = team.get("id", None)
             title = team.get("title", "")
             history = team.get("history", [])
             for match in history:
