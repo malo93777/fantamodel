@@ -86,8 +86,14 @@ def main():
     with col1:
         player1 = st.selectbox("👤 Giocatore 1", [""] + players,
                                index=players.index(default_player1) + 1 if default_player1 in players else 0)
-        team1 = st.selectbox("🏟️ Squadra 1", [""] + teams,
-                             index=teams.index(default_team1) + 1 if default_team1 in teams else 0)
+        # squadra auto-calcolata
+        team1 = utils.get_latest_team(df_teams, player1)
+
+        st.text_input(
+            "🏟️ Squadra 1",
+            value=team1,
+            disabled=True
+        )
         opponent1 = st.selectbox("⚔️ Avversario 1", [""] + opponents,
                                  index=opponents.index(default_opponent1) + 1 if default_opponent1 in opponents else 0)     
         if num_giornate >= 10:
@@ -110,8 +116,14 @@ def main():
     with col2:
         player2 = st.selectbox("👤 Giocatore 2", [""] + players,
                                index=players.index(default_player2) + 1 if default_player2 in players else 0)
-        team2 = st.selectbox("🏟️ Squadra 2", [""] + teams,
-                             index=teams.index(default_team2) + 1 if default_team2 in teams else 0)
+        # squadra auto-calcolata
+        team2 = utils.get_latest_team(df_teams, player2)
+
+        st.text_input(
+            "🏟️ Squadra 2",
+            value=team2,
+            disabled=True
+        )
         opponent2 = st.selectbox("⚔️ Avversario 2", [""] + opponents,
                                  index=opponents.index(default_opponent2) + 1 if default_opponent2 in opponents else 0)
         if num_giornate >= 10:
@@ -142,42 +154,35 @@ def main():
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")   
 
-        X_goal, role = utils.prepare_features_xgb(
-            features_names=features_names_goal,
-            player=player,
-            team=team,
-            opponent=opponent,
-            df_orig=df_orig_goal,
-            df_teams=df_teams,
-            df_teams_curr_season=df_teams_curr_season,
-            lin_model=models_goal["lin"],
-            ROLE_STATS=config.ROLE_STATS,
-            h_a_player=h_a_player
-        )
+            goal_proba = utils.get_goal_prob(models_goal["poiss_reg"],
+                                                features_names_goal,
+                                                player, 
+                                                team, 
+                                                opponent, 
+                                                df_orig_goal, 
+                                                df_teams, 
+                                                df_teams_curr_season, 
+                                                models_goal["lin"],
+                                                config.ROLE_STATS,
+                                                h_a_player
+                                                              
+            )
 
-        X_assist = utils.prepare_features_assist(
-            features_names=models_assist["poisson_model_assist"].feature_names_in_,
-            player=player,
-            team=team,
-            opponent=opponent,
-            df_orig=df_orig_assist,
-            df_teams=df_teams,
-            df_teams_curr_season=df_teams_curr_season,
-            h_a_player=h_a_player
-        )
+        # === PREDIZIONE ASSIST ===
+        features_names_assist = models_assist["poisson_reg_assist"].feature_names_
+        assist_proba = utils.get_assist_prob(models_assist["poisson_reg_assist"],
+                                                        features_names_assist,
+                                                        player,
+                                                        team,
+                                                        opponent,
+                                                        df_orig_assist,
+                                                        df_teams,
+                                                        df_teams_curr_season,                                             
+                                                        h_a_player)
 
-        if X_goal is None or X_assist is None:
-            return None
-
-        proba_goal = utils.predict_goal_probability(
-                    model=models_goal["poiss_reg"],
-                    X_goal=X_goal,
-                    player=player,
-                    role=role,
-                    get_alpha_for_role_fn=utils.get_alpha_for_role
-                    )    
-        proba_assist = models_assist["poisson_model_assist"].predict_proba(X_assist)[0, 1]
-        proba_bonus = 1 - (1 - proba_goal) * (1 - proba_assist)
+   
+        # Probabilità combinate — Goal O Assist
+        prob_bonus = goal_proba + assist_proba - (goal_proba * assist_proba)
 
         df_p = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]
         df_p_assist = df_orig_assist[df_orig_assist["player"].str.contains(player, case=False, na=False)]
@@ -196,9 +201,9 @@ def main():
             "goals": curr_season_df["goals"].sum(),
             "assists": curr_season_df_assist["assists"].sum(),
             "appearances": curr_season_df.shape[0],
-            "prob_goal": proba_goal,
-            "prob_assist": proba_assist,
-            "prob_bonus": proba_bonus
+            "prob_goal": goal_proba,
+            "prob_assist": assist_proba,
+            "prob_bonus": prob_bonus
         }
 
     # ======================================================
@@ -236,8 +241,40 @@ def main():
 
             if p1 and p2:
 
+                # =====================================================
+                # 🏆 HIGHLIGHT PREVISIONI
+                # =====================================================
 
+                best_goal_player = (
+                    p1 if p1["prob_goal"] >= p2["prob_goal"] else p2
+                )
 
+                best_assist_player = (
+                    p1 if p1["prob_assist"] >= p2["prob_assist"] else p2
+                )
+
+                st.markdown(
+                    f"""
+                    <div style='
+                        background: linear-gradient(90deg, #111827, #1f2937);
+                        padding:18px;
+                        border-radius:14px;
+                        margin-bottom:20px;
+                    '>
+                        <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni principali</h4>
+                        <p style='color:white; font-size:16px; margin:6px 0;'>
+                            ⚽ <b>Più probabilità di Goal:</b> {best_goal_player["player"]}
+                            ({best_goal_player["prob_goal"]*100:.1f}%)
+                        </p>
+                        <p style='color:white; font-size:16px; margin:6px 0;'>
+                            🎯 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
+                            ({best_assist_player["prob_assist"]*100:.1f}%)
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+    
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
                 col1, col2 = st.columns(2)
