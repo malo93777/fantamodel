@@ -194,10 +194,16 @@ def main():
                 fig = go.Figure()
 
                 fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["xG"], mode="lines+markers", name="xG",
-                                         line=dict(color="#3b82f6", width=3), marker=dict(size=8)))
+                                         line=dict(color="#3b82f6" 
+                                                   #width=3
+                                                   ), 
+                                         marker=dict(size=8)))
                 
                 fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["Goal"], mode="lines+markers", name="Goals",
-                                         line=dict(color="#10b981", width=3), marker=dict(size=8)))
+                                         line=dict(color="#10b981"
+                                                    #width=3
+                                                    ),
+                                                    marker=dict(size=8)))
                 
                 fig.update_layout(height=330,
                                    #width=520,
