@@ -69,36 +69,35 @@ def main():
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
     num_giornate = utils.count_matchdays(df_teams_curr_season)
 
-    with st.form("predict_form"):
+   
 
-        col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-        with col1:
-            player = st.selectbox("👤 Giocatore", options=[""] + players)
+    with col1:
+        player = st.selectbox("👤 Giocatore", options=[""] + players)
 
-        # Calcola il team solo dopo che l’utente ha scelto il giocatore
-        team = ""
-        if player:
-            team = utils.get_latest_team(df_orig_goal, player, "player_team")
-            st.text_input("🏟️ Squadra", value=team, disabled=True)
-        with col2:
-            st.text_input("🏟️ Squadra", value=team, disabled=True)
+        # Calcolo del team **fuori dal with**
+    team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
 
-        opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
+    with col2:
+            st.text_input("🏟️ Squadra", value=team, disabled=False)
 
-        if num_giornate >= 10:
-            is_home = False
+
+    opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
+
+    if num_giornate >= 10:
+        is_home = False
+        is_away = False
+        st.markdown("### ⚑ Il giocatore gioca in:")
+        place = st.radio("", ["🏠 Casa", "✈️ Trasferta"], horizontal=True)
+        if place == "🏠 Casa":
+            is_home = True
             is_away = False
-            st.markdown("### ⚑ Il giocatore gioca in:")
-            place = st.radio("", ["🏠 Casa", "✈️ Trasferta"], horizontal=True)
-            if place == "🏠 Casa":
-                is_home = True
-                is_away = False
-            elif place == "✈️ Trasferta":
-                is_home = False
-                is_away = True
+        elif place == "✈️ Trasferta":
+            is_home = False
+            is_away = True
 
-        submitted = st.form_submit_button("Prevedi Bonus")
+    submitted = st.form_submit_button("Prevedi Bonus")
 
     # --- Logica di predizione
     if submitted:
