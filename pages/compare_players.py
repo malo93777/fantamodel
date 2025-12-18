@@ -253,6 +253,10 @@ def main():
                     p1 if p1["prob_assist"] >= p2["prob_assist"] else p2
                 )
 
+                best_bonus_player = (
+                    p1 if p1['prob_bonus'] >= p2["prob_bonus"] else p2
+                )
+
                 st.markdown(
                     f"""
                     <div style='
@@ -261,7 +265,7 @@ def main():
                         border-radius:14px;
                         margin-bottom:20px;
                     '>
-                        <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni principali</h4>
+                        <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni</h4>
                         <p style='color:white; font-size:16px; margin:6px 0;'>
                             ⚽ <b>Più probabilità di Goal:</b> {best_goal_player["player"]}
                             ({best_goal_player["prob_goal"]*100:.1f}%)
@@ -269,6 +273,10 @@ def main():
                         <p style='color:white; font-size:16px; margin:6px 0;'>
                             🎯 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
                             ({best_assist_player["prob_assist"]*100:.1f}%)
+                        </p>
+                        <p style='color:white; font-size:16px; margin:6px 0;'>
+                            🎯 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
+                            ({best_bonus_player["prob_assist"]*100:.1f}%)
                         </p>
                     </div>
                     """,
