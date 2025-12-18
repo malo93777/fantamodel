@@ -272,9 +272,7 @@ def main():
                             <span style="color:#22c55e; font-weight:600;">
                                 {best_goal_player["player"]}
                             </span>
-                            (<span style="color:#22c55e; font-weight:600;">
-                                {best_goal_player["prob_goal"]*100:.1f}%
-                            </span>)
+                            (<span style="color:#22c55e; font-weight:600;">{best_goal_player["prob_goal"]*100:.1f}%</span>)
                         </p>
 
                         <p style='color:white; font-size:16px; margin:6px 0;'>
@@ -282,9 +280,7 @@ def main():
                             <span style="color:#22c55e; font-weight:600;">
                                 {best_assist_player["player"]}
                             </span>
-                            (<span style="color:#22c55e; font-weight:600;">
-                                {best_assist_player["prob_assist"]*100:.1f}%
-                            </span>)
+                            (<span style="color:#22c55e; font-weight:600;">{best_assist_player["prob_assist"]*100:.1f}%</span>)
                         </p>
 
                         <p style='color:white; font-size:16px; margin:6px 0;'>
@@ -292,14 +288,13 @@ def main():
                             <span style="color:#22c55e; font-weight:600;">
                                 {best_bonus_player["player"]}
                             </span>
-                            (<span style="color:#22c55e; font-weight:600;">
-                                {best_bonus_player["prob_bonus"]*100:.1f}%
-                            </span>)
+                            (<span style="color:#22c55e; font-weight:600;">{best_bonus_player["prob_bonus"]*100:.1f}%</span>)
                         </p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
+
     
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
