@@ -266,22 +266,32 @@ def main():
                         margin-bottom:20px;
                     '>
                         <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni</h4>
+
                         <p style='color:white; font-size:16px; margin:6px 0;'>
                             ⚽ <b>Più probabilità di Goal:</b> {best_goal_player["player"]}
-                            ({best_goal_player["prob_goal"]*100:.1f}%)
+                            (<span style="color:#22c55e; font-weight:600;">
+                                {best_goal_player["prob_goal"]*100:.1f}%
+                            </span>)
                         </p>
+
                         <p style='color:white; font-size:16px; margin:6px 0;'>
                             👟 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
-                            ({best_assist_player["prob_assist"]*100:.1f}%)
+                            (<span style="color:#22c55e; font-weight:600;">
+                                {best_assist_player["prob_assist"]*100:.1f}%
+                            </span>)
                         </p>
+
                         <p style='color:white; font-size:16px; margin:6px 0;'>
                             💎 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
-                            ({best_bonus_player["prob_assist"]*100:.1f}%)
+                            (<span style="color:#22c55e; font-weight:600;">
+                                {best_bonus_player["prob_bonus"]*100:.1f}%
+                            </span>)
                         </p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
+
     
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
