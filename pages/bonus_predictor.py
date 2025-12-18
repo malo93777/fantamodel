@@ -97,7 +97,7 @@ def main():
             is_home = False
             is_away = True
 
-    submitted = st.form_submit_button("Prevedi Bonus")
+    submitted = st.button("Prevedi Bonus")
 
     # --- Logica di predizione
     if submitted:
