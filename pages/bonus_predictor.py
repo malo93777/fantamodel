@@ -47,13 +47,15 @@ def main():
     # ----------------------------
     # FORM input giocatore
     # ----------------------------
+    def update_team():
+        st.session_state['team'] = utils.get_latest_team(df_orig_goal, st.session_state['player'], "player_team")
+
     with st.form("predict_form"):
         col1, col2 = st.columns(2)
         with col1:
-            player = st.selectbox("👤 Giocatore", options=[""] + players)
+            player = st.selectbox("👤 Giocatore", options=[""] + players, key="player", on_change=update_team)
         with col2:
-            team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
-            st.text_input("🏟️ Squadra", value=team, disabled=False)
+            team_input = st.text_input("🏟️ Squadra", value="", key="team")
 
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
