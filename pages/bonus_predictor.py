@@ -76,7 +76,14 @@ def main():
         with col1:
             player = st.selectbox("👤 Giocatore", options=[""] + players)
         with col2:
-            team = st.selectbox("🏟️ Squadra", options=[""] + teams)
+             # squadra auto-calcolata
+            team = utils.get_latest_team(df_orig_goal, player, "player_team")
+
+        st.text_input(
+            "🏟️ Squadra",
+            value=team,
+            disabled=True
+        )
 
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
@@ -106,12 +113,12 @@ def main():
 
 
         #*** per test in locale ***
-        submitted = True
-        player = 'odgaard'
-        team = "bologna"
-        opponent = "lazio"
-        is_home = False
-        is_away = True
+        #submitted = True
+        #player = 'odgaard'
+        #team = "bologna"
+        #opponent = "lazio"
+        #is_home = False
+        #is_away = True
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
@@ -157,7 +164,7 @@ def main():
                                                         h_a_player)         
 
             # Probabilità combinate — Goal O Assist
-            prob_any = goal_proba + assist_proba - (goal_proba * assist_proba)
+            prob_bonus = goal_proba + assist_proba - (goal_proba * assist_proba)
 
             # --- Output finale
             st.markdown("---")
@@ -175,10 +182,10 @@ def main():
                 st.warning("Nessuna previsione disponibile per questo giocatore.")
 
             st.markdown("### ⚡ Probabilità Bonus Totale (Goal o Assist)")
-            st.metric(label="Probabilità complessiva", value=f"{prob_any*100:.1f}%")
+            st.metric(label="Probabilità complessiva", value=f"{prob_bonus*100:.1f}%")
 
             # Barra di progressione
-            st.progress(float(prob_any))  
+            st.progress(float(prob_bonus))  
 
             df_p = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]
             df_p_assist = df_orig_assist[df_orig_assist["player"].str.contains(player, case=False, na=False)]
