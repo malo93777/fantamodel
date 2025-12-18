@@ -53,7 +53,7 @@ def main():
             player = st.selectbox("👤 Giocatore", options=[""] + players)
         with col2:
             team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
-            st.text_input("🏟️ Squadra", value=team, disabled=True)
+            st.text_input("🏟️ Squadra", value=team, disabled=False)
 
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
 
