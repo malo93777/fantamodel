@@ -192,14 +192,19 @@ def main():
                 plot_df.rename(columns={"sum_xG":"xG","goals":"Goal"}, inplace=True)
 
                 fig = go.Figure()
+
                 fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["xG"], mode="lines+markers", name="xG",
                                          line=dict(color="#3b82f6", width=3), marker=dict(size=8)))
+                
                 fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["Goal"], mode="lines+markers", name="Goals",
                                          line=dict(color="#10b981", width=3), marker=dict(size=8)))
-                fig.update_layout(height=330, width=520, margin=dict(l=10,r=10,t=10,b=10),
+                
+                fig.update_layout(height=330,
+                                   #width=520,
+                                   margin=dict(l=10,r=10,t=10,b=10),
                                   plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                   xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)"))
-                st.plotly_chart(fig, use_container_width=False)
+                st.plotly_chart(fig, use_container_width=True)
 
                 st.markdown("### 📉 Andamento xA / Assist nelle ultime 10 partite giocate")
                 plot_df2 = pd.merge(
@@ -214,10 +219,12 @@ def main():
                                           line=dict(color="#10b981", width=3), marker=dict(size=8)))
                 fig2.add_trace(go.Scatter(x=plot_df2["date"], y=plot_df2["Assist"], mode="lines+markers", name="Assist",
                                           line=dict(color="#fbbf24", width=3), marker=dict(size=8)))
-                fig2.update_layout(height=330, width=520, margin=dict(l=10,r=10,t=10,b=10),
+                fig2.update_layout(height=330,
+                                    #width=520,
+                                    margin=dict(l=10,r=10,t=10,b=10),
                                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                    xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)"))
-                st.plotly_chart(fig2, use_container_width=False)
+                st.plotly_chart(fig2, use_container_width=True)
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
