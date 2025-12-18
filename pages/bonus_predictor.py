@@ -108,6 +108,7 @@ def main():
         st.metric("💎 Bonus Totale", f"{prob_bonus*100:.1f}%")
         st.progress(float(prob_bonus))
 
+<<<<<<< HEAD
         # --- Dati storici ---
         df_p_goal = df_orig_goal[df_orig_goal["player"].str.contains(player, case=False, na=False)]
         df_p_assist = df_orig_assist[df_orig_assist["player"].str.contains(player, case=False, na=False)]
@@ -127,6 +128,11 @@ def main():
                 st.metric("🔥 xG ultime 5", f"{curr_goal['xG_last5'].mean():.2f}")
                 st.metric("📈 xA medio stagione", f"{curr_assist['sum_xA'].mean():.2f}")
                 st.metric("✨ xA ultime 5", f"{curr_assist['xA_last5'].mean():.2f}")
+=======
+            if assist_proba is not None:
+                st.metric("🎯 Probabilità Assist", f"{assist_proba * 100:.1f}%")
+                st.progress(float(assist_proba))
+>>>>>>> parent of 6624070 (fix layout)
 
         with col2:
             # --- Grafico xG / Goal ---
@@ -162,5 +168,147 @@ def main():
         st.markdown("---")
         st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
 
+<<<<<<< HEAD
+=======
+            with col1:
+                curr_season_df = df_p[df_p['season'] == config.CURRENT_SEASON]
+                curr_season_df_assist = df_p_assist[df_p_assist['season'] == config.CURRENT_SEASON]
+
+                st.markdown(
+                    f"""
+                    <div style='
+                        background-color:#1f2937;
+                        padding:18px;
+                        border-radius:12px;
+                        text-align:center;
+                        margin-bottom:12px;
+                    '>
+                        <h2 style='color:white; margin:0;'>{df_p["player"].iloc[0]}</h2>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                # Metriche in griglia
+                colA, colB, colC = st.columns(3)
+                with colA:
+                    st.metric("📅 Presenze", f"{curr_season_df.shape[0]}")
+                    st.metric("⚽ Gol segnati", f"{int(curr_season_df['goals'].sum())}")
+                    st.metric("🎯 Assist forniti", f"{int(curr_season_df_assist['assists'].sum())}")
+
+                with colB:
+                    st.metric("📊 xG medio stagione", f"{curr_season_df['sum_xG'].mean():.2f}")
+                    st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
+                    st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
+                    st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
+            with col2:
+                    # ===============================
+                    # 📈 GRAFICO ANDAMENTO ULTIME 5 PARTITE (xG & xA)
+                    # ===============================
+
+                    st.markdown("### 📉 Andamento xG / Goal nelle ultime 10 partite giocate")
+
+                    # Prendiamo solo le ultime 10 partite del giocatore
+                    recente_df_goals = curr_season_df.sort_values("date").tail(10)
+                    recente_df_assist = curr_season_df_assist.sort_values("date").tail(10)
+
+                    plot_df = pd.merge(
+                        recente_df_goals[["date", "sum_xG"]],                  
+                        recente_df_goals[["date", "goals"]],
+                        on="date",
+                        how="outer"
+                    ).sort_values("date")
+
+                    plot_df.rename(columns={"sum_xG": "xG", "goals": "Goal"}, inplace=True)
+
+                    # ---- Plotly ----
+                    import plotly.graph_objects as go
+
+                    fig = go.Figure()
+
+                    fig.add_trace(go.Scatter(
+                        x=plot_df["date"],
+                        y=plot_df["xG"],
+                        mode="lines+markers",
+                        name="xG",
+                        line=dict(color="#3b82f6", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig.add_trace(go.Scatter(
+                        x=plot_df["date"],
+                        y=plot_df["Goal"],
+                        mode="lines+markers",
+                        name="Goals",
+                        line=dict(color="#10b981", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig.update_layout(
+                        height=330,
+                        width=520,   # <--- LARGHEZZA MAGGIORE
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=False),
+                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)")
+                    )
+
+                    st.plotly_chart(fig, use_container_width=False)
+
+                                        # ===============================
+                    # 📈 GRAFICO ANDAMENTO ULTIME 10 PARTITE (xA & Assist)
+                    # ===============================
+
+                    st.markdown("### 📉 Andamento xA / Assist nelle ultime 10 partite giocate")
+
+                    plot_df2 = pd.merge(
+                        recente_df_assist[["date", "sum_xA"]],
+                        recente_df_assist[["date", "assists"]],
+                        on="date",
+                        how="outer"
+                    ).sort_values("date")
+
+                    plot_df2.rename(columns={"sum_xA": "xAssist", "assists": "Assist"}, inplace=True)
+
+                    fig2 = go.Figure()
+
+                    fig2.add_trace(go.Scatter(
+                        x=plot_df2["date"],
+                        y=plot_df2["xAssist"],
+                        mode="lines+markers",
+                        name="xA",
+                        line=dict(color="#10b981", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig2.add_trace(go.Scatter(
+                        x=plot_df2["date"],
+                        y=plot_df2["Assist"],
+                        mode="lines+markers",
+                        name="Assist",
+                        line=dict(color="#fbbf24", width=3),
+                        marker=dict(size=8)
+                    ))
+
+                    fig2.update_layout(
+                        height=330,
+                        width=520,
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(showgrid=False),
+                        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)")
+                    )
+
+                    st.plotly_chart(fig2, use_container_width=False)
+
+            st.markdown("---")
+            st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
+
+# =====================================================
+# 🔹 Run app
+# =====================================================
+>>>>>>> parent of 6624070 (fix layout)
 if __name__ == "__main__":
     main()
