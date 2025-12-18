@@ -70,11 +70,18 @@ def main():
     num_giornate = utils.count_matchdays(df_teams_curr_season)
 
     with st.form("predict_form"):
+
         col1, col2 = st.columns(2)
+
         with col1:
             player = st.selectbox("👤 Giocatore", options=[""] + players)
+
+        # Calcola il team solo dopo che l’utente ha scelto il giocatore
+        team = ""
+        if player:
+            team = utils.get_latest_team(df_orig_goal, player, "player_team")
+
         with col2:
-            team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
             st.text_input("🏟️ Squadra", value=team, disabled=True)
 
         opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
