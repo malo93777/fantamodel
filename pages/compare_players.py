@@ -271,11 +271,11 @@ def main():
                             ({best_goal_player["prob_goal"]*100:.1f}%)
                         </p>
                         <p style='color:white; font-size:16px; margin:6px 0;'>
-                            🎯 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
+                            👟 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
                             ({best_assist_player["prob_assist"]*100:.1f}%)
                         </p>
                         <p style='color:white; font-size:16px; margin:6px 0;'>
-                            🎯 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
+                            💎 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
                             ({best_bonus_player["prob_assist"]*100:.1f}%)
                         </p>
                     </div>
@@ -316,14 +316,14 @@ def main():
                         st.metric("🎯 xA ultime 5", f"{p1['xA_last5']:.2f}")
                         st.metric("📅 Presenze", f"{p1['appearances']}")
                         st.metric("⚽ Gol segnati", f"{int(p1['goals'])}")
-                        st.metric("🎯 Assist forniti", f"{int(p1['assists'])}")
+                        st.metric("👟 Assist forniti", f"{int(p1['assists'])}")
 
                     # -----------------------
                     # 📍 COLONNA DESTRA (PROBABILITÀ)
                     # -----------------------
                     with colB:
                         st.metric("⚽ Prob. Goal", f"{p1['prob_goal']*100:.1f}%")
-                        st.metric("✨ Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
+                        st.metric("👟 Prob. Assist", f"{p1['prob_assist']*100:.1f}%")
                         st.metric("💎 Prob. Bonus Totale", f"{p1['prob_bonus']*100:.1f}%")
 
 
@@ -356,14 +356,14 @@ def main():
                         st.metric("🎯 xA ultime 5", f"{p2['xA_last5']:.2f}")
                         st.metric("📅 Presenze", f"{p2['appearances']}")
                         st.metric("⚽ Gol segnati", f"{int(p2['goals'])}")
-                        st.metric("🎯 Assist forniti", f"{int(p2['assists'])}")
+                        st.metric("👟 Assist forniti", f"{int(p2['assists'])}")
 
                     # -----------------------
                     # 📍 COLONNA DESTRA (PROBABILITÀ)
                     # -----------------------
                     with colB2:
                         st.metric("⚽ Prob. Goal", f"{p2['prob_goal']*100:.1f}%")
-                        st.metric("✨ Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
+                        st.metric("👟 Prob. Assist", f"{p2['prob_assist']*100:.1f}%")
                         st.metric("💎 Prob. Bonus Totale", f"{p2['prob_bonus']*100:.1f}%")
 
 
