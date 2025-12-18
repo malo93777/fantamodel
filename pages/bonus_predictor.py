@@ -106,11 +106,12 @@ def main():
 
 
         #*** per test in locale ***
-        #submitted = True
+        submitted = True
         player = 'odgaard'
         team = "bologna"
         opponent = "lazio"
         is_home = False
+        is_away = True
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
@@ -129,42 +130,31 @@ def main():
             else:
                 h_a_player = None
 
-            X_goal, role = utils.prepare_features_xgb(features_names_goal,
-                                                       player, 
-                                                       team, 
-                                                       opponent, 
-                                                       df_orig_goal, 
-                                                       df_teams, 
-                                                       df_teams_curr_season, 
-                                                       models_goal["lin"],
-                                                       config.ROLE_STATS,
-                                                       h_a_player       
-                                   )
-            
-            goal_proba = None
-            if X_goal is not None:
-                try:
-                    #probabilità base dal modello
-                    goal_proba = utils.predict_goal_probability(
-                        model=models_goal["poiss_reg"],
-                        X_goal=X_goal,
-                        player=player,
-                        role=role,
-                        get_alpha_for_role_fn=utils.get_alpha_for_role
-                    )              
-
-                except Exception as e:
-                    st.error(f"Errore nel modello goal: {e}")
+            goal_proba = utils.get_goal_prob(models_goal["poiss_reg"],
+                                                features_names_goal,
+                                                player, 
+                                                team, 
+                                                opponent, 
+                                                df_orig_goal, 
+                                                df_teams, 
+                                                df_teams_curr_season, 
+                                                models_goal["lin"],
+                                                config.ROLE_STATS,
+                                                h_a_player
+                                                              
+                                   )                    
 
             # === PREDIZIONE ASSIST ===
-            features_names_assist = models_assist["log_reg_assist"].feature_names_in_
-            X_assist = utils.prepare_features_assist(features_names_assist, player, team, opponent, df_orig_assist, df_teams, models_assist["scaler_features_assist"])
-            assist_proba = None
-            if X_assist is not None:
-                try:
-                    assist_proba = models_assist["log_reg_assist"].predict_proba(X_assist)[0, 1]
-                except Exception as e:
-                    st.error(f"Errore nel modello assist: {e}")
+            features_names_assist = models_assist["poisson_reg_assist"].feature_names_
+            assist_proba = utils.get_assist_prob(models_assist["poisson_reg_assist"],
+                                                        features_names_assist,
+                                                        player,
+                                                        team,
+                                                        opponent,
+                                                        df_orig_assist,
+                                                        df_teams,
+                                                        df_teams_curr_season,                                             
+                                                        h_a_player)         
 
             # Probabilità combinate — Goal O Assist
             prob_any = goal_proba + assist_proba - (goal_proba * assist_proba)

@@ -41,10 +41,12 @@ def load_models():
 def load_models_assist():
     return {
         "scaler_features_assist": joblib.load(config.SCALER_DIR_ASSIST / config.SCALER),
-        "poisson_model_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
+        "poisson_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
-def prepare_features_assist(features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
+def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
+
+    """Prepara le feature per la predizione goal probability con modello CatBoost Reg."""
 
      # 1️⃣ Filtra storico giocatore
     df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
@@ -62,10 +64,14 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
     
     season = config.CURRENT_SEASON
 
-    df = fill_missing_values_player_df(df, features_names, season_ref=season)
+    numeric_features, categorical_features = split_features_by_type(df, features_names)
+
+    df = fill_missing_values_player_df(df, numeric_features, season_ref=season)
 
     # 3️⃣ Riempi i NaN
     df[features_names] = df[features_names].fillna(0)
+
+    main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
 
     # 4️⃣ Recupera dati della squadra e avversario
 
@@ -90,13 +96,14 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
             team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
             xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
         
-    # 5️⃣ Calcola statistiche base del giocatore
-    sum_xA = df["sum_xA"].tail(12).mean()
+    # 5️⃣ Calcola statistiche base del giocatore. Media delle ultime 12, che poi viene pesata esponenzialmente
+    sum_xA = df["sum_xA"].tail(12).to_list()
 
-    sum_xA_weighted = weighted_xg_vs_opponent_mixed(sum_xA, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+    sum_xA_weighted = progressive_weighted_mean(sum_xA, alpha=0.2)
 
-    sum_xA_weighted = weighted_xg_team_mixed(sum_xA_weighted, df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
+    sum_xA_weighted = weighted_xg_vs_opponent_mixed(sum_xA_weighted, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
 
+    sum_xA_weighted = weighted_xg_team_mixed(sum_xA_weighted,df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
     # Calcolo goals_last5 per la riga da prevedere
     if len(df) >= 5:
@@ -112,11 +119,24 @@ def prepare_features_assist(features_names, player, team, opponent, df_orig, df_
         "xA_last5": xA_last5    
     }])
 
-    return X_new_df
+    player_pos = df[categorical_features]
 
-def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
+    # Aggiungi le dummy di posizione
+    X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
+
+    probs = predict_probabilities_poisson(
+        model=model,
+        X_new_df=X_new_df,
+        main_role=main_role,
+        alpha_fn=get_alpha_for_role,
+        poisson_fn=poisson_goal_probs
+        )
+
+    return probs["p_any"]
+
+def get_goal_prob(model_poiss, features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
     """
-    Prepara le feature per la predizione goal probability con modello XGBoost.
+    Prepara le feature per la predizione goal probability con modello CatBoost Reg.
     """
     # 1️⃣ Filtra storico giocatore
     df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
@@ -149,8 +169,6 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     df = fill_missing_values_player_df(df, numeric_features, season_ref=config.CURRENT_SEASON)
 
     df[features_names] = df[features_names].fillna(0)
-
-    #df["sum_xG"] = np.log1p(df["sum_xG"])
 
      # Calcolo residuo  per finishing_form
     df["xg_mean_12"] = (
@@ -189,14 +207,14 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
         G_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
     
     #prendo xg base player
-    sum_xG_new = (df["sum_xG"].tail(12).mean())
+    sum_xG_new = df["sum_xG"].tail(12).tolist()
 
-    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.2)
+    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.3)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
 
-    sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
+    sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
         
     main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
 
@@ -227,7 +245,15 @@ def prepare_features_xgb(features_names, player, team, opponent, df_orig, df_tea
     # Aggiungi le dummy di posizione
     X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
 
-    return X_new_df, main_role
+    probs = predict_probabilities_poisson(
+        model=model_poiss,
+        X_new_df=X_new_df,
+        main_role=main_role,
+        alpha_fn=get_alpha_for_role,
+        poisson_fn=poisson_goal_probs
+    )
+
+    return probs["p_any"]
 
 def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False):
     """
@@ -1371,6 +1397,49 @@ def predict_goal_probability(model, X_goal, player, role, get_alpha_for_role_fn)
 
     return goal_proba
 
+def predict_probabilities_poisson(
+    model,
+    X_new_df,
+    main_role,
+    alpha_fn,
+    poisson_fn
+):
+    """
+    Predice la distribuzione di probabilità dei gol usando un modello
+    che stima lambda (xG atteso) e una correzione per ruolo.
+
+    Parameters
+    ----------
+    model : fitted model
+        Modello che predice lambda (es. regressione Poisson o simile)
+    X_new_df : pd.DataFrame
+        Feature del giocatore per la partita da prevedere
+    main_role : str
+        Ruolo principale del giocatore (es. 'FW', 'MF', ...)
+    alpha_fn : callable
+        Funzione che ritorna alpha dato un ruolo (es. utils.get_alpha_for_role)
+    poisson_fn : callable
+        Funzione che calcola le probabilità Poisson (es. utils.poisson_goal_probs)
+
+    Returns
+    -------
+    dict or np.ndarray
+        Distribuzione di probabilità dei gol
+    """
+
+    # 1️⃣ Predizione lambda grezzo
+    lambda_pred = model.predict(X_new_df)
+
+    # 2️⃣ Correzione per ruolo
+    best_alpha = alpha_fn(main_role)
+    lambda_adj = np.clip(best_alpha * lambda_pred, 0, None)
+
+    # 3️⃣ Distribuzione Poisson
+    probs = poisson_fn(lambda_adj)
+
+    return probs
+
+
 def compute_role_overperf_stats(global_df):
     """
     Calcola statistiche globali dell'intero dataset (training).
@@ -2499,6 +2568,8 @@ def get_h_a_opponent(h_a_player):
         h_a = "a"
     elif h_a_player == "a":
         h_a = "h"
+    else:
+        h_a = ""
     return h_a
 
 
@@ -2550,3 +2621,4 @@ def poisson_goal_probs(lam):
         "p3plus": scalar(p3plus),
         "p_any": scalar(p_any)
     }
+

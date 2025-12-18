@@ -34,20 +34,49 @@ numeric_features = ["sum_xA", "xA_last5"]
 # ============================================================
 
 def get_player_data(df: pd.DataFrame, player_name: str):
+    """
+    Cerca i dati di un giocatore nel dataframe, gestendo:
+    - accenti (Martínez -> Martinez)
+    - case-insensitivity
+    - match esatto o parola intera
+    - ambiguità se esistono più giocatori con lo stesso nome
+    """
+
+    # Normalizza i nomi
     df = df.copy()
     df["player_norm"] = df["player"].apply(lambda x: unidecode(str(x)).lower())
     player_norm = unidecode(player_name).lower()
-
+    chosen_player = player_norm
+    # 1️⃣ Match esatto
     player_df = df[df["player_norm"] == player_norm]
 
+    # 2️⃣ Se non trovato, prova con parola intera (regex)
     if player_df.empty:
-        player_df = df[df["player_norm"].str.contains(rf"\b{re.escape(player_norm)}\b", na=False)]
+        player_df = df[df["player_norm"].str.contains(rf"\b{re.escape(player_norm)}\b", case=False, na=False)]
 
+    # 3️⃣ Se ancora vuoto
     if player_df.empty:
         print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
         return pd.DataFrame()
 
-    return player_df.sort_values("date").reset_index(drop=True)
+    # 4️⃣ Se più giocatori hanno lo stesso nome
+    matching_players = player_df["player"].unique()
+    if len(matching_players) > 1:
+        print(f"⚠️ Trovati più giocatori con nome simile a '{player_name}':")
+        for i, p in enumerate(matching_players, 1):
+            teams = ", ".join(df[df["player"] == p]["player_team"].dropna().unique())
+            print(f"   {i}. {p} ({teams})")
+
+        # Chiede all'utente quale scegliere
+        try:
+            choice = int(input("👉 Inserisci il numero del giocatore desiderato: ")) - 1
+            chosen_player = matching_players[choice]
+            player_df = df[df["player"] == chosen_player]
+        except (ValueError, IndexError):
+            print("❌ Scelta non valida, interrotto.")
+            return pd.DataFrame()
+
+    return player_df.sort_values("date").reset_index(drop=True), chosen_player
 
 
 def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame):
@@ -252,9 +281,18 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
 
     for player, team, opponent, h_a_player in zip(players, teams, opponents, h_a_player):
 
-        player_df = get_player_data(df_orig, player)
+        player_df, player_full_name = get_player_data(df_orig, player)
         if player_df.empty:
             continue
+        
+        #DA AGGIUNGERE GESTIONE giocatori nuovi senza dati assit in serie a
+        #if player_df["season"].min() == CURRENT_SEASON:
+        #    others_leagues_data = True
+        #    player_df = utils.add_other_leagues_data(
+        #        player_df, player_full_name,
+        #        DATASET_DATA_DIR, GOALS_DATA_FILE_ALL_LEAGUES,
+        #        CURRENT_SEASON
+        #)
 
         now = pd.Timestamp.now()
         player_df["date"] = pd.to_datetime(player_df["date"], errors="coerce")
@@ -263,6 +301,11 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
         season = player_df["season"].iloc[-1]
 
         opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
+
+        main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
+
+        if player == "nico paz" or player == "odgaard":
+            main_role = "FM"
 
         # 4️⃣ Ottieni info squadre. se le partite del giocatore della corrente stagione sono superiori a 5 uso quelle
         num_giornate = utils.count_matchdays(df_teams_curr)
@@ -286,7 +329,7 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
             team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
         
-        sum_xA = player_df["sum_xA"].tail(12).mean()
+        sum_xA = player_df["sum_xA"].tail(12).tolist()
         sum_xA = utils.progressive_weighted_mean(sum_xA, alpha=0.3)
 
         sum_xA_weighted = utils.weighted_xg_vs_opponent_mixed(sum_xA, player_df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
@@ -295,19 +338,19 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
 
         xA_last5 = player_df["sum_xA"].tail(5).mean()
 
-        X_new = pd.DataFrame([{
+        X_new_df = pd.DataFrame([{
             "sum_xA": sum_xA_weighted,
             "xA_last5": xA_last5,
             "position": player_df["position"].iloc[-1]
         }])
 
-        lam = float(model.predict(X_new)[0])
-        role = X_new["position"].iloc[0]
-        a = role_alphas.get(role, 0.8)
-
-        lam_adjusted = lam * a
-
-        probs = predict_assist_distribution(lam_adjusted)
+        probs = utils.predict_probabilities_poisson(
+        model=model,
+        X_new_df=X_new_df,
+        main_role=main_role,
+        alpha_fn=utils.get_alpha_for_role,
+        poisson_fn=utils.poisson_goal_probs
+        )
 
         print(f"✅ Probabilità che {player} assista contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
 

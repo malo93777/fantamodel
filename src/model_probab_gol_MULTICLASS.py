@@ -437,11 +437,6 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
-        #peso xg per ruolo
-        #player_df = utils.adjust_sumxg_by_position(player_df, pos_factors)
-
-        #player_df["sum_xG"] = np.log1p(player_df["sum_xG"])
-
         # Calcolo residuo  per finishing_form
         player_df["xg_mean_12"] = (
             player_df.groupby("player")["sum_xG"]
@@ -520,10 +515,14 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         # Aggiungi le dummy di posizione
         X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
 
-        lambda_pred = model.predict(X_new_df)
-        best_a = utils.get_alpha_for_role(main_role)
-        lam_adj = np.clip(best_a * lambda_pred, 0, None)
-        probs = utils.poisson_goal_probs(lam_adj)
+        probs = utils.predict_probabilities_poisson(
+        model=model,
+        X_new_df=X_new_df,
+        main_role=main_role,
+        alpha_fn=utils.get_alpha_for_role,
+        poisson_fn=utils.poisson_goal_probs
+        )
+
 
         print(f"✅ Probabilità che {player} segni contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
 
