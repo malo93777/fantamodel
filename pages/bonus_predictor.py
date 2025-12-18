@@ -80,7 +80,7 @@ def main():
         team = ""
         if player:
             team = utils.get_latest_team(df_orig_goal, player, "player_team")
-
+            st.text_input("🏟️ Squadra", value=team, disabled=True)
         with col2:
             st.text_input("🏟️ Squadra", value=team, disabled=True)
 
