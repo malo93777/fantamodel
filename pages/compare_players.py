@@ -87,7 +87,7 @@ def main():
         player1 = st.selectbox("👤 Giocatore 1", [""] + players,
                                index=players.index(default_player1) + 1 if default_player1 in players else 0)
         # squadra auto-calcolata
-        team1 = utils.get_latest_team(df_teams, player1)
+        team1 = utils.get_latest_team(players, "player_team")
 
         st.text_input(
             "🏟️ Squadra 1",
@@ -117,7 +117,7 @@ def main():
         player2 = st.selectbox("👤 Giocatore 2", [""] + players,
                                index=players.index(default_player2) + 1 if default_player2 in players else 0)
         # squadra auto-calcolata
-        team2 = utils.get_latest_team(df_teams, player2)
+        team2 = utils.get_latest_team(players, "player_team")
 
         st.text_input(
             "🏟️ Squadra 2",

@@ -44,15 +44,24 @@ def load_models_assist():
         "poisson_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
-def get_latest_team(df, player_name):
-    if player_name == "":
-        return ""
+def get_latest_team(df_player, team_col, date_col="date"):
+    """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
+    
+    if df_player.empty or team_col not in df_player.columns:
+        return None
 
-    rows = df[df["player"] == player_name]
-    if rows.empty:
-        return ""
+    # ordina cronologicamente
+    df_sorted = df_player.sort_values(date_col)
 
-    return rows.sort_values("date").iloc[-1]["player_team"]
+    # prendi ultimo valore non nullo
+    latest_team = (
+        df_sorted[team_col]
+        .dropna()
+        .iloc[-1] if not df_sorted[team_col].dropna().empty else None
+    )
+
+    return latest_team
+
 
 
 def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
