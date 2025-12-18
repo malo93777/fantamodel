@@ -175,7 +175,8 @@ def main():
                 st.progress(float(goal_proba))
 
             if assist_proba is not None:
-                st.metric("🎯 Probabilità Assist", f"{assist_proba * 100:.1f}%")
+                st.metric("👟 Probabilità Assist", f"{assist_proba * 100:.1f}%")
+
                 st.progress(float(assist_proba))
 
             if goal_proba is None and assist_proba is None:
@@ -268,7 +269,7 @@ def main():
 
                     fig.update_layout(
                         height=330,
-                        width=520,   # <--- LARGHEZZA MAGGIORE
+                        #width=520,   # <--- LARGHEZZA MAGGIORE
                         margin=dict(l=10, r=10, t=10, b=10),
                         plot_bgcolor="rgba(0,0,0,0)",
                         paper_bgcolor="rgba(0,0,0,0)",
@@ -276,7 +277,7 @@ def main():
                         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)")
                     )
 
-                    st.plotly_chart(fig, use_container_width=False)
+                    st.plotly_chart(fig, use_container_width=True)
 
                                         # ===============================
                     # 📈 GRAFICO ANDAMENTO ULTIME 10 PARTITE (xA & Assist)
@@ -315,7 +316,7 @@ def main():
 
                     fig2.update_layout(
                         height=330,
-                        width=520,
+                        #width=520,
                         margin=dict(l=10, r=10, t=10, b=10),
                         plot_bgcolor="rgba(0,0,0,0)",
                         paper_bgcolor="rgba(0,0,0,0)",
@@ -323,7 +324,7 @@ def main():
                         yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.2)")
                     )
 
-                    st.plotly_chart(fig2, use_container_width=False)
+                    st.plotly_chart(fig2, use_container_width=True)
 
             st.markdown("---")
             st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
