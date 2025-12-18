@@ -87,7 +87,7 @@ def main():
         player1 = st.selectbox("👤 Giocatore 1", [""] + players,
                                index=players.index(default_player1) + 1 if default_player1 in players else 0)
         # squadra auto-calcolata
-        team1 = utils.get_latest_team(df_orig_goal, player1, "player_team")
+        team1 = utils.get_latest_team(df_orig_goal, player1, "player_team") if player1 else ""
 
         st.text_input(
             "🏟️ Squadra 1",
@@ -117,7 +117,7 @@ def main():
         player2 = st.selectbox("👤 Giocatore 2", [""] + players,
                                index=players.index(default_player2) + 1 if default_player2 in players else 0)
         # squadra auto-calcolata
-        team2 = utils.get_latest_team(df_orig_goal, player2, "player_team")
+        team2 = utils.get_latest_team(df_orig_goal, player2, "player_team") if player2 else ""
 
         st.text_input(
             "🏟️ Squadra 2",
@@ -257,34 +257,15 @@ def main():
                     p1 if p1['prob_bonus'] >= p2["prob_bonus"] else p2
                 )
 
-                st.markdown(
-                    f"""
-                    <div style='
-                        background: linear-gradient(90deg, #111827, #1f2937);
-                        padding:18px;
-                        border-radius:14px;
-                        margin-bottom:20px;
-                    '>
-                        <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni</h4>
+                st.markdown(f"""
+                    ### 🏆 Previsioni
 
-                        <p style='color:white; font-size:16px; margin:6px 0;'>
-                            ⚽ <b>Più probabilità di Goal:</b> {best_goal_player["player"]}
-                            ({best_goal_player["prob_goal"]*100:.1f}%)
-                        </p>
+                    ⚽ **Più probabilità di Goal:** {best_goal_player["player"]} ({best_goal_player["prob_goal"]*100:.1f}%)
 
-                        <p style='color:white; font-size:16px; margin:6px 0;'>
-                            👟 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
-                            ({best_assist_player["prob_assist"]*100:.1f}%)
-                        </p>
+                    👟 **Più probabilità di Assist:** {best_assist_player["player"]} ({best_assist_player["prob_assist"]*100:.1f}%)
 
-                        <p style='color:white; font-size:16px; margin:6px 0;'>
-                            💎 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
-                            ({best_bonus_player["prob_bonus"]*100:.1f}%)
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                    💎 **Più probabilità di portare Bonus:** {best_bonus_player["player"]} ({best_bonus_player["prob_bonus"]*100:.1f}%)
+                    """)
 
 
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
