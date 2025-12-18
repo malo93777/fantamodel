@@ -259,35 +259,33 @@ def main():
 
                 st.markdown(
                     f"""
-                    <div style="
+                    <div style='
                         background: linear-gradient(90deg, #111827, #1f2937);
                         padding:18px;
                         border-radius:14px;
                         margin-bottom:20px;
-                    ">
+                    '>
                         <h4 style='color:#e5e7eb; margin-bottom:10px;'>🏆 Previsioni</h4>
 
                         <p style='color:white; font-size:16px; margin:6px 0;'>
-                            ⚽ <b>Più probabilità di Goal:</b>
-                            <span style="color:#22c55e !important; font-weight:600; display:inline-block;">{best_goal_player["player"]}</span>
-                            (<span style="color:#22c55e !important; font-weight:600;">{best_goal_player["prob_goal"]*100:.1f}%</span>)
+                            ⚽ <b>Più probabilità di Goal:</b> {best_goal_player["player"]}
+                            ({best_goal_player["prob_goal"]*100:.1f}%)
                         </p>
 
                         <p style='color:white; font-size:16px; margin:6px 0;'>
-                            👟 <b>Più probabilità di Assist:</b>
-                            <span style="color:#22c55e !important; font-weight:600; display:inline-block;">{best_assist_player["player"]}</span>
-                            (<span style="color:#22c55e !important; font-weight:600;">{best_assist_player["prob_assist"]*100:.1f}%</span>)
+                            👟 <b>Più probabilità di Assist:</b> {best_assist_player["player"]}
+                            ({best_assist_player["prob_assist"]*100:.1f}%)
                         </p>
 
                         <p style='color:white; font-size:16px; margin:6px 0;'>
-                            💎 <b>Più probabilità di portare Bonus:</b>
-                            <span style="color:#22c55e !important; font-weight:600; display:inline-block;">{best_bonus_player["player"]}</span>
-                            (<span style="color:#22c55e !important; font-weight:600;">{best_bonus_player["prob_bonus"]*100:.1f}%</span>)
+                            💎 <b>Più probabilità di portare Bonus:</b> {best_bonus_player["player"]}
+                            ({best_bonus_player["prob_bonus"]*100:.1f}%)
                         </p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
+
 
                 st.markdown("### 📊 Statistiche a confronto (Serie A)")
 
