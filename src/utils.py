@@ -44,6 +44,17 @@ def load_models_assist():
         "poisson_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
+def get_latest_team(df, player_name):
+    if player_name == "":
+        return ""
+
+    rows = df[df["player"] == player_name]
+    if rows.empty:
+        return ""
+
+    return rows.sort_values("date").iloc[-1]["player_team"]
+
+
 def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
 
     """Prepara le feature per la predizione goal probability con modello CatBoost Reg."""
