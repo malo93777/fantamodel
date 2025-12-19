@@ -65,7 +65,7 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "bologna","lazio","fiorentina","verona","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "torino","lazio","fiorentina","verona","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","cagliari","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",

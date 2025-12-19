@@ -44,7 +44,7 @@ def load_models_assist():
         "poisson_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
-def get_latest_team(df_orig, player_name, team_col, date_col="date"):
+def get_latest_team(df_orig, player_name, team_col):
     """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
 
     df = df_orig.copy()
@@ -86,6 +86,8 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
         return None
     
     season = config.CURRENT_SEASON
+
+    df["position"] = df["position"].apply(clean_position)
 
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
@@ -151,13 +153,13 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
         model=model,
         X_new_df=X_new_df,
         main_role=main_role,
-        alpha_fn=get_alpha_for_role,
-        poisson_fn=poisson_goal_probs
+        poisson_fn=poisson_goal_probs,
+        target="assist"
         )
 
     return probs["p_any"]
 
-def get_goal_prob(model_poiss, features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
+def get_goal_prob(model, features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
     """
     Prepara le feature per la predizione goal probability con modello CatBoost Reg.
     """
@@ -193,13 +195,8 @@ def get_goal_prob(model_poiss, features_names, player, team, opponent, df_orig, 
 
     df[features_names] = df[features_names].fillna(0)
 
-     # Calcolo residuo  per finishing_form
-    df["xg_mean_12"] = (
-        df.groupby("player")["sum_xG"]
-        .apply(lambda x: x.rolling(window=12, min_periods=3).mean())
-        .reset_index(level=0, drop=True)
-    )
-    df["xg_mean_12"] = df["xg_mean_12"].fillna(0)
+    # Calcolo residuo  per finishing_form
+    df["xg_mean_12"] = df.groupby("player")["sum_xG"].transform(lambda x: progressive_weighted_rolling(x, alpha=0.2)).fillna(0)
 
     df = compute_finishing_form(df, window=12, use_rank=True, prod=True)
 
@@ -232,7 +229,7 @@ def get_goal_prob(model_poiss, features_names, player, team, opponent, df_orig, 
     #prendo xg base player
     sum_xG_new = df["sum_xG"].tail(12).tolist()
 
-    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.3)
+    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.2)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
@@ -269,11 +266,11 @@ def get_goal_prob(model_poiss, features_names, player, team, opponent, df_orig, 
     X_new_df = pd.concat([X_new_df.reset_index(drop=True), player_pos.tail(1).reset_index(drop=True)], axis=1)
 
     probs = predict_probabilities_poisson(
-        model=model_poiss,
+        model=model,
         X_new_df=X_new_df,
         main_role=main_role,
-        alpha_fn=get_alpha_for_role,
-        poisson_fn=poisson_goal_probs
+        poisson_fn=poisson_goal_probs,
+        target="goal"
     )
 
     return probs["p_any"]
@@ -1276,21 +1273,39 @@ def find_best_alpha_per_role(model, X_val, y_val, role_col="position", alphas=No
 
     return role_alphas
 
-def get_alpha_for_role(role: str) -> float:
+def get_alpha_for_role(role: str, target) -> float:
     """
     Restituisce il valore di alpha ottimale per un determinato ruolo.
     Se il ruolo non è presente o è None, usa il valore medio generale.
     """
-    role_alphas = {
-       
-        "F": 0.65,     #0.659
-        "FM": 0.603,    #0.551
-        "M": 0.500,     #0.42
-        "DM": 0.476,    #0.30
-        "D": 0.3,     #0.33
-        "DF": 0.300
-    
-    }
+    if target == "goal":
+        role_alphas = {
+        
+            "F": 0.60,     #0.659
+            "FM": 0.60,    #0.551
+            "M": 0.45,     #0.42
+            "DM": 0.45,    #0.30
+            "D": 0.35,     #0.33
+            "DF": 0.300
+            #{'D': np.float64(0.5204081632653061), 
+            # 'FM': np.float64(0.6122448979591837),
+            #  'F': np.float64(0.7224489795918367),
+            #  'M': np.float64(0.5387755102040817),
+            #  'None': np.float64(0.6489795918367347),
+            #  'DM': np.float64(0.42857142857142855),
+            #  'DF': np.float64(0.8877551020408163)}
+        }
+    elif target == "assist":
+        role_alphas = {
+
+        'M': 0.31,
+        'D': 0.25,
+        'None': 0.3,
+        'FM': 0.38,
+        'F': 0.32,
+        'DM': 0.32,
+        'DF': 0.3
+        }
 
     # Se il ruolo non è noto, calcola un fallback come media pesata o media semplice
     default_alpha = np.mean(list(role_alphas.values()))
@@ -1424,8 +1439,8 @@ def predict_probabilities_poisson(
     model,
     X_new_df,
     main_role,
-    alpha_fn,
-    poisson_fn
+    poisson_fn,
+    target
 ):
     """
     Predice la distribuzione di probabilità dei gol usando un modello
@@ -1454,7 +1469,7 @@ def predict_probabilities_poisson(
     lambda_pred = model.predict(X_new_df)
 
     # 2️⃣ Correzione per ruolo
-    best_alpha = alpha_fn(main_role)
+    best_alpha = get_alpha_for_role(main_role, target)
     lambda_adj = np.clip(best_alpha * lambda_pred, 0, None)
 
     # 3️⃣ Distribuzione Poisson
@@ -2170,7 +2185,7 @@ def compute_shot_quality_index_per_shot(
     goals_col="npgoals_perMatch",
     shots_col="shots_perMatch",
     date_col="date",
-    window=20,
+    window=12,
     prod=False
 ):
     """
@@ -2316,8 +2331,8 @@ def compute_shot_quality_index_v2(df, window=30, player_col="player", prod=False
         df["shot_quality_index"] = 0.5
         return df
 
-    df["shot_quality_index"] = (df["sq_roll"] - q01) / (q99 - q01)
-    df["shot_quality_index"] = df["shot_quality_index"].clip(0, 1)
+    df["shot_quality_index_generic"] = (df["sq_roll"] - q01) / (q99 - q01)
+    df["shot_quality_index_generic"] = df["shot_quality_index_generic"].clip(0, 1)
 
     return df
 
@@ -2645,3 +2660,25 @@ def poisson_goal_probs(lam):
         "p_any": scalar(p_any)
     }
 
+def progressive_weighted_rolling(df, alpha=0.3):
+    """
+        Calcola media pesata progressiva delle ultime 12 partite per una serie x.
+        x: pd.Series ordinata cronologicamente (vecchio → nuovo)
+        alpha: peso decrescente (0 < alpha < 1)
+    """
+    df = df.reset_index(drop=True).copy()
+    n = len(df)
+    result = []
+        
+    for i in range(n):
+            weighted_sum = 0.0
+            weight_total = 0.0
+            weight = 1.0
+            # consideriamo al massimo ultime 12 partite
+            for j in range(max(0, i-11), i+1):
+                weighted_sum += weight * df.iloc[j]
+                weight_total += weight
+                weight *= (1 - alpha)
+            result.append(weighted_sum / weight_total if weight_total > 0 else 0.0)
+        
+    return pd.Series(result, index=df.index)

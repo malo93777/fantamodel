@@ -162,7 +162,7 @@ def train_poisson_model(X_train, y_train, cat_features):
         loss_function="Poisson",
         random_seed=42,
         verbose=False,
-        l2_leaf_reg=3,
+        l2_leaf_reg=15,
         random_strength= 1.0,
         min_data_in_leaf=30,
         bootstrap_type="Bayesian",
@@ -298,9 +298,15 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
         player_df["date"] = pd.to_datetime(player_df["date"], errors="coerce")
         player_df = player_df[player_df["date"] <= now]
 
-        season = player_df["season"].iloc[-1]
+        # applica al dataset pulizia dei ruoli
+        player_df["position"] = player_df["position"].apply(utils.clean_position)
 
-        opponent_xGA_90min = get_Xga_90min_opp_team(opponent, season, df_teams)
+        # controlla i valori unici
+        print(player_df["position"].unique())
+        player_df["position"]= player_df["position"].dropna()
+        # Conta le occorrenze
+
+        season = player_df["season"].iloc[-1]
 
         main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
 
@@ -348,8 +354,8 @@ def predict_assist_probabilities(players, teams, opponents, df_orig, df_teams,df
         model=model,
         X_new_df=X_new_df,
         main_role=main_role,
-        alpha_fn=utils.get_alpha_for_role,
-        poisson_fn=utils.poisson_goal_probs
+        poisson_fn=utils.poisson_goal_probs,
+        target="assist"
         )
 
         print(f"✅ Probabilità che {player} assista contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
@@ -413,10 +419,40 @@ print(metrics)
 print(best_threshold)
 
 # Aggiungi y_true, pred prob e pred label
-X_test["true_goal"] = y_test_bin.values
+X_test["true_assist"] = y_test_bin.values
 X_test["pred_prob"] = y_test_prob["p_any"]
 X_test["pred_label"] = (y_test_prob["p_any"] >= best_threshold).astype(int)
 
+# Ordina per probabilità discendente
+X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
+
+# Analisi media per ruolo
+print("\n📊 Probabilità media di ASSIST per ruolo:")
+print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+
+# Stampa un riepilogo
+print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI ASSIST (TEST):")
+print(X_test_sorted.head(30))
+
+print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
+wrong_preds = X_test_sorted[X_test_sorted["true_assist"] != X_test_sorted["pred_label"]]
+print(wrong_preds.head(30))
+
+print("\n📊 30 CASI PIù SBAGLIATI falsi negativi")
+false_negatives = X_test_sorted[(X_test_sorted["pred_label"] == 0) & (X_test_sorted["true_assist"] == 1)]
+print(false_negatives.head(30))
+
+print("\n📊 30 CASI PIù SBAGLIATI falsi positivi")
+false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_assist"] == 0)]
+print(false_positives.head(30))
+
+#Stamp di numero di errori per ruolo, aggiungendo anche su falsi positivi e negativi
+print("\n📊 Errori di classificazione per ruolo:")
+print(X_test_sorted[X_test_sorted["true_assist"] != X_test_sorted["pred_label"]].groupby("position").size())
+print("\n📊 Falsi Negativi per ruolo:")
+print(false_negatives.groupby("position").size())
+print("\n📊 Falsi Positivi per ruolo:")
+print(false_positives.groupby("position").size())
 # ============================================================
 # PREVISIONE INPUT UTENTE
 # ============================================================

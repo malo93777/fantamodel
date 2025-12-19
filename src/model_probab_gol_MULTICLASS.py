@@ -47,6 +47,7 @@ def prepare_features(df_orig):
     df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
 
     df = utils.compute_shot_quality_index_per_shot(df,prod=False)
+    
     #DEBUGGGG DA TOGLIERE
     #df = utils.compute_finishing_form(df, prod=False)
 
@@ -69,11 +70,10 @@ def prepare_features(df_orig):
     # Seleziona le features (X) e target (y)
 
     # 1) Media mobile xG
-    df["xg_mean_12"] = (
-        df.groupby("player")["sum_xG"]
-        .rolling(10, min_periods=3).mean()
-        .reset_index(level=0, drop=True)
-    ).fillna(0)
+    # Creazione colonna xG media pesata sulle ultime 12 partite
+    df = df.reset_index(drop=True)  # importante: indice unico
+
+    df["xg_mean_12"] = df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.2)).fillna(0)
 
     # 2) Residuo finishing
     lin_reg = LinearRegression()
@@ -172,7 +172,7 @@ def train_poisson_model(X_train, y_train, cat_features):
         depth=9,
         iterations=1000,
         learning_rate=0.01,
-        l2_leaf_reg=10,
+        l2_leaf_reg=15,
         random_strength=2.0,
         bagging_temperature=0,
         min_data_in_leaf=15,
@@ -332,6 +332,10 @@ def full_training_pipeline(df):
     # Ordina per probabilità discendente
     X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
 
+    # Analisi media per ruolo
+    print("\n📊 Probabilità media di gol per ruolo:")
+    print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+
     # Stampa un riepilogo
     print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI GOL (TEST):")
     print(X_test_sorted.head(30))
@@ -348,9 +352,13 @@ def full_training_pipeline(df):
     false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_goal"] == 0)]
     print(false_positives.head(30))
 
-    # Analisi media per ruolo
-    print("\n📊 Probabilità media di gol per ruolo:")
-    print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+    #Stamp di numero di errori per ruolo, aggiungendo anche su falsi positivi e negativi
+    print("\n📊 Errori di classificazione per ruolo:")
+    print(X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]].groupby("position").size())
+    print("\n📊 Falsi Negativi per ruolo:")
+    print(false_negatives.groupby("position").size())
+    print("\n📊 Falsi Positivi per ruolo:")
+    print(false_positives.groupby("position").size())
 
     return {
         "model": model,
@@ -413,6 +421,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         player_df = utils.add_overperformance_features(player_df, stats, player_col="player", prod=True)
 
         player_df = utils.compute_shot_quality_index_per_shot(player_df,prod=True)
+        #player_df = utils.compute_shot_quality_index_v2(player_df, prod=False)
         player_df = utils.reduce_penalty_xg(player_df)
 
         #DEBUGGGG DA TOGLIERE
@@ -437,14 +446,12 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
 
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
 
-        # Calcolo residuo  per finishing_form
-        player_df["xg_mean_12"] = (
-            player_df.groupby("player")["sum_xG"]
-            .apply(lambda x: x.rolling(window=12, min_periods=3).mean())
-            .reset_index(level=0, drop=True)
-        )
-        player_df["xg_mean_12"] = player_df["xg_mean_12"].fillna(0)
+        
+        # Creazione colonna xG media pesata sulle ultime 12 partite
+        player_df = player_df.reset_index(drop=True)  # importante: indice unico
+        player_df["xg_mean_12"] = player_df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.2)).fillna(0)
 
+        # Calcolo residuo  per finishing_form
         player_df["finishing_form_resid"] = player_df["finishing_form"] - lin.predict(player_df[["xg_mean_12"]])
 
         cols_to_check.remove("finishing_form")
@@ -453,7 +460,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         #sum_xG_new = (player_df["sum_xG"].tail(12).mean())
         last_xG = player_df["sum_xG"].tail(12).tolist()
 
-        sum_xG_new = utils.progressive_weighted_mean(last_xG, alpha=0.3)
+        sum_xG_new = utils.progressive_weighted_mean(last_xG, alpha=0.1)
 
         # 4️⃣ Ottieni info squadre. se le partite del giocatore della corrente stagione sono superiori a 5 uso quelle
         num_giornate = utils.count_matchdays(df_teams_curr)
@@ -519,8 +526,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         model=model,
         X_new_df=X_new_df,
         main_role=main_role,
-        alpha_fn=utils.get_alpha_for_role,
-        poisson_fn=utils.poisson_goal_probs
+        poisson_fn=utils.poisson_goal_probs,
+        target="goal"
         )
 
 

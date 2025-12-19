@@ -509,10 +509,10 @@ class Preprocessor:
         merged_df = utils.compute_finishing_form(merged_df, window=12, use_rank=True, prod=False)
 
         # Calcolo shot quality
-        merged_df = utils.compute_shot_quality_index(merged_df, prod=False)
+        merged_df = utils.compute_shot_quality_index_per_shot(merged_df, prod=False)
 
         # Calcolo cold_penalty
-        #merged_df = self.compute_cold_penalty(merged_df)
+        merged_df = self.compute_cold_penalty(merged_df)
 
         if is_SerieA:
             # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)

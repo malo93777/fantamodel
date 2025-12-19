@@ -17,6 +17,8 @@ preproc = Preprocessor(
 
 def get_goals_data():
 
+    print("Starting goals data processing...")
+
     raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
 
     # 1. Scraping
@@ -52,6 +54,8 @@ def get_goals_data():
     goals_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS, index=False)
 
 def get_assists_data():
+
+    print("Starting assists data processing...")
 
     raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
 
