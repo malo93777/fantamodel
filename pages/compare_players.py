@@ -57,7 +57,7 @@ def main():
     # Carica dati e modelli
     models_goal = utils.load_models()
     models_assist = utils.load_models_assist()
-    model_xg = utils.load_models_xg()
+    model_xg = utils.load_xg_model()
     df_orig_goal = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
