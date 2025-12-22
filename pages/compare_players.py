@@ -57,6 +57,7 @@ def main():
     # Carica dati e modelli
     models_goal = utils.load_models()
     models_assist = utils.load_models_assist()
+    model_xg = utils.load_models_xg()
     df_orig_goal = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
@@ -154,7 +155,7 @@ def main():
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")   
 
-            goal_proba = utils.get_goal_prob(models_goal["poisson_regressor_xg"],
+            goal_proba = utils.get_goal_prob(model_xg["poisson_regressor_xg"],
                                                 models_goal["poiss_reg"],                                            
                                                 features_names_goal,
                                                 player, 
