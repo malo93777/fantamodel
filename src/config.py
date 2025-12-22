@@ -10,6 +10,7 @@ MODEL_DIR =  BASE_DIR / "models/goal"
 SCALER_DIR = BASE_DIR / "scaler/goal"
 MODEL_DIR_ASSIST =  BASE_DIR / "models/assist"
 SCALER_DIR_ASSIST = BASE_DIR / "scaler/assist"
+MODEL_DIR_XG = BASE_DIR / "models/xg"
 
 
 # File
@@ -31,6 +32,7 @@ LIN_POLY = "lin_poly.pkl"
 LIN = "lin.pkl"
 POISS_MODEL = "poisson_regressor.pkl"
 POISS_MODEL_ASSIST = "poisson_regressor_assist.pkl"
+POISS_MODEL_XG = "poisson_regressor_xg.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
@@ -50,7 +52,7 @@ BOOST_RESID = 1.0
 
 INPUT = {
     "players": [
-        "david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
+        "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
         "Orsolini", "barella", "acerbi", "Martin", "Berardi", "Dimarco",
@@ -58,14 +60,14 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
+        "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
         "inter", "inter", "genoa", "Sassuolo", "inter", "lazio", "ac milan",
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "torino","lazio","fiorentina","verona","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","cagliari","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",

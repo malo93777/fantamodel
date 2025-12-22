@@ -44,6 +44,11 @@ def load_models_assist():
         "poisson_reg_assist":  joblib.load(config.MODEL_DIR_ASSIST / config.POISS_MODEL_ASSIST)
     }
 
+def load_xg_model():
+    return {
+        "poisson_regressor_xg": joblib.load(config.MODEL_DIR_XG / config.POISS_MODEL_XG)
+    }
+
 def get_latest_team(df_orig, player_name, team_col):
     """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
 
@@ -159,7 +164,7 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
 
     return probs["p_any"]
 
-def get_goal_prob(model, features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
+def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_orig, df_teams, df_teams_curr_season, lin_model, ROLE_STATS,h_a_player):
     """
     Prepara le feature per la predizione goal probability con modello CatBoost Reg.
     """
@@ -226,20 +231,17 @@ def get_goal_prob(model, features_names, player, team, opponent, df_orig, df_tea
         team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
         G_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
     
+    if player == "nico paz" or player == "odgaard":
+        main_role = "FM"
+        
+    main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
     #prendo xg base player
-    sum_xG_new = df["sum_xG"].tail(12).tolist()
-
-    sum_xG_new = progressive_weighted_mean(sum_xG_new, alpha=0.2)
+    sum_xG_new = predict_xg_next_match(model_xg, df, main_role)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
 
-    sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
-        
-    main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
-
-    if player == "nico paz" or player == "odgaard":
-        main_role = "FM" 
+    sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team) 
 
     sum_xG_new = adjust_xg_by_minutes(sum_xG_new,df["minutes_played"].rolling(window=5, min_periods=1).mean())
 
@@ -1281,11 +1283,11 @@ def get_alpha_for_role(role: str, target) -> float:
     if target == "goal":
         role_alphas = {
         
-            "F": 0.60,     #0.659
-            "FM": 0.60,    #0.551
-            "M": 0.45,     #0.42
-            "DM": 0.45,    #0.30
-            "D": 0.35,     #0.33
+            "F": 0.6,     #0.60
+            "FM": 0.53,    #0.6
+            "M": 0.4,     #0.45
+            "DM": 0.45,    #0.45
+            "D": 0.35,     #0.35
             "DF": 0.300
             #{'D': np.float64(0.5204081632653061), 
             # 'FM': np.float64(0.6122448979591837),
@@ -2682,3 +2684,34 @@ def progressive_weighted_rolling(df, alpha=0.3):
             result.append(weighted_sum / weight_total if weight_total > 0 else 0.0)
         
     return pd.Series(result, index=df.index)
+
+def predict_xg_next_match(
+    model,
+    df: pd.DataFrame,
+    main_role: str
+):
+    """
+    Predice l'xG per la prossima partita di un giocatore usando il modello CatBoost.
+    
+    Parametri:
+        model: modello CatBoostRegressor addestrato
+        player_features: DataFrame con le feature del giocatore per la prossima partita
+        cat_features: lista delle colonne categoriche
+    
+    Ritorna:
+        float: xG predetto per la prossima partita
+    """
+    xg_last5 = df["sum_xG"].iloc[-5:].mean()
+    shots_last5 = df["shots_perMatch"].iloc[-5:].mean()
+    minutes_played_last5 = df["minutes_played"].iloc[-5:].mean()
+
+    X_modelxg = [[xg_last5,                                                                                                                
+                  shots_last5,
+                  minutes_played_last5,
+                  main_role                                       
+                  ]]
+    
+    xg_forecast_df = pd.DataFrame(X_modelxg, columns=["xG_last5", "shots_last5", "minutes_played_last5", "position"])
+    xg_forecast = model.predict(xg_forecast_df)
+
+    return float(xg_forecast[0])

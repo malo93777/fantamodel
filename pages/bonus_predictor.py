@@ -58,6 +58,7 @@ def main():
     # --- Carica dataset e modelli
     models_goal = utils.load_models()
     models_assist = utils.load_models_assist()
+    model_xg = utils.load_xg_model()
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
@@ -99,6 +100,14 @@ def main():
 
     submitted = st.button("Prevedi Bonus")
 
+    #DEBUG
+    submitted = True
+    player = "Cancellieri"
+    team = "Lazio"
+    opponent = "Cremonese"
+    is_home = True
+    is_away = False
+    
     # --- Logica di predizione
     if submitted:
         if not player or not team or not opponent:
@@ -117,6 +126,7 @@ def main():
                 h_a_player = None
 
             goal_proba = utils.get_goal_prob(
+                model_xg["poisson_regressor_xg"],
                 models_goal["poiss_reg"], features_names_goal,
                 player, team, opponent, df_orig_goal, df_teams,
                 df_teams_curr_season, models_goal["lin"], config.ROLE_STATS,

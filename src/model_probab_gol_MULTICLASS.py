@@ -13,13 +13,64 @@ from sklearn.metrics import (
 from sklearn.linear_model import LinearRegression
 from catboost import CatBoostRegressor
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from config import CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
+from config import SERIE_A_TEAMS, MODEL_DIR_XG, CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
 from first_preproc import Preprocessor
 from unidecode import unidecode
 from scipy.stats import poisson
+
+SERIE_A_TOP = ["Juventus", "Inter", "Milan", "Napoli", "Roma", "Lazio"]
+SERIE_A_MID = ["Atalanta", "Fiorentina", "Torino", "Bologna", "Sassuolo", "Udinese", "Genoa", "Como"]
+SERIE_A_WEAK = [s for s in SERIE_A_TEAMS if s not in SERIE_A_TOP + SERIE_A_MID]
+
+def get_team_strength(team_name):
+    if team_name in SERIE_A_TOP:
+        return "top"
+    elif team_name in SERIE_A_MID:
+        return "mid"
+    else:
+        return "weak"
+
+def add_opponent_strength_feature(df, opponent_col="opponent_team"):
+    df = df.copy()
+    df["opponent_strength"] = df[opponent_col].apply(get_team_strength)
+    return df
 # ============================================================
 # 1️⃣ FEATURE ENGINEERING PULITO
 # ============================================================
+def load_xg_model(model_path= MODEL_DIR_XG / "xg_model_catboost.pkl"):
+    model = CatBoostRegressor()
+    model.load_model(model_path)
+    return model
+
+
+def add_xg_pred_feature(df, model, numeric_features, cat_features):
+    """
+    Aggiunge la feature xg_pred al dataframe usando il modello xG
+    """
+    df = df.copy()
+
+    # Feature engineering coerente col training
+    df = add_opponent_strength_feature(df)
+
+    df = df.sort_values(["player", "date"], kind="mergesort")
+    df = df[~df["position"].isin(["GK", "GKS"])]
+    df["position"] = df["position"].apply(utils.clean_position)
+
+    df = df.dropna(subset=["position"])
+    df[numeric_features] = df[numeric_features].fillna(0)
+
+    # Controllo colonne richieste
+    required_cols = numeric_features + cat_features
+    missing = set(required_cols) - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    X = df[required_cols]
+    df["xg_pred"] = model.predict(X)
+
+    return df
+
+
 def prepare_features(df_orig):
 
     df_orig = pd.read_csv(DATASET_DATA_DIR / PROD_DATA_FILE_GOALS)
@@ -29,27 +80,21 @@ def prepare_features(df_orig):
     df = df_orig.copy()
     df = df.sort_values(["player", "date"])
 
-    df = df[df["position"] != "GK"]
-    df = df[df["position"] != "GKS"]
+    stats = utils.compute_role_overperf_stats(df)
+    df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
+
+    #df = df[df["position"] != "GK"]
+    #df = df[df["position"] != "GKS"]
 
     # applica al dataset
-    df["position"] = df["position"].apply(utils.clean_position)
+    #df["position"] = df["position"].apply(utils.clean_position)
 
     # controlla i valori unici
     print(df["position"].unique())
     df["position"]= df["position"].dropna()
     # Conta le occorrenze
 
-    #df = df[df["minutes_played"] >= 5]
-    #print(df.shape)
-
-    stats = utils.compute_role_overperf_stats(df)
-    df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
-
     df = utils.compute_shot_quality_index_per_shot(df,prod=False)
-    
-    #DEBUGGGG DA TOGLIERE
-    #df = utils.compute_finishing_form(df, prod=False)
 
     print(df[["player", "overperf_log", "overperf_last5", "overperf_combined"]].tail())
 
@@ -73,7 +118,7 @@ def prepare_features(df_orig):
     # Creazione colonna xG media pesata sulle ultime 12 partite
     df = df.reset_index(drop=True)  # importante: indice unico
 
-    df["xg_mean_12"] = df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.2)).fillna(0)
+    df["xg_mean_12"] = df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.1)).fillna(0)
 
     # 2) Residuo finishing
     lin_reg = LinearRegression()
@@ -371,13 +416,13 @@ def full_training_pipeline(df):
         "best_threshold": best_threshold,
         "metrics": metrics,
         "stats": stats
-    }
+    }, df
 
-def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, numeric_features, categorical_features, stats, h_a_player):
+def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, numeric_features, categorical_features, stats, h_a_player):
     results = []
     
     df_records = pd.DataFrame()
-    preproc = Preprocessor(serie_a_teams=SERIE_A_TEAMS)
+
     for player, team, opponent, h_a_player in zip(players, teams, opponents, h_a_player):
         print(f"\n➡️ {player} ({team} vs {opponent})")
 
@@ -449,7 +494,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         
         # Creazione colonna xG media pesata sulle ultime 12 partite
         player_df = player_df.reset_index(drop=True)  # importante: indice unico
-        player_df["xg_mean_12"] = player_df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.2)).fillna(0)
+        player_df["xg_mean_12"] = player_df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.1)).fillna(0)
 
         # Calcolo residuo  per finishing_form
         player_df["finishing_form_resid"] = player_df["finishing_form"] - lin.predict(player_df[["xg_mean_12"]])
@@ -484,7 +529,8 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
             team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
         
-
+        # predizione xg futuro
+        sum_xG_new = utils.predict_xg_next_match(model_xg, player_df, main_role)
         sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
 
         sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
@@ -501,12 +547,13 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         # 6️⃣ Posizioni (dummy)
         #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
+
+       
         # 7️⃣ Costruisci feature row
         X_new = [[sum_xG_new,                                                                                                                
                   player_df["overperf_combined"].iloc[-1],
                   player_df["shot_quality_index"].iloc[-1],
-                  player_df["finishing_form_resid"].iloc[-1]
-                                            
+                  player_df["finishing_form_resid"].iloc[-1]                                    
                   ]]
 
         feature_names = cols_to_check
@@ -531,7 +578,7 @@ def predict_goal_probabilities(players, teams, opponents, df_orig, df_teams, df_
         )
 
 
-        print(f"✅ Probabilità che {player} segni contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
+        print(f"✅ Probabilità che {player} ({main_role}) segni contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
 
 
         results.append({
@@ -561,7 +608,7 @@ def main():
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
     df_teams_curr_season = pd.read_csv(DATASET_DATA_DIR / CURRENT_SEASON_TEAMS_FILE)
 
-    results = full_training_pipeline(df_orig)
+    results, df_mod = full_training_pipeline(df_orig)
 
     model = results["model"]
     lin_reg = results["lin_reg"]
@@ -572,8 +619,10 @@ def main():
     print("Best Threshold:", results["best_threshold"])
     print("Metrics:", results["metrics"])
 
-    pred_df = predict_goal_probabilities(players, teams, opponents,
-                                     df_orig, df_teams, df_teams_curr_season,
+    xg_model = load_xg_model()
+
+    pred_df = predict_goal_probabilities(xg_model, players, teams, opponents,
+                                     df_mod, df_teams, df_teams_curr_season,
                                      model, lin_reg,
                                      numeric_features, categorical_features, stats, h_a)
     

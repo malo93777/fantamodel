@@ -155,6 +155,7 @@ def main():
             features_names_goal.remove("finishing_form_resid")   
 
             goal_proba = utils.get_goal_prob(models_goal["poiss_reg"],
+                                                models_goal["poisson_regressor_xg"],
                                                 features_names_goal,
                                                 player, 
                                                 team, 
