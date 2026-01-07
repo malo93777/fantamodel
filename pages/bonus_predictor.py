@@ -127,7 +127,8 @@ def main():
 
             goal_proba = utils.get_goal_prob(
                 model_xg["poisson_regressor_xg"],
-                models_goal["poiss_reg"], features_names_goal,
+                models_goal["poiss_reg"],
+                features_names_goal,
                 player, team, opponent, df_orig_goal, df_teams,
                 df_teams_curr_season, models_goal["lin"], config.ROLE_STATS,
                 h_a_player

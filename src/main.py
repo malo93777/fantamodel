@@ -4,6 +4,7 @@ from matchscraper import MatchScraper
 from understatapi import UnderstatClient
 from scraper import Scraper
 from assist_scraper import AssistScraper
+from voti_scraper import VotiScraper
 import config
 import argparse
 
@@ -60,8 +61,6 @@ def get_assists_data():
     raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
 
     # 1. Scraping
-    #scraper = AssistScraper()
-    #scraper.run(debug=False)
 
     # 2. Preprocessing
     assist_df = preproc.preproc_assists_dataset(
@@ -93,6 +92,30 @@ def get_assists_data():
     #to csv
     assist_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST, index=False)
 
+def get_voti_data():
+    print("Starting voti data processing...")
+
+    raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
+    voti_csv_path = config.DATASET_DATA_DIR / config.VOTI_DATA_FILE
+    prod_goals_with_teams_player = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS
+
+    # 1. Scraping  TOLTO PER DEBUG
+    #scraper = VotiScraper()
+    #scraper.run()
+
+    # 2. Preprocessa dataset voti
+    voti_df = preproc.merge_voti_player(
+        raw_df_path, 
+        voti_csv_path,
+        prod_goals_with_teams_player
+    )
+
+    print("Preprocessed voti dataset:")
+    print(voti_df.head())
+
+    #to csv
+    voti_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI, index=False)
+
 def main():
 
     matches_df = pd.DataFrame()
@@ -103,23 +126,28 @@ def main():
     parser = argparse.ArgumentParser(description="FantaModel")
     parser.add_argument("--gol", action="store_true", help="Scraping e Prepocessing per il modello dei gol")
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
-
+    parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     args = parser.parse_args()
     args.gol = True
     args.assist = True
+    args.voti = True
     # ==========================
     # ESECUZIONE
     # ==========================
-    if args.gol and args.assist:
-        print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST...")
+    if args.gol and args.assist and args.voti:
+        print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI...")
         get_goals_data()
         get_assists_data()
+        get_voti_data()
     elif args.gol:
         print("⚽  Scraping e Prepocessing GOL...")
         get_goals_data()
     elif args.assist:
         print("🎯  Scraping e Prepocessing ASSIST...")
         get_assists_data()
+    elif args.voti:
+        print("📝  Scraping e Prepocessing VOTI...")
+        get_voti_data()
     else:
         print("❗ Nessun argomento specificato. Usa --gol e/o --assist")
 

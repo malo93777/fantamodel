@@ -13,6 +13,17 @@ class Preprocessor:
     # ========================
     # Funzioni di supporto
     # ========================
+
+    def normalize_name_ordered(self, name):
+        #questa fun inverte anche nome e cognome per facilitare il matching
+        if pd.isna(name):
+            return ""
+        name = str(name).strip().lower()
+        name = unicodedata.normalize("NFKD", name)
+        name = "".join([c for c in name if not unicodedata.combining(c)])
+        parts = name.split()
+        parts.sort()
+        return " ".join(parts)
     
     def add_opponent_team_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -856,4 +867,56 @@ class Preprocessor:
 
         return df
 
-    
+    def merge_voti_player(self, csv1_path, csv2_path, csv3_path):
+        df1 = pd.read_csv(csv1_path)
+        df2 = pd.read_csv(csv2_path)
+        df3 = pd.read_csv(csv3_path)
+
+        # Rimuovo i senza voto_gds
+        df2 = df2[df2['voto_gds'].notna()]
+
+        # Normalizzazione nomi
+        df1['player_norm'] = df1['player'].apply(self.normalize_name_ordered)
+        df2['player_norm'] = df2['player_norm'].apply(self.normalize_name_ordered)
+
+        columns_to_add = [
+            'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
+            'ammonizioni','espulsioni','autogol'
+        ]
+
+        for col in columns_to_add:
+            df1[col] = pd.NA
+
+        df1['date'] = pd.to_datetime(df1['date'])
+
+        for (player, season), group in df1.groupby(['player_norm','season']):
+            group_sorted = group.sort_values('date')
+
+            df2_player = (
+                df2[
+                    (df2['player_norm'] == player) &
+                    (df2['stagione'].astype(str).str.startswith(str(season)))
+                ]
+                .sort_values('giornata')
+            )
+
+            for col in columns_to_add:
+                values = df2_player[col].tolist()
+                while len(values) < len(group_sorted):
+                    values.append(pd.NA)
+                df1.loc[group_sorted.index, col] = values[:len(group_sorted)]
+
+        # --- MERGE MATCH-LEVEL CON DF3 ---
+        df3['player_norm'] = df3['player'].apply(self.normalize_name_ordered)
+        df3['date'] = pd.to_datetime(df3['date'])
+
+        df1 = df1.merge(
+            df3[['player_norm', 'date', 'player_team', 'opponent_team']],
+            on=['player_norm', 'date'],
+            how='left'
+        )
+
+        # Rimuovi colonna temporanea
+        df1 = df1.drop(columns=['player_norm'])
+
+        return df1

@@ -24,6 +24,8 @@ PROD_DATA_FILE_ASSIST = "PROD_assists_2025_preproc_Serie_A.csv"
 RAW_DATA_FILE = "raw_data.csv"
 CURRENT_SEASON_TEAMS_FILE = "teams_current_season.csv"
 GOALS_DATA_FILE_ALL_LEAGUES = "all_leagues_goals.csv"
+VOTI_DATA_FILE = "voti_fantagiaveno_raw.csv"
+PROD_DATA_FILE_VOTI = "PROD_voti_2025_preproc_Serie_A.csv"
 
 # Modelli
 SCALER = "scaler.pkl"

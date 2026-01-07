@@ -23,6 +23,79 @@ from bs4 import BeautifulSoup
 import re
 import config
 # ============================================================
+# Classe VotiScraper
+# ============================================================
+
+class VotiScraper:
+    def run(self):
+        SQUADRE = [
+            "Atalanta","Bologna","Cagliari","Empoli","Fiorentina",
+            "Genoa","Inter","Juventus","Lazio","Lecce",
+            "Milan","Monza","Napoli","Roma","Salernitana",
+            "Sassuolo","Torino","Udinese","Verona",
+            "Cremonese","Parma","Pisa","Como","Venezia",
+            "Brescia","Spal","Frosinone","Cesena","Carpi","Benevento"
+        ]
+
+        MAX_GIORNATE = 38
+        SLEEP_SEC = 1
+
+        session = requests.Session()
+
+        all_rows = []
+        seasons_found = set()
+        current_season = None
+
+        for giornata in range(1, MAX_GIORNATE + 1):
+            print(f"\n▶ Giornata {giornata}")
+
+            giornata_rows = []
+
+            for squadra in SQUADRE:
+                try:
+                    rows = scrape_match(session, giornata, squadra)
+
+                    if not rows:
+                        continue
+
+                    stagione = rows[0]["stagione"]
+
+                    # 🔹 prima stagione trovata
+                    if current_season is None:
+                        current_season = stagione
+                        print(f"📅 Stagione rilevata: {stagione}")
+
+                    # 🔹 cambio stagione automatico
+                    elif stagione != current_season:
+                        print(f"🔄 Cambio stagione: {current_season} → {stagione}")
+                        current_season = stagione
+
+                    seasons_found.add(stagione)
+
+                    print(f"    ✅ {squadra}: {len(rows)} giocatori")
+                    giornata_rows.extend(rows)
+
+                    time.sleep(SLEEP_SEC)
+
+                except Exception as e:
+                    print(f"    ❌ {squadra}: {e}")
+
+            # 🔹 se una giornata non produce dati → fine scraping
+            if not giornata_rows:
+                print("⛔ Nessun dato trovato → fine scraping")
+                break
+
+            all_rows.extend(giornata_rows)
+
+        # 🔹 OUTPUT
+        print(f"\n📊 Stagioni trovate: {sorted(seasons_found)}")
+
+        df = pd.DataFrame(all_rows)
+        df.to_csv("voti_fantagiaveno_raw.csv", index=False)
+
+        print(f"💾 Salvati {len(df)} record in voti_fantagiaveno_raw.csv")
+
+# ============================================================
 # ====================== SEZIONE A ===========================
 # ======================== SCRAPING ==========================
 # ============================================================
@@ -45,11 +118,14 @@ session.headers.update(HEADERS)
 # UTILS SCRAPING
 # ------------------------------------------------------------
 
-def get_soup(url, params=None):
-    time.sleep(SLEEP_SECONDS)
-    r = session.get(url, params=params, timeout=20)
+def get_soup(url, params=None, session=None):
+    if session is None:
+        session = requests.Session()
+
+    r = session.get(url, params=params, timeout=30)
     r.raise_for_status()
     return BeautifulSoup(r.text, "html.parser")
+
 
 
 
@@ -89,57 +165,122 @@ def discover_match_urls(seed_url):
 
     return sorted(urls)
 
+def discover_all_match_ids():
+    """
+    Scansiona il sito e trova TUTTI gli id match reali
+    """
+    print("🔍 Scoperta URL partite...")
+    match_ids = set()
+
+    # pagina indice generica (basta una)
+    url = "https://www.fantagiaveno.it"
+    soup = get_soup(url)
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+
+        if "voti-fantacalcio-gazzetta.asp?id=" in href:
+            try:
+                id_part = href.split("id=")[1].split("&")[0]
+                match_ids.add(int(id_part))
+            except:
+                pass
+
+    print(f"✅ Trovati {len(match_ids)} match.")
+    return sorted(match_ids)
+
+import re
+
+def extract_season(soup):
+    td = soup.find("td", class_="SottoTitoloPiccolo")
+    if not td:
+        return None
+
+    text = td.get_text(strip=True).upper()
+
+    # match "CAMPIONATO 2025 / 2026"
+    m = re.search(r"CAMPIONATO\s+(\d{4})\s*/\s*(\d{4})", text)
+    if not m:
+        return None
+
+    return f"{m.group(1)}-{m.group(2)}"
+
+def set_stagione(session, stagione_id):
+    url = "https://www.fantagiaveno.it/stagione.asp"
+    params = {"id": stagione_id}
+    r = session.get(url, params=params, timeout=20)
+    r.raise_for_status()
+
+
 # ------------------------------------------------------------
 # SCRAPE SINGOLA PARTITA
 # ------------------------------------------------------------
 
-def scrape_match(url, stagione, giornata, squadra):
+def scrape_match(session, giornata, squadra):
+    url = "https://www.fantagiaveno.it/voti-fantacalcio-gazzetta.asp"
+    params = {
+        "id": giornata,
+        "ids": squadra
+    }
 
-    soup = get_soup(url)
-    rows = soup.find_all("tr")
+    soup = get_soup(url, params=params, session=session)
+    stagione = extract_season(soup)
+
+    table = find_votes_table(soup)
+    if table is None:
+        print(f"⚠️ Tabella voti NON trovata ({squadra}, G{giornata})")
+        return []
+
+    rows = table.find_all("tr")
     data = []
 
     for tr in rows:
-        cells = tr.find_all(["td", "th"])
-        if len(cells) < 6:
+        tds = tr.find_all("td")
+        if len(tds) < 14:
             continue
 
-        cols = [c.get_text(strip=True) for c in cells]
-
-        player = cols[0]
-
-        # filtri anti-spazzatura
-        if not player:
-            continue
-        if player.upper() in ["ALLENATORE", "PAN.", "PAN"]:
-            continue
-        if player.replace(".", "").isdigit():
+        name_tag = tds[1].find("a")
+        if not name_tag:
             continue
 
-        voto_raw = cols[1]
-        voto = parse_float(voto_raw) if voto_raw not in ["", "-", "SV"] else None
+        player = name_tag.get_text(strip=True)
 
-        row = {
+        voto = parse_float(tds[3].get_text(strip=True))
+        fantavoto = parse_float(tds[2].get_text(strip=True))
+
+        gol = parse_int(tds[4].get_text(strip=True))
+        assist = parse_int(tds[5].get_text(strip=True))
+        ammonizioni = parse_int(tds[6].get_text(strip=True))
+        espulsioni = parse_int(tds[7].get_text(strip=True))
+        autogol = parse_int(tds[8].get_text(strip=True))
+
+        rig_txt = tds[9].get_text(strip=True)
+        if "/" in rig_txt:
+            segnati, tentati = rig_txt.split("/")
+            rig_segnati = parse_int(segnati)
+            rig_sbagliati = max(0, parse_int(tentati) - rig_segnati)
+        else:
+            rig_segnati = 0
+            rig_sbagliati = 0
+
+        data.append({
             "stagione": stagione,
             "giornata": giornata,
             "squadra": squadra,
             "player": player,
             "player_norm": normalize_name(player),
-
             "voto_gds": voto,
-            "gol": parse_int(cols[2]) if len(cols) > 2 else 0,
-            "assist": parse_int(cols[3]) if len(cols) > 3 else 0,
-            "ammonizioni": parse_int(cols[4]) if len(cols) > 4 else 0,
-            "espulsioni": parse_int(cols[5]) if len(cols) > 5 else 0,
-            "autogol": parse_int(cols[6]) if len(cols) > 6 else 0,
-            "rig_sbagliati": parse_int(cols[7]) if len(cols) > 7 else 0,
-            "rig_segnati": parse_int(cols[8]) if len(cols) > 8 else 0,
-        }
-
-        data.append(row)
+            "fantavoto": fantavoto,
+            "gol": gol,
+            "assist": assist,
+            "ammonizioni": ammonizioni,
+            "espulsioni": espulsioni,
+            "autogol": autogol,
+            "rig_segnati": rig_segnati,
+            "rig_sbagliati": rig_sbagliati
+        })
 
     return data
-
 
 # ------------------------------------------------------------
 # FANTAVOTO
@@ -210,21 +351,15 @@ def find_votes_table(soup):
     tables = soup.find_all("table")
 
     for table in tables:
-        rows = table.find_all("tr")
-        if len(rows) < 10:
-            continue
+        headers = table.find_all("th")
+        header_texts = [h.get_text(strip=True).lower() for h in headers]
 
-        # prova a leggere la prima riga dati
-        for tr in rows:
-            tds = tr.find_all("td")
-            if len(tds) < 2:
-                continue
-
-            first_cell = tds[0].get_text(strip=True)
-
-            # se sembra un nome giocatore → è la tabella giusta
-            if first_cell and any(c.isalpha() for c in first_cell):
-                return table
+        if (
+            "nome" in header_texts
+            and "voto" in header_texts
+            and "punti" in header_texts
+        ):
+            return table
 
     return None
 
@@ -234,92 +369,7 @@ def find_votes_table(soup):
 # ============================================================
 
 if __name__ == "__main__":
+    scraper = VotiScraper()
+    scraper.run()
 
-    # ============================================================
-    # CONFIG
-    # ============================================================
 
-    STAGIONI = [
-        "2015-2016", "2016-2017", "2017-2018", "2018-2019",
-        "2019-2020", "2020-2021", "2021-2022", "2022-2023",
-        "2023-2024", "2024-2025", "2025-2026"
-    ]
-
-    # 380 partite ≈ stagione completa
-    MATCH_ID_RANGE = range(1, 38)
-
-    SQUADRE = config.SERIE_A_TEAMS
-
-    OUTPUT_RAW = "fantagiaveno_raw_votes.csv"
-    OUTPUT_FEAT = "fantagiaveno_features.csv"
-
-    all_rows = []
-
-    print("🚀 Inizio scraping Fantagiaveno")
-
-    # ============================================================
-    # SCRAPING LOOP
-    # ============================================================
-
-    for stagione in STAGIONI:
-        print(f"\n📅 Stagione {stagione}")
-
-        for match_id in MATCH_ID_RANGE:
-            print(f"  ▶ Match ID {match_id}")
-
-            for squadra in SQUADRE:
-                print(f"    • Squadra: {squadra}")
-                try:
-                    url = f"{BASE_URL}/voti-fantacalcio-gazzetta.asp"
-                    params = {
-                        "id": match_id,
-                        "ids": squadra
-                    }
-
-                    print(f"      → Richiesta: stagione={stagione}, match_id={match_id}, squadra={squadra}")
-                    rows = scrape_match(
-                        url=url,
-                        stagione=stagione,
-                        giornata=None,      # non disponibile direttamente
-                        squadra=squadra
-                    )
-
-                    if rows:
-                        print(f"      ✓ {len(rows)} righe trovate per {squadra} (match {match_id})")
-                        all_rows.extend(rows)
-                    else:
-                        print(f"      ⚠️ Nessun dato trovato per {squadra} (match {match_id})")
-
-                except Exception as e:
-                    print(f"      ❌ Errore {stagione} ID {match_id} {squadra}: {e}")
-
-    # ============================================================
-    # DATAFRAME
-    # ============================================================
-
-    df_raw = pd.DataFrame(all_rows)
-
-    if df_raw.empty:
-        raise RuntimeError("❌ Nessun dato scaricato")
-
-    # Rimuove duplicati veri
-    df_raw = df_raw.drop_duplicates(
-        subset=["stagione", "squadra", "player", "voto_gds"]
-    )
-
-    print(f"\n✅ Scraping completato: {len(df_raw)} righe")
-
-    df_raw.to_csv(OUTPUT_RAW, index=False)
-    print(f"💾 Salvato {OUTPUT_RAW}")
-
-    # ============================================================
-    # FEATURE ENGINEERING
-    # ============================================================
-
-    print("\n🧠 Costruzione feature")
-
-    df_features = build_match_level_features(df_raw)
-    df_features.to_csv(OUTPUT_FEAT, index=False)
-
-    print(f"💾 Salvato {OUTPUT_FEAT}")
-    print("\n🏁 PIPELINE COMPLETATA")
