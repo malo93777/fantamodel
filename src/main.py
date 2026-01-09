@@ -24,7 +24,7 @@ def get_goals_data():
 
     # 1. Scraping
     scraper = Scraper()
-    scraper.run()
+    scraper.run_scraper()
 
     # 2. Preprocessa dataset tiri
     goals_df = preproc.preproc_goals_dataset(
@@ -100,8 +100,8 @@ def get_voti_data():
     prod_goals_with_teams_player = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS
 
     # 1. Scraping  TOLTO PER DEBUG
-    #scraper = VotiScraper()
-    #scraper.run()
+    scraper = VotiScraper()
+    scraper.run()
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(

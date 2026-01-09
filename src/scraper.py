@@ -8,6 +8,10 @@ from understat import Understat
 
 class Scraper:
 
+    def run_scraper(self):
+        scraper = Scraper()
+        asyncio.run(scraper.run())
+
     async def run(self):
 
         async with aiohttp.ClientSession() as session:
