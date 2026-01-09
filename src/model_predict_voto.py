@@ -5,7 +5,22 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, root_mean_squared_error
 import config
 import re
+import utils
 from unidecode import unidecode
+
+def normalize_team(name):
+    if pd.isna(name):
+        return None
+    return name.strip().lower()
+
+def map_strength(team):
+    if team in config.TOP_TEAMS:
+        return 'top'
+    elif team in config.MID_TEAMS:
+        return 'mid'
+    else:
+        return 'weak'
+
 
 def add_team_strength_column(
     df,
@@ -23,28 +38,6 @@ def add_team_strength_column(
     new_col : str
         Nome della nuova colonna (default: team_strength)
     """
-
-    def normalize_team(name):
-        if pd.isna(name):
-            return None
-        return name.strip().lower()
-
-    TOP_TEAMS = {
-        'inter', 'juventus', 'milan', 'ac milan', 'napoli', 'atalanta'
-    }
-
-    MID_TEAMS = {
-        'roma', 'lazio', 'fiorentina', 'bologna', 'sassuolo',
-        'torino', 'udinese'
-    }
-
-    def map_strength(team):
-        if team in TOP_TEAMS:
-            return 'top'
-        elif team in MID_TEAMS:
-            return 'mid'
-        else:
-            return 'weak'
 
     df[new_col] = (
         df[team_col]
@@ -187,6 +180,8 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, model):
 
         player_df = player_df.sort_values('date')
 
+        player_df = utils.add_home_away_column(player_df)
+
         # ---- rolling stats ultime 5 ----
         rolling_5 = player_df.tail(5)
 
@@ -225,6 +220,24 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, model):
         X_pred = X_pred[model.feature_names_]
         # ---- predizione ----
         fantavoto_pred = model.predict(X_pred)[0]
+        # aggiustamento in base alla forza dell'avversario
+        opponent = normalize_team(opponent)
+        opponent_strength = map_strength(opponent)
+        #fantavoto_pred = utils.adjust_fantavoto_by_opp(fantavoto_pred, opponent_strength, h_a)
+
+        adj_opp_team = utils.compute_player_vs_strength_adjustment(
+                player_df=player_df,
+                target_opponent_strength=opponent_strength
+            )
+        adj_home_away = utils.compute_player_home_away_adjustment(
+                player_df=player_df,
+                target_ha=h_a
+            )
+
+        #da aggiungere aadj per squadra in cui gioca
+        
+        
+        fantavoto_pred += adj_opp_team + adj_home_away
 
         print(f"Predicted fantavoto for {player_full_name} ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
 

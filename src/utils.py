@@ -2496,98 +2496,6 @@ def weighted_xg_team_mixed(
 
     return sum_xG_adjusted
 
-
-def tune_feature_weights(
-    X, y, cat_features, 
-    n_iter=20, 
-    random_seed=42
-):
-    """
-    Ottimizza i feature_weights per CatBoostRegressor usando Random Search + CV.
-    Ritorna:
-        - best_weights
-        - migliori metriche
-        - modello addestrato con i pesi migliori
-    """
-
-    np.random.seed(random_seed)
-    random.seed(random_seed)
-
-    weight_space = {
-        "sum_xG": (0.6, 2.0),                # deve rimanere dominante
-        "shot_quality_index": (0.5, 2.5),
-        "finishing_form_resid": (0.2, 1.5),
-        "overperf_combined": (0.05, 1.0),
-        "position_weighted": (0.2, 1.5)
-    }
-
-    best_rmse = np.inf
-    best_w = None
-
-    kf = KFold(n_splits=5, shuffle=True, random_state=random_seed)
-
-    for i in range(n_iter):
-        # Genera pesi casuali nel range scelto
-        w = {k: np.random.uniform(*rng) for k, rng in weight_space.items()}
-
-        rmses = []
-
-        for train_idx, val_idx in kf.split(X, y):
-            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-
-            model = CatBoostRegressor(
-                depth=6,
-                iterations=800,
-                learning_rate=0.03,
-                min_data_in_leaf=5,
-                bagging_temperature=0.7,
-                l2_leaf_reg=10,
-                loss_function="Poisson",
-                bootstrap_type="Bayesian",
-                random_seed=random_seed,
-                verbose=False,
-                feature_weights=w
-            )
-
-            model.fit(X_train, y_train, cat_features=cat_features)
-
-            preds = model.predict(X_val)
-            rmse = np.sqrt(mean_squared_error(y_val, preds))
-            rmses.append(rmse)
-
-        mean_rmse = np.mean(rmses)
-
-        print(f"[{i+1}/{n_iter}] RMSE={mean_rmse:.4f} | weights={w}")
-
-        if mean_rmse < best_rmse:
-            best_rmse = mean_rmse
-            best_w = w
-
-    # Addestra modello finale
-    final_model = CatBoostRegressor(
-                depth=6,
-                iterations=800,
-                learning_rate=0.03,
-                min_data_in_leaf=5,
-                bagging_temperature=0.7,
-                l2_leaf_reg=10,
-                loss_function="Poisson",
-                bootstrap_type="Bayesian",
-                random_seed=random_seed,
-                verbose=False,
-                feature_weights=best_w
-            )
-
-    final_model.fit(X, y, cat_features=cat_features)
-
-    print("\n🏆 MIGLIORI PESI TROVATI:")
-    for k,v in best_w.items():
-        print(f"  {k}: {v:.3f}")
-    print(f"📉 RMSE migliore: {best_rmse:.4f}")
-
-    return final_model, best_w, best_rmse
-
 def count_matchdays(teams_df: pd.DataFrame) -> int:
     """
     Restituisce quante giornate sono state giocate nella stagione corrente,
@@ -2715,3 +2623,136 @@ def predict_xg_next_match(
     xg_forecast = model.predict(xg_forecast_df)
 
     return float(xg_forecast[0])
+
+def adjust_fantavoto_by_opp(fv_pred, opponent_strength, home_away):
+    """
+    Calibrazione finale del fantavoto
+    """
+    adj = 0.0
+
+    if opponent_strength == 'top':
+        adj -= 0.25
+    elif opponent_strength == 'weak':
+        adj += 0.25
+
+
+    return round(fv_pred + adj, 2)
+
+def compute_player_vs_strength_adjustment(
+    player_df,
+    target_opponent_strength,
+    min_matches=5,
+    neutral_value=0.0
+):
+    """
+    Calcola un adjustment basato sulle performance del giocatore
+    contro squadre di una certa forza.
+
+    Parameters
+    ----------
+    player_df : pd.DataFrame
+        Storico partite del giocatore
+    target_opponent_strength : str
+        'top', 'mid', 'weak'
+    min_matches : int
+        Numero minimo di partite per considerare valido il dato
+    neutral_value : float
+        Valore di fallback se pochi dati
+
+    Returns
+    -------
+    float : adjustment da applicare al fantavoto
+    """
+
+    # sicurezza
+    required_cols = {'fantavoto', 'opponent_team_strength'}
+    if not required_cols.issubset(player_df.columns):
+        return neutral_value
+
+    # Filtra per forza avversaria
+    subset = player_df[
+        player_df['opponent_team_strength'] == target_opponent_strength
+    ]
+
+    if len(subset) < min_matches:
+        return neutral_value
+
+    # Media generale del giocatore
+    player_mean = player_df['fantavoto'].mean()
+
+    # Media vs quella forza
+    vs_strength_mean = subset['fantavoto'].mean()
+
+    # Delta performance
+    adjustment = vs_strength_mean - player_mean
+
+    # Clamp di sicurezza (importantissimo)
+    adjustment = max(min(adjustment, 0.5), -0.5)
+
+    return adjustment
+
+def compute_player_home_away_adjustment(
+    player_df,
+    target_ha,
+    min_matches=5,
+    neutral_value=0.0,
+    halflife=7
+):
+    """
+    Adjustment home/away usando media esponenziale (EWM)
+    """
+
+    required_cols = {'fantavoto', 'home_away', 'date'}
+    if not required_cols.issubset(player_df.columns):
+        return neutral_value
+
+    # Ordina per data (fondamentale)
+    player_df = player_df.sort_values('date')
+
+    subset = player_df[player_df['home_away'] == target_ha]
+
+    if len(subset) < min_matches:
+        return neutral_value
+
+    # Media esponenziale globale
+    player_mean = (
+        player_df['fantavoto']
+        .ewm(halflife=halflife, adjust=False)
+        .mean()
+        .iloc[-1]
+    )
+
+    # Media esponenziale home/away
+    ha_mean = (
+        subset['fantavoto']
+        .ewm(halflife=halflife, adjust=False)
+        .mean()
+        .iloc[-1]
+    )
+
+    adjustment = ha_mean - player_mean
+
+    # clamp di sicurezza
+    adjustment = max(min(adjustment, 0.5), -0.5)
+
+    return adjustment
+
+def add_home_away_column(df):
+    """
+    Aggiunge la colonna home_away ('H' / 'A')
+    usando h_team, a_team e player_team
+    """
+
+    def compute_ha(row):
+        if pd.isna(row['player_team']):
+            return pd.NA
+        if row['player_team'] == row['h_team']:
+            return 'h'
+        elif row['player_team'] == row['a_team']:
+            return 'a'
+        else:
+            return pd.NA
+
+    df['home_away'] = df.apply(compute_ha, axis=1)
+
+    return df

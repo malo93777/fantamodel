@@ -85,6 +85,14 @@ INPUT = {
     ]
 }
 
+TOP_TEAMS = {
+        'inter', 'juventus', 'milan', 'ac milan', 'napoli', 'atalanta'
+    }
+
+MID_TEAMS = {
+        'roma', 'lazio', 'fiorentina', 'bologna', 'sassuolo',
+        'torino', 'udinese'
+    }
 
 ROLE_STATS = {
     "global_overperf_median": -0.000001,

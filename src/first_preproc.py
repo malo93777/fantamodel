@@ -1,5 +1,7 @@
 import pandas as pd
-import ast  # per convertire le stringhe tipo "{'id':...}" in dict 
+import ast
+
+from unidecode import unidecode  # per convertire le stringhe tipo "{'id':...}" in dict 
 import config 
 import unicodedata
 import numpy as np
@@ -14,16 +16,70 @@ class Preprocessor:
     # Funzioni di supporto
     # ========================
 
-    def normalize_name_ordered(self, name):
-        #questa fun inverte anche nome e cognome per facilitare il matching
+    def normalize_surname_name(self, name):
+        """
+        Assume input: COGNOME NOME
+        Gestisce cognomi composti (es. de silvestri)
+        """
+
         if pd.isna(name):
             return ""
+
+        import unicodedata
+
         name = str(name).strip().lower()
+
+        # Rimuove accenti
         name = unicodedata.normalize("NFKD", name)
-        name = "".join([c for c in name if not unicodedata.combining(c)])
+        name = "".join(c for c in name if not unicodedata.combining(c))
+
         parts = name.split()
-        parts.sort()
-        return " ".join(parts)
+
+        if len(parts) < 2:
+            return name
+
+        # Ultima parola = nome
+        first_name = parts[-1]
+
+        # Tutto il resto = cognome (anche composto)
+        surname = " ".join(parts[:-1])
+
+        return f"{first_name} {surname}"
+
+    def remove_middle_name(self, name):
+        """
+        Rimuove il secondo nome SOLO se non è una particella del cognome.
+        Rimuove anche gli accenti.
+        Preserva cognomi composti (de silvestri, van dijk, ecc.)
+        """
+
+        if pd.isna(name):
+            return ""
+
+        import unicodedata
+
+        # lowercase + strip
+        name = str(name).strip().lower()
+
+        # 🔹 rimuove accenti
+        name = unicodedata.normalize("NFKD", name)
+        name = "".join(c for c in name if not unicodedata.combining(c))
+
+        particles = {"de", "di", "da", "del", "della", "van", "von", "la", "le"}
+
+        parts = name.split()
+
+        # Se meno di 3 parti → nulla da rimuovere
+        if len(parts) < 3:
+            return " ".join(parts)
+
+        # Caso: nome + particella + cognome → NON TOCCARE
+        if parts[1] in particles:
+            return " ".join(parts)
+
+        # Caso: nome + secondo_nome + cognome
+        return f"{parts[0]} {parts[-1]}"
+
     
     def add_opponent_team_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -876,8 +932,8 @@ class Preprocessor:
         df2 = df2[df2['voto_gds'].notna()]
 
         # Normalizzazione nomi
-        df1['player_norm'] = df1['player'].apply(self.normalize_name_ordered)
-        df2['player_norm'] = df2['player_norm'].apply(self.normalize_name_ordered)
+        df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
+        df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
 
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
@@ -892,9 +948,14 @@ class Preprocessor:
         for (player, season), group in df1.groupby(['player_norm','season']):
             group_sorted = group.sort_values('date')
 
+            #se player inizia con "jon"
+            if player.startswith("chr"):
+                print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")
+
+             # Filtra df2 per giocatore e stagione
             df2_player = (
                 df2[
-                    (df2['player_norm'] == player) &
+                    (df2['player_norm'] == player.lower()) &
                     (df2['stagione'].astype(str).str.startswith(str(season)))
                 ]
                 .sort_values('giornata')
@@ -907,7 +968,7 @@ class Preprocessor:
                 df1.loc[group_sorted.index, col] = values[:len(group_sorted)]
 
         # --- MERGE MATCH-LEVEL CON DF3 ---
-        df3['player_norm'] = df3['player'].apply(self.normalize_name_ordered)
+        df3['player_norm'] = df3['player'].apply(self.remove_middle_name)
         df3['date'] = pd.to_datetime(df3['date'])
 
         df1 = df1.merge(
