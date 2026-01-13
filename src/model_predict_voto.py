@@ -122,17 +122,17 @@ def preprocess_data(df: pd.DataFrame):
     df = add_team_strength_column(df, 'opponent_team', 'opponent_team_strength')
     df = add_team_strength_column(df, 'player_team', 'player_team_strength')
 
+    fv_stats = utils.compute_player_fv_stats(df)
+
+    df = df.merge(fv_stats, on='player', how='left')
+
     features = [
         'voto_gds',
         'goals',
         'assists',
         'ammonizioni',
         'espulsioni',
-        'rig_segnati',
-        'rig_sbagliati',
-        'position_clean',
-        "opponent_team_strength",
-        'player_team_strength'
+        'position_clean'
     ]
 
     target = 'fantavoto'
@@ -200,8 +200,6 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, model):
             'assists': safe_mean('assists'),
             'ammonizioni': safe_mean('ammonizioni'),
             'espulsioni': safe_mean('espulsioni'),
-            'rig_segnati': safe_mean('rig_segnati'),
-            'rig_sbagliati': safe_mean('rig_sbagliati'),
             'position_clean': rolling_5['position_clean'].mode().iloc[0]
         }])
 
@@ -222,22 +220,31 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, model):
         fantavoto_pred = model.predict(X_pred)[0]
         # aggiustamento in base alla forza dell'avversario
         opponent = normalize_team(opponent)
-        opponent_strength = map_strength(opponent)
+        opponent_strength = map_strength(opponent) 
+        team_strength = map_strength(team)
         #fantavoto_pred = utils.adjust_fantavoto_by_opp(fantavoto_pred, opponent_strength, h_a)
 
         adj_opp_team = utils.compute_player_vs_strength_adjustment(
                 player_df=player_df,
                 target_opponent_strength=opponent_strength
             )
+        
+        adj_team_player = utils.compute_player_team_strength_adjustment(
+            player_df=player_df,
+            target_team_strength=team_strength
+        )
         adj_home_away = utils.compute_player_home_away_adjustment(
                 player_df=player_df,
                 target_ha=h_a
             )
 
         #da aggiungere aadj per squadra in cui gioca
-        
-        
-        fantavoto_pred += adj_opp_team + adj_home_away
+
+        fantavoto_pred += adj_opp_team + adj_home_away + adj_team_player
+
+        adj_form_index = utils.compute_form_index(player_df)
+
+        fantavoto_pred += 0.3 * adj_form_index
 
         print(f"Predicted fantavoto for {player_full_name} ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
 
@@ -265,7 +272,7 @@ def train_xgboost(X: pd.DataFrame, y: pd.Series) -> XGBRegressor:
         learning_rate=0.05,
         random_state=42,
         early_stopping_rounds=40,
-        cat_features=["position_clean", "opponent_team_strength", "player_team_strength"]
+        cat_features=["position_clean"]
     )
 
     model.fit(

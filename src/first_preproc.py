@@ -103,6 +103,32 @@ class Preprocessor:
 
         return df
     
+    def add_team_strength_column(
+        self,
+        df,
+        team_col,
+        new_col='team_strength'
+    ):
+        """
+        Aggiunge una colonna con la forza della squadra (top / mid / weak)
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+        team_col : str
+            Nome della colonna contenente le squadre
+        new_col : str
+            Nome della nuova colonna (default: team_strength)
+        """
+
+        df[new_col] = (
+            df[team_col]
+            .apply(utils.normalize_team)
+            .apply(utils.map_strength)
+        )
+
+        return df
+    
     def mod_df_teams(self, df):
 
         #*** funzione per aggiungere colonne al df di base che non sono presenti nel dataset originale ***
@@ -560,6 +586,8 @@ class Preprocessor:
         # Aggiungo colonna opponent team
         merged_df = self.add_opponent_team_column(merged_df)
 
+        merged_df = self.add_team_strength_column(merged_df, 'opponent_team', 'opponent_team_strength')
+
         # Aggiungo info per partita sulla base della carriera (shots/xG/goals per90)
         merged_df = self.calculate_players_data_shots(merged_df)
         
@@ -650,6 +678,8 @@ class Preprocessor:
         
         #aggiungo colonna opponent team
         merged_df = self.add_opponent_team_column(merged_df)
+
+        merged_df = self.add_team_strength_column(merged_df, 'opponent_team', 'opponent_team_strength')
 
         #aggiungo info per partita sulla base della sua carriera in Serie A
         merged_df = self.calculate_players_data_assists(merged_df)

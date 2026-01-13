@@ -1,3 +1,5 @@
+import argparse
+from ast import arg
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,7 +15,7 @@ from sklearn.metrics import (
 from sklearn.linear_model import LinearRegression
 from catboost import CatBoostRegressor
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from config import SERIE_A_TEAMS, MODEL_DIR_XG, CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
+from config import POISS_MODEL_XG,SERIE_A_TEAMS, MODEL_DIR_XG, CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
 from first_preproc import Preprocessor
 from unidecode import unidecode
 from scipy.stats import poisson
@@ -37,7 +39,7 @@ def add_opponent_strength_feature(df, opponent_col="opponent_team"):
 # ============================================================
 # 1️⃣ FEATURE ENGINEERING PULITO
 # ============================================================
-def load_xg_model(model_path= MODEL_DIR_XG / "xg_model_catboost.pkl"):
+def load_xg_model(model_path= MODEL_DIR_XG / POISS_MODEL_XG):
     model = CatBoostRegressor()
     model.load_model(model_path)
     return model
@@ -314,7 +316,7 @@ def evaluate_model(y_true, y_prob, threshold=0.5):
 # ============================================================
 # 6️⃣ PIPELINE COMPLETA
 # ============================================================
-def full_training_pipeline(df):
+def full_training_pipeline(df, args):
 
     df,stats, lin_reg, numeric_features, categorical_features = prepare_features(df)
 
@@ -323,100 +325,107 @@ def full_training_pipeline(df):
 
     # Binarizzazione per il modello Poisson
     #df["binary_goal"] = (df["goal_class"] > 0).astype(int)
+    if args.fit == True:
 
-    features = numeric_features + categorical_features
+        features = numeric_features + categorical_features
 
-    X = df[features]
-    y = df["goals"]
+        X = df[features]
+        y = df["goals"]
 
-    cat_features = ["position"]
+        cat_features = ["position"]
 
-    # Split
-    X_train_full, X_test, y_train_full, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+        # Split
+        X_train_full, X_test, y_train_full, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train_full, y_train_full,
-        test_size=0.3, random_state=42, stratify=y_train_full
-    )
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_full, y_train_full,
+            test_size=0.3, random_state=42, stratify=y_train_full
+        )
 
-    model = None
-    # Train
-    #if no_train = false: 
-    model = train_poisson_model(X_train, y_train, cat_features)
+        model = None
+        # Train
+        #if no_train = false: 
+        model = train_poisson_model(X_train, y_train, cat_features)
 
-    importance = model.get_feature_importance(prettified=True)
-    print(importance.head(10))
+        importance = model.get_feature_importance(prettified=True)
+        print(importance.head(10))
 
-    # α per ruolo
-    role_alphas = calibrate_role_alpha(model, X_val, y_val)
+        # α per ruolo
+        role_alphas = calibrate_role_alpha(model, X_val, y_val)
 
-    print(role_alphas)
+        print(role_alphas)
 
-    # Predict
-    y_test_prob = predict_probability(model, X_test, role_alphas)
+        # Predict
+        y_test_prob = predict_probability(model, X_test, role_alphas)
 
-    # Trova threshold ottimale
-    y_test_bin = (y_test > 0).astype(int)
-    precisions, recalls, thresholds = precision_recall_curve(y_test_bin, y_test_prob["p_any"])
-    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-    best_idx = np.argmax(f1_scores)
-    best_threshold = thresholds[best_idx]
+        # Trova threshold ottimale
+        y_test_bin = (y_test > 0).astype(int)
+        precisions, recalls, thresholds = precision_recall_curve(y_test_bin, y_test_prob["p_any"])
+        f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
+        best_idx = np.argmax(f1_scores)
+        best_threshold = thresholds[best_idx]
 
-    # Metriche
-    metrics = evaluate_model(y_test_bin, y_test_prob["p_any"], threshold=best_threshold)
+        # Metriche
+        metrics = evaluate_model(y_test_bin, y_test_prob["p_any"], threshold=best_threshold)
 
-    print(best_threshold)
+        print(best_threshold)
 
-    # Aggiungi y_true, pred prob e pred label
-    X_test["true_goal"] = y_test_bin.values
-    X_test["pred_prob"] = y_test_prob["p_any"]
-    X_test["pred_label"] = (y_test_prob["p_any"] >= best_threshold).astype(int)
+        # Aggiungi y_true, pred prob e pred label
+        X_test["true_goal"] = y_test_bin.values
+        X_test["pred_prob"] = y_test_prob["p_any"]
+        X_test["pred_label"] = (y_test_prob["p_any"] >= best_threshold).astype(int)
 
-    # Ordina per probabilità discendente
-    X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
+        # Ordina per probabilità discendente
+        X_test_sorted = X_test.sort_values(by="pred_prob", ascending=False)
 
-    # Analisi media per ruolo
-    print("\n📊 Probabilità media di gol per ruolo:")
-    print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
+        # Analisi media per ruolo
+        print("\n📊 Probabilità media di gol per ruolo:")
+        print(X_test_sorted.groupby("position")["pred_prob"].mean().sort_values(ascending=False))
 
-    # Stampa un riepilogo
-    print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI GOL (TEST):")
-    print(X_test_sorted.head(30))
+        # Stampa un riepilogo
+        print("\n🔍 TOP 30 GIOCATORI CON PROBABILITÀ PIÙ ALTA DI GOL (TEST):")
+        print(X_test_sorted.head(30))
 
-    print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
-    wrong_preds = X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]]
-    print(wrong_preds.head(30))
+        print("\n⚠️ 30 CASI PIÙ SBAGLIATI (Falsi positivi o negativi):")
+        wrong_preds = X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]]
+        print(wrong_preds.head(30))
 
-    print("\n📊 30 CASI PIù SBAGLIATI falsi negativi")
-    false_negatives = X_test_sorted[(X_test_sorted["pred_label"] == 0) & (X_test_sorted["true_goal"] == 1)]
-    print(false_negatives.head(30))
+        print("\n📊 30 CASI PIù SBAGLIATI falsi negativi")
+        false_negatives = X_test_sorted[(X_test_sorted["pred_label"] == 0) & (X_test_sorted["true_goal"] == 1)]
+        print(false_negatives.head(30))
 
-    print("\n📊 30 CASI PIù SBAGLIATI falsi positivi")
-    false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_goal"] == 0)]
-    print(false_positives.head(30))
+        print("\n📊 30 CASI PIù SBAGLIATI falsi positivi")
+        false_positives = X_test_sorted[(X_test_sorted["pred_label"] == 1) & (X_test_sorted["true_goal"] == 0)]
+        print(false_positives.head(30))
 
-    #Stamp di numero di errori per ruolo, aggiungendo anche su falsi positivi e negativi
-    print("\n📊 Errori di classificazione per ruolo:")
-    print(X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]].groupby("position").size())
-    print("\n📊 Falsi Negativi per ruolo:")
-    print(false_negatives.groupby("position").size())
-    print("\n📊 Falsi Positivi per ruolo:")
-    print(false_positives.groupby("position").size())
+        #Stamp di numero di errori per ruolo, aggiungendo anche su falsi positivi e negativi
+        print("\n📊 Errori di classificazione per ruolo:")
+        print(X_test_sorted[X_test_sorted["true_goal"] != X_test_sorted["pred_label"]].groupby("position").size())
+        print("\n📊 Falsi Negativi per ruolo:")
+        print(false_negatives.groupby("position").size())
+        print("\n📊 Falsi Positivi per ruolo:")
+        print(false_positives.groupby("position").size())
 
-    return {
-        "model": model,
-        "lin_reg": lin_reg,
-        "numeric_features": numeric_features,
-        "categorical_features": categorical_features,
-        "role_alphas": role_alphas,
-        "test_prob": y_test_prob["p_any"],
-        "test_true": y_test_bin,
-        "best_threshold": best_threshold,
-        "metrics": metrics,
-        "stats": stats
-    }, df
+        return {
+            "model": model,
+            "lin_reg": lin_reg,
+            "numeric_features": numeric_features,
+            "categorical_features": categorical_features,
+            "role_alphas": role_alphas,
+            "test_prob": y_test_prob["p_any"],
+            "test_true": y_test_bin,
+            "best_threshold": best_threshold,
+            "metrics": metrics,
+            "stats": stats
+        }, df
+    else:
+        return {"lin_reg": lin_reg,
+                "numeric_features": numeric_features,
+                "categorical_features": categorical_features,
+                "stats": stats
+            }, df
 
 def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_teams, df_teams_curr, model, lin, numeric_features, categorical_features, stats, h_a_player):
     results = []
@@ -490,8 +499,7 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         player_df = utils.fill_missing_values_player_df(player_df, cols_to_check, season_ref=CURRENT_SEASON)
 
         player_df[cols_to_check] = player_df[cols_to_check].fillna(0)
-
-        
+   
         # Creazione colonna xG media pesata sulle ultime 12 partite
         player_df = player_df.reset_index(drop=True)  # importante: indice unico
         player_df["xg_mean_12"] = player_df.groupby("player")["sum_xG"].transform(lambda x: utils.progressive_weighted_rolling(x, alpha=0.1)).fillna(0)
@@ -535,20 +543,18 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
 
         sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
-        #sum_xG_new = utils.adjust_sumxg_by_defensive_factor(sum_xG_new, df_teams_curr["defensive_adjust_factor_last5"].iloc[-1])
-
-        # Streak senza gol
-        #cold_penalty = utils.get_latest_cold_penalty(player_df)     
-
-        #sum_xG_new = utils.penalize_xg_with_cold_penalty(sum_xG_new,cold_penalty, main_role)
-
         sum_xG_new = utils.adjust_xg_by_minutes(sum_xG_new, player_df["minutes_played"].rolling(window=5, min_periods=1).mean())
-    
-        # 6️⃣ Posizioni (dummy)
-        #pos_dummy_df = get_positions(player_df, pos_dummies.columns)
 
+        opponent = utils.normalize_team(opponent)
+        opponent_strength = utils.map_strength(opponent) 
 
-       
+        xg_adj_pct = utils.compute_player_vs_strength_xg_adjustment(
+            player_df,
+            opponent_strength
+        )
+
+        sum_xG_new = sum_xG_new * (1 + xg_adj_pct)
+
         # 7️⃣ Costruisci feature row
         X_new = [[sum_xG_new,                                                                                                                
                   player_df["overperf_combined"].iloc[-1],
@@ -599,6 +605,11 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
 
 def main():
 
+    parser = argparse.ArgumentParser(description="FantaModel")
+    parser.add_argument("--fit", action="store_true", help="Vuoi riaddestrare il modello?")
+    args = parser.parse_args()
+    args.fit = False
+
     players = INPUT["players"]
     teams = INPUT["teams"]
     opponents = INPUT["opponents"]
@@ -608,20 +619,31 @@ def main():
     df_teams = pd.read_csv(DATASET_DATA_DIR / TEAMS_DATA_FILE)
     df_teams_curr_season = pd.read_csv(DATASET_DATA_DIR / CURRENT_SEASON_TEAMS_FILE)
 
-    results, df_mod = full_training_pipeline(df_orig)
+        
+    results, df_mod = full_training_pipeline(df_orig, args)
+    
+    if results.keys().__contains__("model"):
 
-    model = results["model"]
-    lin_reg = results["lin_reg"]
-    numeric_features = results["numeric_features"]
-    categorical_features = results["categorical_features"]
-    stats = results["stats"]
+        model = results["model"]
+        lin_reg = results["lin_reg"]
+        numeric_features = results["numeric_features"]
+        categorical_features = results["categorical_features"]
+        stats = results["stats"]
 
-    print("Best Threshold:", results["best_threshold"])
-    print("Metrics:", results["metrics"])
+        print("Best Threshold:", results["best_threshold"])
+        print("Metrics:", results["metrics"])
+    else:
+        lin_reg = results["lin_reg"]
+        numeric_features = results["numeric_features"]
+        categorical_features = results["categorical_features"]
+        stats = results["stats"]
+         #carico i modelli salvati
+        models = utils.load_models()
+        model = models["poiss_reg"]
 
-    xg_model = load_xg_model()
+    xg_model = utils.load_xg_model()
 
-    pred_df = predict_goal_probabilities(xg_model, players, teams, opponents,
+    pred_df = predict_goal_probabilities(xg_model["poisson_regressor_xg"], players, teams, opponents,
                                      df_mod, df_teams, df_teams_curr_season,
                                      model, lin_reg,
                                      numeric_features, categorical_features, stats, h_a)

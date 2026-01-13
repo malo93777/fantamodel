@@ -91,7 +91,7 @@ class VotiScraper:
         print(f"\n📊 Stagioni trovate: {sorted(seasons_found)}")
 
         df = pd.DataFrame(all_rows)
-        df.to_csv("voti_fantagiaveno_raw.csv", index=False)
+        df.to_csv(config.DATASET_DATA_DIR / config.VOTI_DATA_FILE, index=False)
 
         print(f"💾 Salvati {len(df)} record in voti_fantagiaveno_raw.csv")
 

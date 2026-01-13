@@ -101,7 +101,7 @@ def get_voti_data():
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    scraper.run()
+    #scraper.run()
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(
@@ -130,7 +130,7 @@ def main():
     args = parser.parse_args()
     args.gol = True
     args.assist = True
-    args.voti = True
+    args.voti = False
     # ==========================
     # ESECUZIONE
     # ==========================
@@ -139,6 +139,10 @@ def main():
         get_goals_data()
         get_assists_data()
         get_voti_data()
+    elif args.gol and args.assist:
+        print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST...")
+        get_goals_data()
+        get_assists_data()
     elif args.gol:
         print("⚽  Scraping e Prepocessing GOL...")
         get_goals_data()
