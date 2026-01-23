@@ -104,12 +104,18 @@ def get_voti_data():
     #scraper.run()
 
     # 2. Preprocessa dataset voti
+    
     voti_df = preproc.merge_voti_player(
         raw_df_path, 
         voti_csv_path,
         prod_goals_with_teams_player
     )
-
+    '''
+    voti_df = preproc.merge_voti_with_matches(
+        voti_csv_path,
+        prod_goals_with_teams_player
+    )
+   '''
     print("Preprocessed voti dataset:")
     print(voti_df.head())
 
@@ -128,8 +134,8 @@ def main():
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     args = parser.parse_args()
-    args.gol = True
-    args.assist = True
+    args.gol = False
+    args.assist = False
     args.voti = True
     # ==========================
     # ESECUZIONE

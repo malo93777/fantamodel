@@ -20,18 +20,19 @@ class Preprocessor:
         """
         Assume input: COGNOME NOME
         Gestisce cognomi composti (es. de silvestri)
+        rimuove accenti e apostrofi
         """
 
         if pd.isna(name):
             return ""
-
-        import unicodedata
 
         name = str(name).strip().lower()
 
         # Rimuove accenti
         name = unicodedata.normalize("NFKD", name)
         name = "".join(c for c in name if not unicodedata.combining(c))
+        # Rimuove apostrofi
+        name = name.replace("'", " ").replace("’", " ")
 
         parts = name.split()
 
@@ -959,12 +960,13 @@ class Preprocessor:
         df3 = pd.read_csv(csv3_path)
 
         # Rimuovo i senza voto_gds
-        df2 = df2[df2['voto_gds'].notna()]
+        #df2 = df2[df2['voto_gds'].notna()]
 
         # Normalizzazione nomi
         df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
         df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
-
+        df2
+        ''''''
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
             'ammonizioni','espulsioni','autogol'
@@ -979,17 +981,96 @@ class Preprocessor:
             group_sorted = group.sort_values('date')
 
             #se player inizia con "jon"
-            if player.startswith("chr"):
-                print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")
+            if player.startswith("jonatha") or player.startswith("nicolo barel"):
+                print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")   
 
-             # Filtra df2 per giocatore e stagione
+            # Filtra df2 per giocatore e stagione
             df2_player = (
                 df2[
                     (df2['player_norm'] == player.lower()) &
                     (df2['stagione'].astype(str).str.startswith(str(season)))
                 ]
-                .sort_values('giornata')
+                .copy()
             )
+
+            if df2_player.empty:
+                #print(f"⚠️ Nessun dato voti per {player} ({season})")
+                continue
+            
+            # ---- match_order base (uguale alla giornata) ----
+            df2_player["match_order"] = df2_player["giornata"].astype(float)
+
+            # ---- FIX giornata 16 rinviata (Serie A 2025-2026) ----
+            if "2025-2026" in df2_player["stagione"].astype(str).iloc[0]:
+
+                POSTPONED_TEAMS_2025_16 = {
+                    "como", "milan", "inter", "lecce", "napoli",
+                    "parma", "verona", "bologna"
+                }
+
+                squadra_player = (
+                    df2_player["squadra"]
+                    .astype(str)
+                    .str.lower()
+                    .iloc[0]
+                )
+
+                if squadra_player in POSTPONED_TEAMS_2025_16:
+
+                    if 16 not in df2_player["giornata"].values:
+
+                        if player.startswith("nico paz"):
+                            print("debug")
+
+                        # riga di riferimento (non fondamentale quale)
+                        base_row = df2_player.iloc[-1]
+
+                        new_row = {
+                            "stagione": "2025-2026",
+                            "giornata": 16,
+                            "match_order": 20.5,   #  POSIZIONATA TRA 20 E 21
+                            "squadra": base_row["squadra"],
+                            "player": player,
+                            "player_norm": player,
+                            "voto_gds": 6,
+                            "fantavoto": 6,
+                            "gol": 0,
+                            "assist": 0,
+                            "ammonizioni": 0,
+                            "espulsioni": 0,
+                            "autogol": 0,
+                            "rig_segnati": 0,
+                            "rig_sbagliati": 0,
+                            "is_virtual_match": True
+                        }
+
+                        df2_player = pd.concat(
+                            [df2_player, pd.DataFrame([new_row])],
+                            ignore_index=True
+                        )
+            
+            # 🔑 ORDINE CORRETTO: NON per giornata
+            df2_player = df2_player.sort_values("match_order")
+            
+            # CONTROLLO CHE IL DF COI VOTI NON ABBIA PIÙ RIGHE DEL DF1
+            # rappgruppo df1 per player e season, ordino per data e confronto le dimensioni con df2_player
+            df1_player = df1[
+                (df1['player_norm'] == player) &
+                (df1['season'] == season)
+            ].copy()
+
+            if df1_player.empty:
+                print(f"⚠️ Nessun dato df1 per {player} ({season})")
+                continue
+
+            df1_player = df1_player.sort_values('date')
+
+            if len(df1_player) != len(df2_player):
+                print(f"⚠️ Differenza dimensioni per {player} ({season}): {len(df1_player)} vs {len(df2_player)}")
+                df2_player = reconcile_df2_by_partita(
+                    df2_player=df2_player,
+                    df1_player=group_sorted
+                )
 
             for col in columns_to_add:
                 values = df2_player[col].tolist()
@@ -1011,3 +1092,48 @@ class Preprocessor:
         df1 = df1.drop(columns=['player_norm'])
 
         return df1
+    
+def reconcile_df2_by_partita(df2_player, df1_player):
+    """
+    Rimuove da df2_player le righe la cui 'partita' non è presente
+    tra le partite ricostruite da df1_player (h_team + a_team).
+
+    Args:
+        df2_player (pd.DataFrame): voti giocatore (colonna 'partita')
+        df1_player (pd.DataFrame): match-level (colonne 'h_team', 'a_team')
+
+    Returns:
+        pd.DataFrame: df2_player filtrato
+    """
+    # --- Normalizza squadre df1 ---
+    h_norm = df1_player['h_team'].apply(
+        lambda x: utils.normalize_team_name(x)
+    )
+    a_norm = df1_player['a_team'].apply(
+        lambda x: utils.normalize_team_name(x)
+    )
+
+    partite = df2_player['partita'].apply(
+        lambda x: utils.normalize_match_string(x)
+    )
+    # --- Costruzione partite valide ---
+    valid_partite = (h_norm + " - " + a_norm).unique()
+    valid_partite_set = set(valid_partite)
+
+    valid_partite_set = set(valid_partite)
+
+    # --- Maschera partite valide ---
+    mask_valid = partite.isin(valid_partite_set)
+
+    # --- Debug opzionale ---
+    removed = df2_player.loc[~mask_valid, 'partita'].unique()
+    if len(removed) > 0:
+        print("⚠️ Partite rimosse da df2_player:")
+        for p in removed:
+            print("  -", p)
+
+    # --- Filtra ---
+    df2_player_clean = df2_player.loc[mask_valid].copy()
+
+    return df2_player_clean
+
