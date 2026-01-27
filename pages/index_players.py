@@ -25,18 +25,18 @@ def main():
             background-color: transparent !important;
         }
 
-        /* 🔥 TESTO ULTRA LEGGIBILE */
+        /* 🔥 TESTO NERO */
         html, body, [class*="css"], .stMarkdown, .stText, .stSelectbox label, .stRadio label,
         .stMetric, .stMetric label, .stRadio, .stSelectbox, .stButton, .stAlert {
-            color: #ffffff !important;
+            color: #111 !important;
             font-weight: 600 !important;
-            text-shadow: 1px 1px 2px #00000066;
+            text-shadow: none !important;
         }
 
         /* Titolo */
         h1,h2,h3,h4,h5 {
-            color: #ffffff !important;
-            text-shadow: 2px 2px 4px #00000055;
+            color: #111 !important;
+            text-shadow: none !important;
         }
         </style>
         """, unsafe_allow_html=True)
