@@ -72,19 +72,8 @@ def main():
         teams_list = []
         opponents_list = []
 
-    submitted = st.button("Calcola Indice")
-
-    #DEBUG, inserisco dati fissi
-    #players_list = ["scamacca",'lautaro','doig']
-    #teams_list = ["Atalanta","Inter","Sassuolo"]
-    #opponents_list = ["Verona","Lazio","Fiorentina"]
-    #submitted = True
-
     # Selezione multipla giocatori
-    giocatori = st.multiselect("Seleziona giocatori", players_list) #commenta per DEBUG
-    #giocatori = players_list
-
-    # Per ogni giocatore, scegli squadra, avversario e home/away
+    giocatori = st.multiselect("Seleziona giocatori", players_list)
     input_data = []
     for player in giocatori:
         col1, col2, col3 = st.columns(3)
@@ -98,13 +87,15 @@ def main():
             )
         with col2:
             avversario = st.selectbox(f"Avversario di {player}", opponents_list, key=f"opp_{player}")
-        
-        if num_giornate >= 15:
+        if num_giornate > 15:
             with col3:
-                ha = st.selectbox(f"Casa/Trasferta {player}", ["h", "a"], key=f"ha_{player}")
+                ha_label = st.selectbox(f"Casa/Trasferta {player}", ["Casa", "Trasferta"], key=f"ha_{player}")
+                ha = "h" if ha_label == "Casa" else "a"
         else:
             ha = None
         input_data.append((player, squadra, avversario, ha))
+
+    submitted = st.button("Calcola Indice")
 
     if submitted:
         if not giocatori:
@@ -117,8 +108,23 @@ def main():
             df_pred = model_predict_voto.pred_voto_prod(
                 players, teams, opponents, h_a, df_voti, model['fantavoto_model']
             )
+            # Rimuovi la colonna degli indici se presente
+            df_pred = df_pred.reset_index(drop=True)
+            # Formatta i nomi dei giocatori e l'indice di schierabilità
+            def format_player(val):
+                return f"<b>{str(val).title()}</b>"
+            def format_index(val):
+                return f"<b>{val}</b>"
+            styled = df_pred.style.format({
+                'player': format_player,
+                'fantavoto_pred': format_index,
+                'index': format_index if 'index' in df_pred.columns else lambda x: x
+            }).hide(axis='index')
+            # Applica grassetto anche ai nomi delle colonne
+            html = styled.to_html(escape=False)
+            html = html.replace('<th ', '<th style="font-weight:bold;" ')
             st.write("## Risultati Predizione")
-            st.dataframe(df_pred)
+            st.write(html, unsafe_allow_html=True)
 
 # =====================================================
 # 🔹 Run app

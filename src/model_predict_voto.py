@@ -496,12 +496,14 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         print(f"Schierability index: {index:.2f}")
 
+        ha_to_print = "Casa" if h_a == "h" else "Trasferta"
+
         predictions.append({
-            'player': player_full_name,
-            'team': team,
-            'opponent': opponent,
-            'home_away': h_a,
-            'fantavoto_pred': round(float(fantavoto_pred), 2)
+            'Giocatore': player_full_name,
+            'Squadra': team,
+            'Avversario': opponent,
+            'Casa/Trasferta': ha_to_print,
+            'Index': index
         })
 
     return pd.DataFrame(predictions)
