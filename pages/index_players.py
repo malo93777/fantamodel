@@ -25,21 +25,40 @@ def main():
             background-color: transparent !important;
         }
 
-        /* 🔥 TESTO ULTRA LEGGIBILE */
-        html, body, [class*="css"], .stMarkdown, .stText, .stSelectbox label, .stRadio label,
-        .stMetric, .stMetric label, .stRadio, .stSelectbox, .stButton, .stAlert {
-            color: #ffffff !important;
+        /* 🔥 TESTO NERO GENERALE */
+        html, body, [class*="css"], .stMarkdown, .stText,
+        .stSelectbox label, .stRadio label,
+        .stMetric, .stMetric label,
+        .stRadio, .stSelectbox, .stAlert {
+            color: #111 !important;
             font-weight: 600 !important;
-            text-shadow: 1px 1px 2px #00000066;
+            text-shadow: none !important;
         }
 
-        /* Titolo */
+        /* Titoli */
         h1,h2,h3,h4,h5 {
             color: #111 !important;
             text-shadow: none !important;
         }
+
+        /* ⚪ TESTO BIANCO NEI BOTTONI */
+        .stButton > button {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+
+        /* (opzionale ma consigliato) sfondo bottoni */
+        .stButton > button {
+            background-color: #1e40af !important;
+            border: none !important;
+        }
+
+        .stButton > button:hover {
+            background-color: #1d4ed8 !important;
+        }
         </style>
         """, unsafe_allow_html=True)
+
 
     st.title("🎯 Indice di Schierabilità")
     st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita.")
