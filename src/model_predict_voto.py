@@ -500,9 +500,9 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         ha_to_print = "Casa" if h_a == "h" else "Trasferta"
 
         predictions.append({
-            'Giocatore': player_full_name,
+            'Giocatore': player_full_name[0].upper(),
             #'Squadra': team,
-            'Avversario': opponent,
+            'Avversario': opponent[0].upper(),
             'Casa/Trasferta': ha_to_print,
             'Index': index
         })

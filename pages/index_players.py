@@ -110,21 +110,35 @@ def main():
             )
             # Rimuovi la colonna degli indici se presente
             df_pred = df_pred.reset_index(drop=True)
-            # Formatta i nomi dei giocatori e l'indice di schierabilità
+
             def format_player(val):
                 return f"<b>{str(val).title()}</b>"
+
             def format_index(val):
                 return f"<b>{val}</b>"
-            styled = df_pred.style.format({
-                'player': format_player,
-                'fantavoto_pred': format_index,
-                'index': format_index if 'index' in df_pred.columns else lambda x: x
-            }).hide(axis='index')
-            # Applica grassetto anche ai nomi delle colonne
+
+            def red_index(val):
+                return "color: red; font-weight: bold;"
+
+            styled = (
+                df_pred.style
+                .format({
+                    'player': format_player,
+                    'fantavoto_pred': format_index,
+                    'index': format_index
+                })
+                .applymap(red_index, subset=['index'])
+                .hide(axis='index')
+            )
+
             html = styled.to_html(escape=False)
+
+            # Grassetto intestazioni
             html = html.replace('<th ', '<th style="font-weight:bold;" ')
+
             st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
+
 
 # =====================================================
 # 🔹 Run app
