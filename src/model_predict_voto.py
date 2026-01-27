@@ -497,15 +497,15 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         print(f"Schierability index: {index:.2f}")
 
-        ha_to_print = "Casa" if h_a == "h" else "Trasferta"
+        ha_to_print = "Casa" if h_a == "h" else "Trasf."
 
         predictions.append({
-            'Giocatore': player_full_name[0].upper(),
-            #'Squadra': team,
-            'Avversario': opponent[0].upper(),
-            'Casa/Trasferta': ha_to_print,
-            'Index': index
-        })
+        'Giocatore': player_full_name,
+        #'Squadra': team,
+        'Avversario': opponent,
+        'Campo': ha_to_print,
+        'Index': index
+        }) 
 
     return pd.DataFrame(predictions)
 
