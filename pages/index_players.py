@@ -57,6 +57,14 @@ def main():
         # --- Carica dataset e modelli
         df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
         df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
+        df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
+        df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+
+        # --- Dropdown dinamici
+        players_list = sorted(df_orig_goal["player"].dropna().unique().tolist())
+        teams_list = sorted(df_teams[df_teams['season'] == config.CURRENT_SEASON]['Team'].dropna().unique().tolist())
+        opponents_list = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
+        num_giornate = utils.count_matchdays(df_teams_curr_season)
 
     except Exception as e:
         st.error(f"Errore nel caricamento dati: {e}")
@@ -90,8 +98,12 @@ def main():
             )
         with col2:
             avversario = st.selectbox(f"Avversario di {player}", opponents_list, key=f"opp_{player}")
-        with col3:
-            ha = st.selectbox(f"Casa/Trasferta {player}", ["h", "a"], key=f"ha_{player}")
+        
+        if num_giornate >= 15:
+            with col3:
+                ha = st.selectbox(f"Casa/Trasferta {player}", ["h", "a"], key=f"ha_{player}")
+        else:
+            ha = None
         input_data.append((player, squadra, avversario, ha))
 
     if submitted:
