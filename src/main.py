@@ -98,24 +98,24 @@ def get_voti_data():
     raw_df_path = config.DATASET_DATA_DIR / config.RAW_DATA_FILE
     voti_csv_path = config.DATASET_DATA_DIR / config.VOTI_DATA_FILE
     prod_goals_with_teams_player = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS
+    df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
+    df_fanta_roles = pd.read_csv(df_fanta_roles_path) #file fantacalcio.it ruoli
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    #scraper.run()
+    scraper.run()
 
     # 2. Preprocessa dataset voti
-    
     voti_df = preproc.merge_voti_player(
         raw_df_path, 
         voti_csv_path,
         prod_goals_with_teams_player
     )
-    '''
-    voti_df = preproc.merge_voti_with_matches(
-        voti_csv_path,
-        prod_goals_with_teams_player
-    )
-   '''
+    voti_df = preproc.add_fanta_role(voti_df, df_fanta_roles)
+
+    voti_df = preproc.add_team_strength_column(voti_df, 'opponent_team', 'opponent_team_strength')
+    voti_df = preproc.add_team_strength_column(voti_df, 'player_team', 'player_team_strength')
+
     print("Preprocessed voti dataset:")
     print(voti_df.head())
 
@@ -123,8 +123,6 @@ def get_voti_data():
     voti_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI, index=False)
 
 def main():
-
-    matches_df = pd.DataFrame()
 
     # ==========================
     # ARGOMENTI DA LINEA DI COMANDO
@@ -134,8 +132,8 @@ def main():
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     args = parser.parse_args()
-    args.gol = False
-    args.assist = False
+    args.gol = True
+    args.assist = True
     args.voti = True
     # ==========================
     # ESECUZIONE

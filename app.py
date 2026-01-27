@@ -151,6 +151,15 @@ html_code = """
 
         <div class="cards">
 
+            <a href="/index_players" style="text-decoration:none;">
+                <div class="card">
+                    <div class="card-title">📊 Indice Schierabilità</div>
+                    <div class="card-text">
+                        Calcola l'indice di schierabilità per uno o più giocatori.
+                    </div>
+                </div>
+            </a>
+
             <a href="/bonus_predictor" style="text-decoration:none;">
                 <div class="card">
                     <div class="card-title">🔮 Bonus Predictor</div>

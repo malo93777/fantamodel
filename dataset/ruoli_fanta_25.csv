@@ -1,0 +1,551 @@
+Id,R,RM,Nome,Squadra,Qt.A,Qt.I,Diff.,Qt.A M,Qt.I M,Diff.M,FVM,FVM M
+4312,P,Por,Maignan,Milan,20,16,4,20,16,4,85,85
+2170,P,Por,Milinkovic-Savic V.,Napoli,19,4,15,19,4,15,54,54
+5841,P,Por,Svilar,Roma,19,15,4,19,15,4,104,104
+4431,P,Por,Carnesecchi,Atalanta,17,14,3,17,14,3,57,57
+6966,P,Por,Butez,Como,17,10,7,17,10,7,58,58
+2814,P,Por,Provedel,Lazio,17,12,5,17,12,5,70,70
+5876,P,Por,Di Gregorio,Juventus,16,16,0,16,16,0,65,65
+761,P,Por,Audero,Cremonese,15,5,10,15,5,10,15,15
+2134,P,Por,Falcone,Lecce,15,6,9,15,6,9,34,34
+2428,P,Por,Sommer,Inter,14,16,-2,14,16,-2,65,65
+2722,P,Por,Ravaglia F.,Bologna,12,3,9,12,3,9,13,13
+4360,P,Por,Caprile,Cagliari,12,7,5,12,7,5,23,23
+6662,P,Por,Corvi,Parma,12,1,11,12,1,11,15,15
+2521,P,Por,De Gea,Fiorentina,11,14,-3,11,14,-3,20,20
+188,P,Por,Leali,Genoa,11,8,3,11,8,3,14,14
+5320,P,Por,Paleari,Torino,11,1,10,11,1,10,10,10
+4236,P,Por,Muric,Sassuolo,11,3,8,11,3,8,12,12
+133,P,Por,Skorupski,Bologna,10,10,0,10,10,0,13,13
+6462,P,Por,Okoye,Udinese,10,6,4,10,6,4,9,9
+6641,P,Por,Suzuki,Parma,9,7,2,9,7,2,10,10
+2861,P,Por,Semper,Pisa,9,3,6,9,3,6,5,5
+4957,P,Por,Montipò,Verona,9,5,4,9,5,4,5,5
+572,P,Por,Meret,Napoli,8,16,-8,8,16,-8,10,10
+574,P,Por,Scuffet,Pisa,4,3,1,4,3,1,5,5
+543,P,Por,Padelli,Udinese,4,1,3,4,1,3,1,1
+218,P,Por,Perin,Juventus,3,1,2,3,1,2,1,1
+5338,P,Por,Rinaldi,Parma,3,1,2,3,1,2,1,1
+511,P,Por,Perilli,Verona,3,1,2,3,1,2,3,3
+5135,P,Por,Guaita,Parma,3,5,-2,3,5,-2,1,1
+7179,P,Por,Israel,Torino,2,9,-7,2,9,-7,1,1
+2297,P,Por,Rossi F.,Atalanta,1,1,0,1,1,0,1,1
+4,P,Por,Sportiello,Atalanta,1,1,0,1,1,0,1,1
+7172,P,Por,Pessina Mas.,Bologna,1,1,0,1,1,0,1,1
+4929,P,Por,Ciocci,Cagliari,1,1,0,1,1,0,1,1
+2809,P,Por,Vigorito,Como,1,1,0,1,1,0,1,1
+6505,P,Por,Nava,Cremonese,1,1,0,1,1,0,1,1
+6403,P,Por,Christensen O.,Fiorentina,1,1,0,1,1,0,1,1
+6991,P,Por,Siegrist,Genoa,1,1,0,1,1,0,1,1
+219,P,Por,Sommariva,Genoa,1,1,0,1,1,0,1,1
+1926,P,Por,Di Gennaro,Inter,1,1,0,1,1,0,1,1
+5116,P,Por,Martinez Jo.,Inter,1,2,-1,1,2,-1,1,1
+1930,P,Por,Pinsoglio,Juventus,1,1,0,1,1,0,1,1
+6417,P,Por,Furlanetto,Lazio,1,1,0,1,1,0,1,1
+6482,P,Por,Mandas,Lazio,1,3,-2,1,3,-2,1,1
+2401,P,Por,Fruchtl,Lecce,1,1,0,1,1,0,1,1
+6523,P,Por,Samooja,Lecce,1,1,0,1,1,0,1,1
+2815,P,Por,Terracciano,Milan,1,1,0,1,1,0,1,1
+6813,P,Por,Torriani,Milan,1,1,0,1,1,0,1,1
+2845,P,Por,Contini,Napoli,1,1,0,1,1,0,1,1
+2271,P,Por,Nicolas,Pisa,1,1,0,1,1,0,1,1
+7169,P,Por,Zelezny,Roma,1,1,0,1,1,0,1,1
+610,P,Por,Gollini,Roma,1,1,0,1,1,0,1,1
+2127,P,Por,Satalino,Sassuolo,1,1,0,1,1,0,1,1
+4867,P,Por,Turati,Sassuolo,1,7,-6,1,7,-6,1,1
+6210,P,Por,Popa,Torino,1,1,0,1,1,0,1,1
+6842,P,Por,Sava,Udinese,1,4,-3,1,4,-3,1,1
+6125,P,Por,Vasquez D.,Roma,1,1,0,1,1,0,1,1
+7185,P,Por,Nunziante,Udinese,1,1,0,1,1,0,1,1
+158,P,Por,Lezzerini,Fiorentina,1,1,0,1,1,0,1,1
+2211,P,Por,Silvestri,Cremonese,1,1,0,1,1,0,1,1
+7236,P,Por,Toniolo,Verona,1,1,0,1,1,0,1,1
+7261,P,Por,Cavlina,Como,1,1,0,1,1,0,1,1
+7285,P,Por,Ferrante,Napoli,1,1,0,1,1,0,1,1
+7042,P,Por,Calligaris,Inter,1,1,0,1,1,0,1,1
+7301,P,Por,Tornqvist,Como,1,1,0,1,1,0,1,1
+6650,P,Por,Sherri,Cagliari,1,1,0,1,1,0,1,1
+254,D,E,Dimarco,Inter,29,19,10,29,18,11,131,131
+1852,D,Ds;E,Spinazzola,Napoli,20,7,13,20,7,13,50,50
+2120,D,Dc,Bastoni,Inter,17,16,1,17,16,1,54,54
+7181,D,E,Wesley,Roma,16,14,2,16,13,3,60,60
+6832,D,E,Palestra,Cagliari,15,3,12,16,2,14,44,41
+5022,D,Dc,Pavlovic,Milan,15,7,8,15,7,8,35,35
+5750,D,Dc,Ostigard,Genoa,15,5,10,15,5,10,28,28
+6893,D,Dc,Kempf,Como,14,5,9,14,5,9,10,10
+2593,D,Ds;E,Martin,Genoa,14,10,4,14,10,4,33,33
+5678,D,Dd;E,Holm,Bologna,13,8,5,13,8,5,21,21
+5877,D,B;Ds;E,Carlos Augusto,Inter,13,10,3,13,11,2,18,21
+2788,D,Dc,Bremer,Juventus,13,13,0,13,13,0,53,53
+5835,D,Dc,Baschirotto,Cremonese,13,8,5,13,8,5,23,23
+6496,D,Ds;E,Bartesaghi,Milan,13,3,10,13,3,10,27,27
+4409,D,Dc,Rrahmani,Napoli,13,11,2,13,11,2,37,37
+4657,D,B;Dd;E,Celik,Roma,13,7,6,13,8,5,14,17
+5526,D,Dc,Scalvini,Atalanta,12,8,4,12,8,4,12,12
+4994,D,Dd;E,Vojvoda,Como,12,6,6,12,6,6,11,11
+4976,D,Dd;Dc,Kalulu,Juventus,12,9,3,12,10,2,40,42
+2816,D,Dd;E,Di Lorenzo,Napoli,12,14,-2,12,14,-2,48,48
+6642,D,Dc,Coco,Torino,12,8,4,12,8,4,18,18
+4263,D,Dc,Kabasele,Udinese,12,3,9,12,3,9,13,13
+6869,D,Dc,Ramon,Como,12,4,8,12,4,8,27,27
+4734,D,Ds;E,Miranda J.,Bologna,11,9,2,11,9,2,16,16
+5812,D,Dd;Ds;E,Terracciano F.,Cremonese,11,2,9,11,2,9,16,19
+4665,D,Dc,Maripan,Torino,11,7,4,11,7,4,26,26
+6956,D,Dc,Solet,Udinese,11,11,0,11,11,0,34,34
+7220,D,Dd;E,Belghali,Verona,11,4,7,11,4,7,23,23
+4159,D,Dc,Akanji,Inter,11,9,2,11,9,2,53,53
+2160,D,E,Gosens,Fiorentina,10,18,-8,10,17,-7,25,22
+5514,D,Ds;Dc,Vasquez,Genoa,10,9,1,10,10,0,23,26
+6217,D,Dc,Bisseck,Inter,10,9,1,10,9,1,28,28
+5513,D,E,Dumfries,Inter,10,20,-10,9,19,-10,25,25
+6766,D,Ds;Dc,Kelly L.,Juventus,10,7,3,11,8,3,16,19
+5520,D,E,Cambiaso,Juventus,10,15,-5,10,14,-4,21,18
+2724,D,Dc,Buongiorno,Napoli,10,13,-3,10,13,-3,17,17
+6663,D,Dc,Circati,Parma,10,5,5,10,5,5,17,17
+5862,D,Ds;E,Valeri,Parma,10,10,0,10,10,0,23,23
+4807,D,Dc,Hermoso,Roma,10,3,7,10,3,7,16,16
+2296,D,Dc,Mancini,Roma,10,11,-1,10,11,-1,36,36
+6066,D,Dd;Dc,Posch,Como,9,5,4,9,6,3,7,9
+393,D,Dc,Luperto,Cagliari,9,7,2,9,7,2,12,12
+5435,D,Ds;E,Moreno Alb.,Como,9,3,6,9,3,6,8,8
+6013,D,Dd;Ds;E,Barbieri,Cremonese,9,3,6,9,4,5,11,13
+6039,D,B;Ds;E,Cabal,Juventus,9,5,4,9,5,4,10,12
+6989,D,Dc,Tiago Gabriel,Lecce,9,1,8,9,1,8,18,18
+5527,D,Dd;E,Zanoli,Udinese,9,3,6,9,3,6,20,20
+6664,D,B;Dd;E,Delprato,Parma,9,8,1,9,9,0,21,24
+7143,D,Ds;E,Angori,Pisa,9,5,4,9,5,4,13,13
+7212,D,Ds;Dc,Heggem,Bologna,9,4,5,9,5,4,20,22
+5578,D,Dd;Dc,Kossounou,Atalanta,8,9,-1,8,9,-1,10,12
+554,D,E,Zappacosta,Atalanta,8,13,-5,8,12,-4,20,20
+4210,D,Dc,Mina,Cagliari,8,7,1,8,7,1,14,14
+7125,D,Ds;E,Idrissi R.,Cagliari,8,3,5,8,3,5,10,10
+4433,D,E,Zortea,Bologna,8,16,-8,7,15,-8,11,10
+6867,D,Ds;E,Valle,Como,8,6,2,8,6,2,11,11
+5833,D,Dc,Gila,Lazio,8,9,-1,8,9,-1,22,22
+460,D,Dc,Romagnoli,Lazio,8,8,0,8,8,0,21,21
+4502,D,Ds;E,Gallo,Lecce,8,5,3,8,5,3,13,13
+4401,D,Dc,Gabbia,Milan,8,6,2,8,6,2,22,22
+697,D,E,Cuadrado,Pisa,8,7,1,8,6,2,8,8
+6672,D,Dc,Idzes,Sassuolo,8,7,1,8,7,1,12,12
+4137,D,Dc,Diego Carlos,Como,8,5,3,8,5,3,22,22
+6046,D,Dc,Hien,Atalanta,7,11,-4,7,11,-4,22,22
+6042,D,Dc,Lucumì,Bologna,7,8,-1,7,8,-1,12,12
+4461,D,B;Dd;E,Zappa,Cagliari,7,6,1,7,7,0,12,15
+7130,D,Dc,Folino,Cremonese,7,4,3,7,4,3,5,5
+6495,D,Dc,Comuzzo,Fiorentina,7,7,0,7,7,0,17,17
+4378,D,Ds;Dc,Ranieri L.,Fiorentina,7,7,0,7,7,0,10,12
+5449,D,E,Parisi,Fiorentina,7,5,2,7,4,3,18,18
+6814,D,Dd;E,Norton-Cuffy,Genoa,7,3,4,7,3,4,17,17
+2188,D,Dd;Ds;E,Marusic,Lazio,7,8,-1,8,9,-1,15,18
+4751,D,Dc,Tomori,Milan,7,8,-1,7,8,-1,30,30
+6202,D,Dc,Beukema,Napoli,7,10,-3,7,10,-3,14,14
+5307,D,Dc,Valenti,Parma,7,4,3,7,4,3,14,14
+4317,D,Dc,N'Dicka,Roma,7,10,-3,7,10,-3,28,28
+4772,D,E,Angelino,Roma,7,15,-8,7,14,-7,10,10
+7155,D,Dc,Muharemovic,Sassuolo,7,5,2,7,5,2,19,19
+4385,D,Dd;E,Lazaro,Torino,7,7,0,7,7,0,12,12
+6485,D,Dd;Dc,Kristensen T.,Udinese,7,5,2,7,5,2,12,14
+7219,D,E,Bernasconi,Atalanta,7,1,6,7,1,6,20,20
+7255,D,Dd;Ds;E,Britschgi,Parma,7,1,6,7,1,6,12,15
+4887,D,E,Bellanova,Atalanta,6,13,-7,7,12,-5,17,17
+612,D,Dc,Bianchetti,Cremonese,6,3,3,6,3,3,12,12
+5885,D,E,Dodò,Fiorentina,6,11,-5,7,10,-3,25,25
+7069,D,E,Fortini,Fiorentina,6,3,3,6,3,3,9,9
+6660,D,Dc,Marcandalli,Genoa,6,3,3,6,3,3,10,10
+513,D,Dc,Acerbi,Inter,6,9,-3,6,9,-3,12,12
+5620,D,Ds;E,Tavares N.,Lazio,6,12,-6,6,12,-6,7,7
+2273,D,Dc,Caracciolo A.,Pisa,6,4,2,6,4,2,12,12
+6986,D,B;Dd;E,Rensch,Roma,6,5,1,6,6,0,10,12
+4374,D,Dd;Dc,Walukiewicz,Sassuolo,6,5,1,6,6,0,13,15
+5851,D,Ds;E,Doig,Sassuolo,6,6,0,6,6,0,12,12
+5010,D,Dc,Ismajli,Torino,6,8,-2,6,8,-2,10,10
+5820,D,Dc,Bertola,Udinese,6,6,0,6,6,0,12,12
+5555,D,Ds;E,Kamara H.,Udinese,6,7,-1,6,7,-1,15,15
+6639,D,Ds;E,Frese,Verona,6,3,3,6,3,3,15,15
+5532,D,Ds;E,Bradaric,Verona,6,4,2,6,4,2,11,11
+7329,D,Ds;E,Obrador,Torino,6,6,0,6,6,0,15,15
+787,D,Dc,Djimsiti,Atalanta,5,8,-3,5,8,-3,15,15
+2640,D,B;Ds;E,Kolasinac,Atalanta,5,7,-2,5,7,-2,18,21
+6916,D,B;Ds;E,Ahanor,Atalanta,5,6,-1,5,7,-2,10,12
+5701,D,Ds;Dc,Obert,Cagliari,5,4,1,5,4,1,11,14
+5603,D,Dc,Pongracic,Fiorentina,5,5,0,5,5,0,12,12
+5831,D,Dc,Gatti,Juventus,5,8,-3,5,8,-3,8,8
+2728,D,Ds;E,Pellegrini Lu.,Lazio,5,3,2,5,3,2,11,11
+6990,D,Dd;E,Veiga D.,Lecce,5,1,4,5,1,4,13,13
+7139,D,Dc,Canestrelli,Pisa,5,3,2,5,3,2,12,12
+2745,D,B;Dd;E,Calabresi,Pisa,5,3,2,5,4,1,7,9
+6426,D,Dd;E,Pedersen,Torino,5,4,1,5,4,1,11,11
+7253,D,Dc,Bella-Kotchap,Verona,5,6,-1,5,6,-1,15,15
+7068,D,Dc,Vitik,Bologna,4,8,-4,4,8,-4,13,13
+7131,D,Dd;E,Floriani Mussolini,Cremonese,4,5,-1,4,5,-1,10,10
+770,D,Ds;E,Pezzella Giu.,Cremonese,4,5,-1,4,5,-1,11,11
+5739,D,Dd;Dc,De Winter,Milan,4,8,-4,4,9,-5,11,13
+2263,D,Dd;E,Lazzari,Lazio,4,4,0,4,4,0,8,8
+6632,D,Dc,Gaspar K.,Lecce,4,8,-4,4,8,-4,15,15
+256,D,Ds;Dc,Juan Jesus,Napoli,4,3,1,4,3,1,22,24
+6631,D,Dc,Ghilardi,Roma,4,4,0,4,4,0,8,8
+7011,D,Dc,Slotsager,Verona,4,2,2,4,2,2,7,7
+6894,D,Dc,Unai Nunez,Verona,4,5,-1,4,5,-1,11,11
+7018,D,Dc,Nelsson,Verona,4,5,-1,4,5,-1,17,17
+7260,D,Dc,Ziolkowski,Roma,4,3,1,4,3,1,12,12
+5168,D,Ds;E,Tsimikas,Roma,4,4,0,4,4,0,9,9
+7326,D,Dd;Dc,Helland,Bologna,4,4,0,4,4,0,9,9
+2006,D,B;Dd;E,Lirola,Verona,4,4,0,4,4,0,11,11
+7014,D,Dd;Dc,Smolcic I.,Como,3,2,1,3,2,1,12,12
+6896,D,Dd;E,Van Der Brempt,Como,3,4,-1,3,4,-1,8,8
+6977,D,Dc,Otoa,Genoa,3,2,1,3,2,1,9,9
+322,D,Dc,De Vrij,Inter,3,9,-6,3,9,-6,7,7
+7012,D,Dc,Provstgaard,Lazio,3,3,0,3,3,0,7,7
+7182,D,Ds;E,Ndaba,Lecce,3,1,2,3,1,2,8,8
+5273,D,Ds;E,Estupinan,Milan,3,11,-8,3,11,-8,11,11
+5840,D,Ds;E,Olivera,Napoli,3,10,-7,3,10,-7,9,9
+5481,D,Dd;Ds;E,Mazzocchi,Napoli,3,3,0,3,3,0,3,5
+252,D,Ds;E,Biraghi,Torino,3,8,-5,3,8,-5,5,5
+6047,D,Dd;E,Ehizibue,Udinese,3,5,-2,3,5,-2,8,8
+6957,D,Dc,Valentini N.,Verona,3,4,-1,3,4,-1,10,10
+7211,D,Dd;E,Athekame,Milan,3,6,-3,3,6,-3,8,8
+5427,D,Ds;E,Gutierrez,Napoli,3,8,-5,3,8,-5,10,10
+7268,D,Ds;Dc,Rodriguez Ju.,Cagliari,3,1,2,3,1,2,12,12
+388,D,Dc,Albiol,Pisa,3,5,-2,3,5,-2,9,9
+6444,D,Dc,Bonfanti,Pisa,2,2,0,2,2,0,8,8
+5498,D,Dc,Casale,Bologna,2,4,-2,2,4,-2,7,7
+487,D,Dd;E,De Silvestri,Bologna,2,4,-2,2,4,-2,8,8
+2653,D,Ds;E,Lykogiannis,Bologna,2,5,-3,2,5,-3,10,10
+5406,D,Dd;E,Di Pardo,Cagliari,2,2,0,2,2,0,4,4
+1891,D,Dd;Dc,Ceccherini,Cremonese,2,4,-2,2,4,-2,8,10
+791,D,Dd;Ds;E,Sabelli,Genoa,2,5,-3,2,5,-3,10,12
+294,D,Dc,Rugani,Juventus,2,3,-1,2,3,-1,8,8
+7175,D,E,Joao Mario,Juventus,2,8,-6,2,7,-5,5,5
+6809,D,Dc,Marianucci,Napoli,2,3,-1,2,3,-1,8,8
+6965,D,Ds;E,Lovik,Parma,2,2,0,2,2,0,7,7
+7140,D,Dc,Coppola F.,Pisa,2,1,1,2,1,1,4,4
+6411,D,Dc,Mateus Lusuardi,Pisa,2,4,-2,2,4,-2,5,5
+49,D,B;Ds;E,Masina,Torino,2,3,-1,2,4,-2,8,10
+6211,D,Ds;E,Zemura,Udinese,2,3,-1,2,3,-1,8,8
+5994,D,Ds;Dc,Ebosse,Verona,2,4,-2,2,5,-3,7,9
+6537,D,Dd;Dc,Goglichidze,Udinese,2,4,-2,2,4,-2,7,9
+6985,D,Ds;Dc,Candè,Sassuolo,2,6,-4,2,6,-4,5,7
+7222,D,Dd;Ds;E,Cham,Verona,2,1,1,2,1,1,6,6
+7235,D,Dc,Troilo,Parma,2,6,-4,2,6,-4,8,8
+7240,D,Dc,Siebert,Lecce,2,5,-3,2,5,-3,6,6
+5156,D,Ds;E,Nkounkou,Torino,2,3,-1,2,3,-1,8,8
+6870,D,Dc,Faye,Cremonese,2,4,-2,2,4,-2,5,5
+7274,D,Dc,Zè Pedro,Cagliari,2,4,-2,2,4,-2,10,10
+7325,D,Dc,Bozhinov,Pisa,2,2,0,2,2,0,5,5
+6230,D,Dc,Dossena,Como,1,4,-3,1,4,-3,5,5
+418,D,Dc,Goldaniga,Como,1,4,-3,1,4,-3,6,6
+2525,D,B;Dd;E,Darmian,Inter,1,4,-3,1,5,-4,7,8
+6803,D,Ds;E,Rouhi,Juventus,1,1,0,1,1,0,4,4
+5899,D,Dc,Gigot,Lazio,1,4,-3,1,4,-3,3,3
+327,D,Dd;Dc,Patric,Lazio,1,4,-3,1,4,-3,5,6
+140,D,Dd;Ds;E,Hysaj,Lazio,1,3,-2,1,3,-2,4,4
+6883,D,Dc,Jean,Lecce,1,3,-2,1,3,-2,3,3
+7164,D,Dd;Dc,Perez M.,Lecce,1,1,0,1,1,0,2,2
+7136,D,Dd;Dc,Kouassi,Lecce,1,4,-3,1,5,-4,4,4
+7142,D,Dd;E,Esteves T.,Pisa,1,1,0,1,1,0,2,2
+7154,D,Dc,Odenthal,Sassuolo,1,3,-2,1,3,-2,7,7
+2279,D,Dc,Romagna,Sassuolo,1,4,-3,1,4,-3,8,8
+6431,D,Dd;E,Paz Y.,Sassuolo,1,1,0,1,1,0,3,3
+7156,D,Ds;E,Pieragnolo,Sassuolo,1,2,-1,1,2,-1,3,3
+6041,D,Dc,Schuurs,Torino,1,3,-2,1,3,-2,5,5
+6826,D,Dd;E,Dembelè A.,Torino,1,1,0,1,1,0,2,2
+6900,D,E,Rui Modesto,Udinese,1,3,-2,1,2,-1,7,7
+6992,D,B;Dd;E,Oyegoke,Verona,1,2,-1,1,2,-1,4,5
+7196,D,Dc,Denoon,Pisa,1,2,-1,1,2,-1,4,4
+7202,D,Dc,Ndiaye,Parma,1,4,-3,1,4,-3,8,8
+7238,D,Dc,Kouadio,Fiorentina,1,1,0,1,1,0,1,1
+6351,D,Dd;Ds;E,Lamptey,Fiorentina,1,4,-3,1,5,-4,5,5
+7271,D,Dc,Odogu,Milan,1,2,-1,1,2,-1,5,5
+6665,D,Dd;Ds;E,Coulibaly W.,Sassuolo,1,3,-2,1,4,-3,4,6
+6874,D,Dc,Palacios T.,Inter,1,1,0,1,1,0,1,1
+7312,D,Ds;E,Arizala,Udinese,1,1,0,1,1,0,1,1
+2423,C,T;A,Pulisic,Milan,31,28,3,31,28,3,272,272
+6875,C,T;A,Paz N.,Como,30,20,10,30,20,10,275,275
+2194,C,M;C,Calhanoglu,Inter,28,23,5,28,24,4,230,250
+4777,C,C;T,McTominay,Napoli,25,26,-1,25,26,-1,213,213
+2167,C,W;A,Orsolini,Bologna,24,30,-6,24,29,-5,226,226
+2379,C,C;T,Rabiot,Milan,23,23,0,23,23,0,102,102
+2517,C,T,De Bruyne,Napoli,20,23,-3,20,22,-2,90,90
+2766,C,T;A,Zaniolo,Udinese,20,11,9,21,10,11,80,80
+1933,C,M;C,Mandragora,Fiorentina,19,14,5,19,14,5,85,95
+152,C,C;T,Zielinski,Inter,19,4,15,19,4,15,33,33
+4892,C,E;W,Saelemaekers,Milan,19,12,7,20,14,6,94,95
+2606,C,C,Modric,Milan,19,12,7,19,12,7,73,73
+4220,C,M;C,Zambo Anguissa,Napoli,19,15,4,19,16,3,71,81
+2765,C,T;A,Odgaard,Bologna,18,16,2,18,15,3,34,34
+5687,C,T,Vlasic,Torino,18,15,3,18,14,4,85,85
+5800,C,T;A,Gudmundsson A.,Fiorentina,17,24,-7,17,23,-6,75,75
+1870,C,C,Barella,Inter,17,14,3,17,14,3,70,70
+6831,C,W;A,Neres,Napoli,17,13,4,17,13,4,64,64
+5589,C,M;C,Konè M.,Roma,17,14,3,17,15,2,54,64
+6151,C,M;C,Perrone,Como,16,8,8,16,9,7,40,45
+6666,C,C,Bernabè,Parma,16,11,5,16,11,5,34,34
+6717,C,M;C,Konè I.,Sassuolo,16,6,10,16,7,9,29,34
+6908,C,C,Atta,Udinese,16,6,10,16,6,10,42,42
+4404,C,C;T,Thorsby,Genoa,15,5,10,15,5,10,13,13
+5422,C,E;W,Zalewski,Atalanta,15,6,9,15,6,9,20,20
+6884,C,W;A,Conceicao,Juventus,15,18,-3,14,17,-3,39,39
+4364,C,T,Gaetano,Cagliari,14,8,6,14,7,7,19,17
+7126,C,T,Baturina,Como,14,9,5,13,8,5,26,23
+449,C,T;A,Vazquez,Cremonese,14,10,4,14,10,4,14,14
+4973,C,M;C,McKennie,Juventus,14,10,4,13,11,2,32,37
+5674,C,C,Basic,Lazio,14,1,13,14,1,13,24,24
+6398,C,W;A,Isaksen,Lazio,14,14,0,14,14,0,32,32
+632,C,W;A,Zaccagni,Lazio,14,26,-12,14,25,-11,92,92
+530,C,C;T,Pellegrini Lo.,Roma,14,11,3,14,11,3,25,25
+2077,C,C;T,Pasalic,Atalanta,13,9,4,13,9,4,23,23
+7133,C,W;T,Vandeputte,Cremonese,13,12,1,13,12,1,27,29
+827,C,M;C,Locatelli,Juventus,13,12,1,14,13,1,41,46
+5562,C,M;C,Thuram K.,Juventus,13,16,-3,14,17,-3,43,48
+5504,C,M;C,Coulibaly L.,Lecce,13,7,6,13,8,5,21,26
+6015,C,C;T,Berisha M.,Lecce,13,3,10,13,3,10,25,25
+5453,C,M;C,Ricci S.,Milan,13,10,3,13,11,2,13,16
+4199,C,C;T,Loftus-Cheek,Milan,13,8,5,13,8,5,16,16
+5735,C,W;T,Volpato,Sassuolo,13,5,8,13,5,8,16,19
+7314,C,C;T,Taylor K.,Lazio,13,14,-1,13,14,-1,36,36
+6640,C,W,Felici,Cagliari,12,6,6,11,5,6,10,10
+4427,C,C;T,Malinovskyi,Genoa,12,8,4,12,8,4,37,37
+333,C,M;C,Cataldi,Lazio,12,5,7,12,5,7,24,29
+2334,C,W,Leris,Pisa,12,2,10,12,2,10,10,10
+779,C,M;C,Cristante,Roma,12,9,3,12,9,3,28,33
+5844,C,C;T,Thorstvedt,Sassuolo,12,8,4,12,8,4,28,28
+6684,C,C;T,Ekkelenkamp,Udinese,12,10,2,12,10,2,19,19
+6458,C,C,Serdar,Verona,12,5,7,12,5,7,16,16
+5119,C,T,Samardzic,Atalanta,11,12,-1,11,11,0,13,11
+5298,C,M;C,Pobega,Bologna,11,8,3,11,9,2,15,20
+5559,C,C;W;T,Da Cunha,Como,11,12,-1,11,13,-2,18,21
+6020,C,C;W,Ellertsson,Genoa,11,5,6,11,5,6,12,14
+7070,C,C,Sucic P.,Inter,11,9,2,11,9,2,18,18
+4711,C,E;W,Kostic,Juventus,11,4,7,11,5,6,15,15
+536,C,W,Politano,Napoli,11,15,-4,11,14,-3,23,23
+2839,C,W;A,Sottil,Lecce,11,11,0,11,10,1,19,19
+5792,C,M;C,Ederson D.S.,Atalanta,10,15,-5,10,16,-6,31,36
+5036,C,C;T,Caqueret,Como,10,12,-2,10,12,-2,13,13
+4686,C,M;C,Fofana Y.,Milan,10,11,-1,10,12,-2,27,32
+4287,C,M;C,Lobotka,Napoli,10,9,1,10,10,0,25,30
+7146,C,E;M,Tourè I.,Pisa,10,6,4,11,7,4,25,30
+6815,C,W,Fadera,Sassuolo,10,6,4,10,5,5,14,11
+6680,C,M;C,Karlstrom,Udinese,10,6,4,10,6,4,18,23
+1976,C,M;C,Mazzitelli,Cagliari,10,5,5,10,5,5,17,22
+2528,C,M;C,Matic,Sassuolo,10,4,6,10,5,5,18,23
+5651,C,W,Harrison,Fiorentina,10,10,0,10,10,0,23,23
+5791,C,M;C,Frendrup,Genoa,9,9,0,9,10,-1,20,25
+5813,C,C;T,Miretti,Juventus,9,5,4,9,5,4,28,28
+5318,C,W;T,Tramoni M.,Pisa,9,12,-3,9,12,-3,25,27
+7028,C,C,Bernede,Verona,9,4,5,9,4,5,15,15
+5761,C,W,Zhegrova,Juventus,9,19,-10,9,19,-10,15,15
+22,C,M;C,De Roon,Atalanta,8,12,-4,8,13,-5,26,31
+6054,C,M;C,Moro N.,Bologna,8,3,5,8,3,5,11,16
+6206,C,C;T,Fabbian,Bologna,8,10,-2,8,10,-2,16,16
+6252,C,C;T,Folorunsho,Cagliari,8,9,-1,8,9,-1,16,16
+4465,C,C,Fagioli,Fiorentina,8,8,0,8,8,0,28,28
+6898,C,M;C,Keita M.,Parma,8,6,2,8,7,1,14,17
+795,C,W,El Shaarawy,Roma,8,8,0,8,7,1,12,12
+6481,C,C,Payero,Cremonese,8,4,4,8,4,4,8,8
+7198,C,C,Piotrowski,Udinese,8,6,2,8,6,2,14,14
+2670,C,W;A,Bailey,Roma,8,16,-8,3,15,-12,10,10
+801,C,M;C,Gagliardini,Verona,8,2,6,8,2,6,6,8
+4947,C,C;T,Brescianini,Fiorentina,7,8,-1,7,8,-1,21,21
+2529,C,C;T,Mkhitaryan,Inter,7,9,-2,7,9,-2,15,15
+5992,C,M;C,Bondo,Cremonese,7,3,4,7,3,4,16,21
+6593,C,C;T,Akinsanmiro,Pisa,7,3,4,7,3,4,12,12
+5888,C,C;T,Casadei,Torino,7,12,-5,7,12,-5,23,23
+7209,C,C,Sorensen O.,Parma,7,6,1,7,6,1,11,11
+6844,C,W;T,Rowe,Bologna,7,14,-7,7,14,-7,21,23
+4870,C,M;C,Adopo,Cagliari,6,5,1,6,6,0,14,15
+1871,C,M;C,Deiola,Cagliari,6,5,1,6,5,1,14,17
+6424,C,M;C,Prati,Cagliari,6,3,3,6,3,3,11,14
+6294,C,M;C,Ndour,Fiorentina,6,2,4,6,2,4,14,17
+5301,C,E;W,Luis Henrique,Inter,6,7,-1,6,7,-1,15,15
+181,C,M;C,Vecino,Lazio,6,6,0,6,6,0,13,16
+6549,C,W;A,Pierotti,Lecce,6,10,-4,6,9,-3,14,12
+5998,C,E;W,Zerbin,Cremonese,6,3,3,6,3,3,10,13
+5131,C,M;C,Gilmour,Napoli,6,7,-1,6,7,-1,14,17
+6190,C,C,Pisilli,Roma,6,7,-1,6,7,-1,16,16
+5823,C,T;A,Baldanzi,Roma,6,8,-2,6,8,-2,11,11
+7254,C,T,Lorran,Pisa,6,7,-1,6,6,0,13,10
+4479,C,W;T,Elmas,Napoli,6,11,-5,6,11,-5,22,24
+7318,C,C;T,Gandelman,Lecce,6,6,0,6,6,0,13,13
+788,C,M;C,Freuler,Bologna,5,11,-6,5,12,-7,16,21
+5784,C,C,Aebischer,Pisa,5,4,1,5,4,1,12,12
+5858,C,C;T,Ferguson,Bologna,5,11,-6,5,11,-6,16,16
+184,C,W;A,Bernardeschi,Bologna,5,9,-4,5,8,-3,15,15
+27,C,M;C,Grassi,Cremonese,5,4,1,5,4,1,8,10
+6917,C,M;C,Masini,Genoa,5,5,0,5,5,0,10,12
+5685,C,C;T,Koopmeiners,Juventus,5,14,-9,5,14,-9,15,15
+6394,C,M;C,Ramadani,Lecce,5,6,-1,5,7,-2,13,16
+5295,C,C;W,Musah,Atalanta,5,6,-1,5,6,-1,11,13
+5290,C,M;C,Estevez,Parma,5,2,3,5,2,3,10,10
+6984,C,W;A,Ondrejka,Parma,5,13,-8,5,12,-7,18,18
+7145,C,E;M,Piccinini G.,Pisa,5,6,-1,5,7,-2,12,15
+7149,C,M;C,Marin M.,Pisa,5,6,-1,5,6,-1,11,14
+6271,C,M;C,El Aynaoui,Roma,5,9,-4,5,9,-4,13,16
+7157,C,C,Iannoni,Sassuolo,5,1,4,5,1,4,8,8
+4890,C,M;C,Tameze,Torino,5,5,0,5,5,0,9,12
+2848,C,C;T,Frattesi,Inter,4,14,-10,4,14,-10,10,10
+4459,C,M;C,Rovella,Lazio,4,8,-4,3,9,-6,12,15
+5457,C,M;C,Maleh,Lecce,4,6,-2,4,7,-3,6,8
+5319,C,C,Sohm,Fiorentina,4,12,-8,4,12,-8,9,9
+6170,C,C,Gineitis,Torino,4,5,-1,4,5,-1,11,11
+5540,C,M;C,Niasse,Verona,4,3,1,4,3,1,10,13
+7203,C,C,Jashari,Milan,4,13,-9,4,13,-9,12,12
+6218,C,W;T;A,Oristanio,Parma,4,12,-8,4,12,-8,12,15
+4896,C,T;A,Maldini,Atalanta,3,9,-6,3,8,-5,11,11
+4284,C,M;C,Sergi Roberto,Como,3,4,-1,3,4,-1,10,10
+6010,C,C;T,Fazzini,Fiorentina,3,11,-8,3,11,-8,8,8
+5719,C,M;C,Asllani,Torino,3,4,-1,3,4,-1,14,19
+6191,C,M;C,Belahyane,Lazio,3,4,-1,3,4,-1,7,10
+6629,C,C;T,Dele-Bashiru,Lazio,3,11,-8,3,11,-8,11,11
+6410,C,M;C,Kaba,Lecce,3,1,2,3,1,2,12,15
+6634,C,W,Tete Morente,Lecce,3,9,-6,3,8,-5,12,10
+6246,C,M;C,Lipani,Sassuolo,3,4,-1,3,4,-1,8,11
+5007,C,C,Ilic,Torino,3,7,-4,3,7,-4,8,8
+6889,C,C;T,Anjorin,Torino,3,10,-7,3,10,-7,10,10
+5850,C,C,Lovric,Udinese,3,9,-6,3,9,-6,8,8
+7208,C,M;C,Miller L.,Udinese,3,3,0,3,4,-1,10,12
+6677,C,C;T,Adzic,Juventus,3,1,2,3,1,2,1,1
+5610,C,M;C,Vranckx,Sassuolo,3,4,-1,3,5,-2,10,13
+7010,C,M;C,Al-Musrati,Verona,3,4,-1,3,5,-2,7,8
+4349,C,M;C,Nicolussi Caviglia,Fiorentina,3,9,-6,3,10,-7,10,13
+6528,C,W;T,Sarmiento J.,Cremonese,3,4,-1,3,4,-1,8,8
+7132,C,M;C,Collocolo,Cremonese,2,8,-6,2,9,-7,13,16
+6804,C,M;C,Richardson,Fiorentina,2,4,-2,2,4,-2,8,9
+5788,C,T,Sabiri,Fiorentina,2,2,0,2,2,0,4,4
+4970,C,C;W,Messias,Genoa,2,8,-6,2,8,-6,10,10
+6722,C,W;T,Gronbaek,Genoa,2,12,-10,2,12,-10,4,4
+5872,C,C;T,Helgason,Lecce,2,8,-6,2,8,-6,7,7
+7138,C,M;C,Ordonez C.,Parma,2,5,-3,2,6,-4,10,13
+7147,C,M;C,Hojholt,Pisa,2,1,1,2,1,1,2,2
+7150,C,C,Vural,Pisa,2,3,-1,2,3,-1,6,6
+6219,C,M;C,Boloca,Sassuolo,2,6,-4,2,6,-4,4,6
+6212,C,M;C,Zarraga,Udinese,2,2,0,2,2,0,6,7
+5688,C,W;T,Harroui,Verona,2,7,-5,2,7,-5,11,12
+6005,C,C;T,Ilkhan,Torino,2,1,1,2,1,1,10,10
+7223,C,W;T,Vergara,Napoli,2,1,1,2,1,1,5,5
+6506,C,E;W,Fini,Genoa,2,1,1,2,1,1,1,1
+6274,C,C,Diouf,Inter,2,7,-5,2,7,-5,10,10
+7248,C,M;C,Gorter,Lecce,2,1,1,2,1,1,1,1
+6538,C,M;C,Onana J.,Genoa,2,2,0,2,2,0,4,4
+5286,C,M;C,Akpa Akpro,Verona,2,1,1,2,1,1,6,8
+6024,C,M;C,Sulemana I.,Bologna,1,4,-3,1,4,-3,10,11
+7165,C,M;C,Liteta,Cagliari,1,1,0,1,1,0,6,8
+7135,C,C;T,Stanciu,Genoa,1,8,-7,1,8,-7,5,5
+6980,C,W,Venturino,Genoa,1,3,-2,1,3,-2,10,10
+6633,C,M;C,Pierret,Lecce,1,6,-5,1,7,-6,9,11
+6645,C,T,Marchwinski,Lecce,1,1,0,1,1,0,2,2
+2117,C,C;T,Kastanos,Verona,1,4,-3,1,4,-3,8,8
+6486,C,W;T,Suslov,Verona,1,9,-8,1,9,-8,14,14
+7025,C,W;T,Cuenca H.,Genoa,1,1,0,1,1,0,1,1
+7246,C,C,Sala A.,Lecce,1,3,-2,1,3,-2,9,9
+5561,C,W;T,Stengs,Pisa,1,11,-10,1,11,-10,13,13
+4677,C,W,Cornet,Genoa,1,7,-6,1,7,-6,5,5
+7276,C,C,Cremaschi,Parma,1,5,-4,1,5,-4,8,8
+7319,C,M;C,Fofana Sa.,Lecce,1,1,0,1,1,0,2,2
+7322,C,M;C,Ngom,Lecce,1,1,0,1,1,0,1,1
+2764,A,Pc,Martinez L.,Inter,34,34,0,34,34,0,360,360
+6434,A,A,Yildiz,Juventus,30,24,6,30,25,5,213,213
+4510,A,A,Leao,Milan,30,24,6,30,24,6,199,199
+4871,A,Pc,Thuram,Inter,29,29,0,29,29,0,238,238
+5734,A,A,Soulè,Roma,26,20,6,26,21,5,196,196
+6052,A,Pc,Hojlund,Napoli,25,24,1,25,24,1,211,211
+6572,A,Pc,Castro S.,Bologna,24,19,5,24,19,5,68,65
+5637,A,Pc,Davis K.,Udinese,24,12,12,24,11,13,73,70
+2137,A,Pc,Scamacca,Atalanta,22,19,3,22,19,3,98,98
+7017,A,Pc,Douvikas,Como,21,8,13,21,7,14,42,39
+7023,A,Pc,Pellegrino M.,Parma,21,13,8,21,12,9,84,81
+531,A,A,Berardi,Sassuolo,21,21,0,21,21,0,85,85
+505,A,A,Bonazzoli,Cremonese,20,1,19,20,1,19,25,25
+6435,A,Pc,Krstovic,Atalanta,20,20,0,20,20,0,31,28
+6552,A,Pc,Orban G.,Verona,20,15,5,20,15,5,35,32
+2499,A,Pc,Vardy,Cremonese,20,15,5,20,15,5,58,55
+2061,A,Pc,Simeone,Torino,19,8,11,19,7,12,73,70
+6060,A,A,Laurientè,Sassuolo,19,15,4,19,15,4,39,39
+2097,A,Pc,Kean,Fiorentina,18,33,-15,18,33,-15,159,159
+7071,A,Pc,Esposito F.P.,Inter,18,7,11,18,7,11,30,27
+5995,A,A,De Ketelaere,Atalanta,17,22,-5,17,23,-6,77,77
+4436,A,A,Cambiaghi,Bologna,17,11,6,17,11,6,31,31
+6646,A,A,Adams C.,Torino,17,14,3,17,14,3,36,36
+7162,A,A,Giovane,Verona,17,1,16,17,1,16,30,30
+4728,A,A,Nkunku,Milan,17,20,-3,17,20,-3,28,28
+4463,A,A,Esposito Se.,Cagliari,16,7,9,16,7,9,50,50
+6365,A,Pc,Ferguson E.,Roma,16,19,-3,16,19,-3,32,29
+7316,A,Pc,Durosinmi,Pisa,16,15,1,16,15,1,51,48
+2841,A,Pc,Vlahovic,Juventus,15,24,-9,15,24,-9,55,52
+4371,A,A,Raspadori,Atalanta,15,13,2,15,13,2,58,58
+2531,A,Pc,Lukaku,Napoli,15,31,-16,15,31,-16,60,57
+5455,A,A,Moreo,Pisa,15,5,10,15,5,10,14,14
+6675,A,Pc,Dovbyk,Roma,15,21,-6,15,21,-6,12,10
+5585,A,A,Malen,Roma,15,14,1,15,14,1,67,67
+4730,A,A,Lookman,Atalanta,14,29,-15,15,30,-15,80,80
+4923,A,Pc,Colombo,Genoa,14,12,2,14,11,3,45,42
+6669,A,Pc,Bonny,Inter,14,5,9,14,5,9,23,20
+5500,A,W;A,Cancellieri,Lazio,14,3,11,14,3,11,23,20
+2038,A,Pc,Pinamonti,Sassuolo,14,16,-2,14,16,-2,62,59
+2678,A,Pc,Fullkrug,Milan,14,13,1,14,13,1,30,27
+7313,A,Pc,Ratkov,Lazio,14,15,-1,14,15,-1,57,54
+6243,A,Pc,Borrelli,Cagliari,13,5,8,13,4,9,14,11
+5544,A,Pc,David,Juventus,13,27,-14,13,27,-14,42,39
+7120,A,A,Lang,Napoli,13,19,-6,13,20,-7,20,20
+309,A,A,Dybala,Roma,13,26,-13,13,27,-14,70,70
+7127,A,W;A,Addai,Como,12,7,5,12,7,5,16,19
+7129,A,W;A,Rodriguez Je.,Como,12,5,7,12,5,7,27,30
+7008,A,Pc,Gimenez,Milan,12,25,-13,12,25,-13,15,13
+7199,A,A,Kilicsoy,Cagliari,12,6,6,12,6,6,21,21
+5336,A,Pc,Nzola,Pisa,12,12,0,12,12,0,12,10
+5918,A,A,Sulemana K.,Atalanta,11,9,2,11,9,2,11,11
+6164,A,Pc,Vitinha O.,Genoa,11,12,-1,12,11,1,27,24
+6556,A,A,Noslin,Lazio,11,7,4,11,7,4,13,13
+6001,A,W;A,Banda,Lecce,11,5,6,11,5,6,12,14
+6822,A,A,Ekhator,Genoa,10,1,9,10,1,9,11,11
+7001,A,W;A,N'Dri,Lecce,10,5,5,10,5,5,10,12
+6314,A,Pc,Openda,Juventus,10,22,-12,10,22,-12,20,17
+6981,A,Pc,Vaz,Roma,10,10,0,10,10,0,23,23
+4359,A,Pc,Piccoli,Fiorentina,9,17,-8,9,17,-8,16,13
+5506,A,A,Ekuban,Genoa,9,2,7,9,2,7,11,11
+6145,A,A,Ngonge,Torino,9,9,0,9,9,0,11,11
+7249,A,Pc,Buksa,Udinese,9,9,0,9,9,0,12,10
+6643,A,Pc,Dallinga,Bologna,8,10,-2,8,10,-2,12,10
+6667,A,A,Benedyczak,Parma,8,1,7,8,1,7,10,10
+6836,A,Pc,Meister,Pisa,8,2,6,8,2,6,14,11
+6630,A,Pc,Mosquera,Verona,8,6,2,8,6,2,10,10
+7252,A,Pc,Stulic,Lecce,8,13,-5,8,13,-5,22,19
+441,A,Pc,Belotti,Cagliari,8,12,-4,8,11,-3,30,30
+2489,A,A,Pedro,Lazio,7,13,-6,7,13,-6,16,16
+608,A,Pc,Zapata D.,Torino,7,20,-13,7,20,-13,14,11
+6380,A,W;A,Solomon,Fiorentina,7,7,0,8,8,0,15,17
+2155,A,Pc,Cutrone,Parma,6,10,-4,6,10,-4,14,11
+5496,A,A,Johnsen,Cremonese,6,7,-1,6,7,-1,8,8
+6827,A,A,Njie,Torino,6,1,5,6,1,5,4,4
+479,A,Pc,Sanabria,Cremonese,6,7,-1,6,6,0,10,10
+6439,A,Pc,Cheddira,Sassuolo,6,4,2,6,4,2,8,8
+785,A,Pc,Immobile,Bologna,5,19,-14,5,19,-14,16,13
+5672,A,Pc,Dia,Lazio,5,20,-15,5,20,-15,12,10
+6215,A,Pc,Lucca,Napoli,5,15,-10,5,14,-9,11,10
+6159,A,A,Sarr A.,Verona,5,8,-3,5,8,-3,9,9
+6895,A,W;A,Dominguez B.,Bologna,4,9,-5,4,9,-5,12,14
+5297,A,A,Luvumbo,Cagliari,4,12,-8,4,12,-8,10,10
+6967,A,W;A,Diao,Como,4,17,-13,4,18,-14,17,20
+7128,A,W;A,Kuhn,Como,4,14,-10,5,15,-10,11,14
+6519,A,Pc,Camarda,Lecce,4,12,-8,4,12,-8,12,10
+313,A,Pc,Morata,Como,4,18,-14,4,18,-14,12,10
+647,A,Pc,Dzeko,Fiorentina,3,15,-12,3,15,-12,10,10
+6207,A,W;A,Almqvist,Parma,3,4,-1,3,4,-1,10,13
+7161,A,Pc,Bayo V.,Udinese,3,4,-1,3,4,-1,8,8
+7183,A,A,Aboukhlal,Torino,3,9,-6,3,9,-6,9,9
+5471,A,Pc,Djuric,Parma,2,9,-7,1,8,-7,7,7
+1842,A,A,Pierini,Sassuolo,2,5,-3,2,5,-3,8,8
+7264,A,Pc,Ambrosino,Napoli,2,1,1,2,1,1,1,1
+6555,A,Pc,Moumbagna,Cremonese,2,6,-4,2,6,-4,9,9
+7272,A,Pc,Gueye,Udinese,2,1,1,2,1,1,1,1
+247,A,Pc,Pavoletti,Cagliari,1,1,0,1,1,0,3,3
+5515,A,A,Okereke,Cremonese,1,5,-4,1,5,-4,3,3
+2012,A,Pc,Milik,Juventus,1,1,0,1,1,0,5,3
+7171,A,A,Buffon L.,Pisa,1,1,0,1,1,0,1,1
+7158,A,Pc,Moro L.,Sassuolo,1,1,0,1,1,0,1,1
+7159,A,Pc,Skjellerup,Sassuolo,1,1,0,1,1,0,1,1
+7213,A,Pc,Frigan,Parma,1,7,-6,1,6,-5,7,7
+2762,A,A,Kouamè,Fiorentina,1,1,0,1,1,0,1,1
+7262,A,A,Balentien,Milan,1,1,0,1,1,0,1,1
+7277,A,Pc,Arena A.,Roma,1,1,0,1,1,0,1,1
+7309,A,Pc,Isaac,Verona,1,1,0,1,1,0,1,1
+7317,A,Pc,Trepy,Cagliari,1,1,0,1,1,0,1,1

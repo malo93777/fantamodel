@@ -48,6 +48,10 @@ def load_xg_model():
     return {
         "poisson_regressor_xg": joblib.load(config.MODEL_DIR_XG / config.POISS_MODEL_XG)
     }
+def load_fv_model():
+    return {
+        "fantavoto_model": joblib.load(config.MODEL_DIR_FV / config.FV_MODEL)
+    }
 
 def get_latest_team(df_orig, player_name, team_col):
     """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
@@ -286,6 +290,48 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     )
 
     return probs["p_any"]
+
+def preprocess_data(df: pd.DataFrame):
+    """
+    Seleziona le feature e il target.
+    Rimuove le righe con NaN nelle colonne usate.
+    """
+    #df = add_team_strength_column(df, 'opponent_team', 'opponent_team_strength')
+    #df = add_team_strength_column(df, 'player_team', 'player_team_strength')
+
+    features = [
+        'voto_gds',
+        'goals',
+        'assists',
+        'ammonizioni',
+        'position_clean'
+    ]
+
+    target = 'fantavoto'
+
+    #rimuovo tutti i Senza voto
+    df = df[df['voto_gds'].notna()]
+
+    #per ora teniamo solo le colonne con season 2025
+    df = df[df['season'] == config.CURRENT_SEASON]
+
+    # Applica la pulizia della posizione
+    if 'position' in df.columns:
+        df['position_clean'] = df['position'].apply(clean_position)
+        # Esempio: media fantavoto per posizione pulita
+        print("\nMedia fantavoto per posizione pulita:")
+        print(df.groupby('position_clean')['fantavoto'].mean().sort_values(ascending=False))
+
+    
+        # Tieni solo le colonne necessarie
+    df_model = df[features + [target]].dropna()
+
+      # Aggiungi il DataFrame delle squadre se disponibile
+
+    X = df_model[features]
+    y = df_model[target]
+
+    return X, y
 
 def save_models(model, scaler_xg, scaler, poly, lin_poly, lin, is_baseline=False):
     """
@@ -529,9 +575,25 @@ def get_Xga_90min_opp_team(team: str, season: str, teams_df: pd.DataFrame) -> fl
     else:
         return np.nan
     
+def normalize_match_string(s):
+    """
+    Normalizza una stringa di match (es. 'Milan - Parma' -> 'milan - parma'),
+    rimuovendo accenti, apostrofi e portando tutto in minuscolo.
+    """
+    import unicodedata
+    if not isinstance(s, str):
+        return ""
+    s = s.strip().lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.replace("'", " ").replace("’", " ")
+    s = " ".join(s.split())  # rimuove spazi multipli
+    return s
 
 def normalize_team_name(name: str) -> str:
     """Normalizza il nome della squadra per confronti più robusti."""
+    if name is None or pd.isna(name) or name.strip() == "":
+        return ""
     name = name.lower()
     # Rimuovi prefissi e parole comuni
     name = re.sub(r'\b(fc|ac|ss|us|as|cf|sc|calcio|club|sporting)\b', '', name)
@@ -1061,7 +1123,7 @@ def get_latest_cold_penalty(player_df):
     penalty = low + (high - low) * base_sigmoid
     return float(penalty)
 
-def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
+def tune_catboost_regressor(X, y, cat_features, n_iter=15, random_seed=42):
     """
     Random Search per CatBoostRegressor (Poisson) con cross-validation.
     Aggiunti: leaf_estimation_backtracking e feature_weights opzionale.
@@ -1071,11 +1133,11 @@ def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
     np.random.seed(random_seed)
 
     param_grid = {
-        "depth": [4, 5, 6, 7, 8, 9],
-        "learning_rate": [0.005, 0.01, 0.02, 0.03, 0.05],
-        "l2_leaf_reg": [2, 3, 4, 5, 6, 8, 10, 20],
-        "bagging_temperature": [0, 0.25, 0.5, 0.75, 1.0],
-        "iterations": [600, 800, 1000, 1200],
+        "depth": [ 7, 8, 9, 10],
+        "learning_rate": [ 0.01, 0.02, 0.03, 0.05],
+        "l2_leaf_reg": [ 4, 5, 6, 8, 10, 20],
+        "bagging_temperature": [ 0.5, 0.75, 1.0],
+        "iterations": [800, 1000, 1200],
         "random_strength": [0, 0.5, 1.0, 1.5, 2.0],
         "min_data_in_leaf": [10, 20, 30, 50]
     }
@@ -1097,7 +1159,7 @@ def tune_catboost_regressor(X, y, cat_features, n_iter=20, random_seed=42):
           
 
             "bootstrap_type": "Bayesian",
-            "loss_function": "Poisson",
+            "loss_function": "RMSE",
             "verbose": False,
             "random_seed": random_seed,
         }
@@ -1401,7 +1463,7 @@ def split_features_by_type(df: pd.DataFrame, feature_names: list):
 
     for col in feature_names:
         if col not in df.columns:
-            print(f"⚠️ Attenzione: '{col}' non trovato nel DataFrame, salto.")
+            #print(f"⚠️ Attenzione: '{col}' non trovato nel DataFrame, salto.")
             continue
 
         dtype = df[col].dtype
@@ -2654,9 +2716,9 @@ def adjust_fantavoto_by_opp(fv_pred, opponent_strength, home_away):
     adj = 0.0
 
     if opponent_strength == 'top':
-        adj -= 0.25
+        adj -= 0.5
     elif opponent_strength == 'weak':
-        adj += 0.25
+        adj += 0.5
 
 
     return round(fv_pred + adj, 2)
@@ -2665,22 +2727,28 @@ def compute_player_vs_strength_adjustment(
     player_df,
     target_opponent_strength,
     min_matches=5,
-    neutral_value=0.0
+    neutral_value=0.0,
+    ema_span=5,
+    max_adjustment=0.25
 ):
     """
     Calcola un adjustment basato sulle performance del giocatore
-    contro squadre di una certa forza.
+    contro squadre di una certa forza, usando media esponenziale.
 
     Parameters
     ----------
     player_df : pd.DataFrame
-        Storico partite del giocatore
+        Storico partite del giocatore (ordinato temporalmente)
     target_opponent_strength : str
         'top', 'mid', 'weak'
     min_matches : int
         Numero minimo di partite per considerare valido il dato
     neutral_value : float
         Valore di fallback se pochi dati
+    ema_span : int
+        Span della media esponenziale (più basso = più peso al recente)
+    max_adjustment : float
+        Clamp massimo assoluto dell'adjustment
 
     Returns
     -------
@@ -2688,29 +2756,42 @@ def compute_player_vs_strength_adjustment(
     """
 
     # sicurezza
-    required_cols = {'fantavoto', 'opponent_team_strength'}
+    required_cols = {'voto_gds', 'opponent_team_strength'}
     if not required_cols.issubset(player_df.columns):
         return neutral_value
+
+    # Ultime 15 partite del giocatore
+    last_matches = player_df.tail(15)
+
+    # Media esponenziale generale
+    player_mean = (
+        last_matches['voto_gds']
+        .ewm(span=ema_span, adjust=False)
+        .mean()
+        .iloc[-1]
+    )
 
     # Filtra per forza avversaria
     subset = player_df[
         player_df['opponent_team_strength'] == target_opponent_strength
-    ]
+    ].tail(15)
 
     if len(subset) < min_matches:
         return neutral_value
 
-    # Media generale del giocatore
-    player_mean = player_df['fantavoto'].mean()
-
-    # Media vs quella forza
-    vs_strength_mean = subset['fantavoto'].mean()
+    # Media esponenziale vs quella forza
+    vs_strength_mean = (
+        subset['voto_gds']
+        .ewm(span=ema_span, adjust=False)
+        .mean()
+        .iloc[-1]
+    )
 
     # Delta performance
     adjustment = vs_strength_mean - player_mean
 
-    # Clamp di sicurezza (importantissimo)
-    adjustment = max(min(adjustment, 0.5), -0.5)
+    # Clamp di sicurezza
+    adjustment = max(min(adjustment, max_adjustment), -max_adjustment)
 
     return adjustment
 
@@ -2725,7 +2806,7 @@ def compute_player_home_away_adjustment(
     Adjustment home/away usando media esponenziale (EWM)
     """
 
-    required_cols = {'fantavoto', 'home_away', 'date'}
+    required_cols = {'voto_gds', 'home_away', 'date'}
     if not required_cols.issubset(player_df.columns):
         return neutral_value
 
@@ -2739,7 +2820,7 @@ def compute_player_home_away_adjustment(
 
     # Media esponenziale globale
     player_mean = (
-        player_df['fantavoto']
+        player_df['voto_gds']
         .ewm(halflife=halflife, adjust=False)
         .mean()
         .iloc[-1]
@@ -2747,7 +2828,7 @@ def compute_player_home_away_adjustment(
 
     # Media esponenziale home/away
     ha_mean = (
-        subset['fantavoto']
+        subset['voto_gds']
         .ewm(halflife=halflife, adjust=False)
         .mean()
         .iloc[-1]
@@ -2756,7 +2837,7 @@ def compute_player_home_away_adjustment(
     adjustment = ha_mean - player_mean
 
     # clamp di sicurezza
-    adjustment = max(min(adjustment, 0.5), -0.5)
+    adjustment = max(min(adjustment, 0.25), -0.25)
 
     return adjustment
 
@@ -2840,10 +2921,10 @@ def compute_player_team_strength_adjustment(
 
     Returns
     -------
-    float : adjustment da sommare al fantavoto
+    float : adjustment da sommare al voto_gds
     """
 
-    required_cols = {'fantavoto', 'player_team_strength'}
+    required_cols = {'voto_gds', 'player_team_strength'}
     if not required_cols.issubset(player_df.columns):
         return neutral_value
 
@@ -2860,12 +2941,12 @@ def compute_player_team_strength_adjustment(
 
     # Media pesata globale
     player_mean = exponential_mean(
-        player_df['fantavoto'], alpha=alpha
+        player_df['voto_gds'], alpha=alpha
     )
 
     # Media pesata in quel contesto
     team_strength_mean = exponential_mean(
-        subset['fantavoto'], alpha=alpha
+        subset['voto_gds'], alpha=alpha
     )
 
     adjustment = team_strength_mean - player_mean
@@ -2894,15 +2975,6 @@ def compute_form_index(
 
     components = []
 
-    # ---- fantavoto ----
-    components.append(
-        adjusted_form_delta(
-            recent['fantavoto'].mean(),
-            previous['fantavoto'].mean(),
-            previous['fantavoto'].std()
-        )
-    )
-
     # ---- voto_gds ----
     components.append(
         adjusted_form_delta(
@@ -2927,58 +2999,6 @@ def compute_form_index(
 
     form_index = np.mean(components)
     return float(np.clip(form_index, -clamp, clamp))
-
-def compute_player_fv_stats(
-    df,
-    recent_n=5,
-    season_n=15
-):
-    """
-    Calcola fv_recent, fv_prev e fv_std per ogni giocatore.
-
-    Returns un DataFrame con una riga per player.
-    """
-
-    required_cols = {'player', 'fantavoto', 'date'}
-    if not required_cols.issubset(df.columns):
-        raise ValueError(f"Missing columns: {required_cols - set(df.columns)}")
-
-    df = df.copy()
-    df['date'] = pd.to_datetime(df['date'])
-
-    results = []
-
-    for player, g in df.groupby('player'):
-        g = g.sort_values('date').dropna(subset=['fantavoto'])
-
-        if len(g) == 0:
-            continue
-
-        if len(g) <= recent_n:
-            fv_recent = g['fantavoto'].mean()
-            fv_prev = g['fantavoto'].mean()
-            fv_std = g['fantavoto'].std()
-        else:
-            recent = g.tail(recent_n)
-            previous = g.iloc[:-recent_n].tail(season_n)
-
-            fv_recent = recent['fantavoto'].mean()
-
-            if len(previous) > 0:
-                fv_prev = previous['fantavoto'].mean()
-                fv_std = previous['fantavoto'].std()
-            else:
-                fv_prev = fv_recent
-                fv_std = recent['fantavoto'].std()
-
-        results.append({
-            'player': player,
-            'fv_recent': fv_recent,
-            'fv_prev': fv_prev,
-            'fv_std': fv_std
-        })
-
-    return pd.DataFrame(results)
 
 def compute_player_vs_strength_xg_adjustment(
     player_df,
@@ -3041,3 +3061,345 @@ def compute_player_vs_strength_xg_adjustment(
     )
 
     return adjustment_pct
+
+def compute_base_voto(
+    player_df,
+    recent_n=5,
+    season_n=15,
+    recent_weight=0.75,
+    feature_col='voto_gds',
+    ewma_span_recent=3,
+    ewma_span_season=6
+):
+    """
+    Calcola il fantavoto base come media ponderata
+    usando medie esponenziali (EWMA) per dare più peso
+    alle partite recenti.
+
+    Returns
+    -------
+    float
+    """
+
+    if feature_col not in player_df.columns or player_df.empty:
+        return 0.0
+
+    df = (
+        player_df
+        .dropna(subset=[feature_col])
+        .sort_values('date')
+    )
+
+    if len(df) == 0:
+        return 0.0
+
+    # Usa al massimo le ultime season_n partite
+    df = df.tail(season_n)
+
+    # Se pochissimi dati → fallback semplice
+    if len(df) <= recent_n:
+        return float(
+            df[feature_col]
+            .ewm(span=min(len(df), ewma_span_recent), adjust=False)
+            .mean()
+            .iloc[-1]
+        )
+
+    recent = df.tail(recent_n)
+    previous = df.iloc[:-recent_n]
+
+    # ---- EWMA recenti ----
+    recent_ewma = (
+        recent[feature_col]
+        .ewm(span=min(len(recent), ewma_span_recent), adjust=False)
+        .mean()
+        .iloc[-1]
+    )
+
+    # ---- EWMA precedenti ----
+    if len(previous) > 0:
+        prev_ewma = (
+            previous[feature_col]
+            .ewm(span=min(len(previous), ewma_span_season), adjust=False)
+            .mean()
+            .iloc[-1]
+        )
+    else:
+        prev_ewma = recent_ewma
+
+    prev_weight = 1 - recent_weight
+
+    base_voto = (
+        recent_ewma * recent_weight +
+        prev_ewma * prev_weight
+    )
+
+    return float(base_voto)
+
+def compute_base_voto_by_role(player_df, role):
+
+    recent_weight = config.ROLE_WEIGHTS_VOTO.get(role, 0.75)
+    return compute_base_voto(
+        player_df,
+        recent_weight=recent_weight
+    )
+
+def compute_weighted_feature_mean(
+    player_df,
+    last5_weight=0.75,
+    max_matches=15,
+    feature_col='goals'
+):
+    df = player_df.sort_values("date")
+
+    last5 = df.tail(5)
+    prev = df.tail(max_matches).head(max(0, len(df) - 5))
+
+    #MEDIA esponenziale aumenta il peso delle partite recenti
+    mean_5 = last5[feature_col].mean() if not last5.empty else 0.0
+    mean_prev = prev[feature_col].mean() if not prev.empty else mean_5
+
+    return last5_weight * mean_5 + (1 - last5_weight) * mean_prev
+
+def compute_feature_role_impact(
+    player_df,
+    position,
+    role_feature_stats,
+    alpha=0.35,
+    min_impact=0.6,
+    max_impact=1.4,
+    feature_col='goals'
+):
+    role_mean = role_feature_stats[position]["mean"]
+    role_std = role_feature_stats[position]["std"]
+
+    if role_std == 0:
+        return 1.0
+
+    player_mean = player_df[feature_col].mean()
+
+    z = (player_mean - role_mean) / role_std
+    impact = 1.0 + alpha * z
+
+    return max(min(impact, max_impact), min_impact)
+
+
+def compute_assists_role_weighted(
+    player_df,
+    role_assist_stats,
+    last_n_recent=5,
+    last_n_season=20,
+    w_recent=0.7,
+    w_season=0.3,
+    fallback=0.0
+):
+    """
+    Crea una feature 'assist_role_weighted' che rappresenta
+    quanto il giocatore fa assist rispetto al suo ruolo.
+
+    Returns
+    -------
+    float
+    """
+    required_cols = {"assist", "position_clean", "date"}
+    if not required_cols.issubset(player_df.columns):
+        return fallback
+
+    player_df = player_df.sort_values("date")
+
+    position = player_df["position_clean"].iloc[-1]
+    if position not in role_assist_stats:
+        return fallback
+
+    # ---- last N recent ----
+    recent = player_df.tail(last_n_recent)
+    recent_mean = recent["assist"].mean() if not recent.empty else 0.0
+
+    # ---- last N season (esclude recent per evitare overlap eccessivo) ----
+    season = player_df.tail(last_n_season)
+    season_mean = season["assist"].mean() if not season.empty else recent_mean
+    
+    # ---- weighted goal estimate ----
+    assist_est = w_recent * recent_mean + w_season * season_mean
+
+    # ---- role normalization ----
+    role_mean = role_assist_stats[position]["mean"]
+    role_std = role_assist_stats[position]["std"]
+
+    if role_std <= 0:
+        return fallback
+
+    # z-score rispetto al ruolo
+    assist_role_weighted = (assist_est - role_mean) / role_std
+
+    # ---- clamp di sicurezza ----
+    assist_role_weighted = np.clip(assist_role_weighted, -1.0, 1.0)
+
+    return assist_role_weighted
+
+def z_to_index_asymmetric_soft(
+    z,
+    scale_pos=1.4,
+    scale_neg=0.35,
+    base=55
+):
+    """
+    Curva molto indulgente sotto media.
+    """
+    if z < 0:
+        z = z * scale_neg
+    else:
+        z = z * scale_pos
+
+    index = base + 45 * (1 / (1 + np.exp(-z)) - 0.5) * 2
+    return index
+
+BASELINE_INDEX = 60  # neutro
+
+def fantavoto_to_schierability_index(
+    fv_pred,
+    position,
+    role_fv_stats
+):
+    if position not in role_fv_stats:
+        return BASELINE_INDEX
+
+    role_mean = role_fv_stats[position]['mean']
+    role_std = role_fv_stats[position]['std']
+
+    if role_std <= 0:
+        return BASELINE_INDEX
+
+    # z-score per ruolo
+    z = (fv_pred - role_mean) / role_std
+
+    # mappa su scala morbida (centrata su 60)
+    raw_index = z_to_index_asymmetric_soft(z)
+
+    # peso ruolo
+    role_weight = config.ROLE_WEIGHTS_INDEX.get(position, 0.6)
+
+    # distanza dalla neutralità
+    delta = raw_index - BASELINE_INDEX
+
+    # scaling per ruolo
+    index = BASELINE_INDEX + delta * role_weight
+
+    return int(np.clip(index, 30, 100))
+
+def compute_consistency_adjustment(
+    player_df,
+    recent_n=5,
+    season_n=10,
+    weight_recent=0.7,
+    max_adjustment=0.3,
+    neutral_value=0.0
+):
+    """
+    Calcola un adjustment che premia la costanza di rendimento del giocatore.
+    Usa la variabilità del fantavoto, dando più peso alle ultime partite.
+    Premia SOLO se la media delle ultime 10 almeno è >= 6.
+    """
+
+    required_cols = {"fantavoto", "date", "voto_gds"}
+    if not required_cols.issubset(player_df.columns):
+        return neutral_value
+
+    df = player_df.sort_values("date")
+
+    if len(df) < recent_n + 3:
+        return neutral_value
+
+    # ---- GUARDIA CHIAVE: media minima ----
+    season_mean = df["voto_gds"].tail(season_n).mean()
+    if pd.isna(season_mean) or season_mean < 6.0:
+        return neutral_value
+
+    recent = df.tail(recent_n)
+    previous = df.iloc[:-recent_n].tail(season_n)
+
+    if len(previous) < 3:
+        return neutral_value
+
+    # ---- statistiche ----
+    def safe_consistency(subset):
+        mean = subset["voto_gds"].mean()
+        std = subset["voto_gds"].std()
+        if mean <= 0 or pd.isna(std):
+            return 0.0
+        return 1.0 / (1.0 + std / mean)
+
+    recent_cons = safe_consistency(recent)
+    prev_cons = safe_consistency(previous)
+
+    # ---- combinazione pesata ----
+    consistency_score = (
+        weight_recent * recent_cons +
+        (1 - weight_recent) * prev_cons
+    )
+
+    # ---- baseline neutra ----
+    baseline = 0.65
+
+    raw_adj = consistency_score - baseline
+
+    # ---- clamp finale ----
+    adjustment = np.clip(raw_adj, -max_adjustment, max_adjustment)
+
+    return float(adjustment)
+
+
+def compute_defensive_xga_bonus(
+    team_xga_last5,
+    matchday,
+    df_teams_curr_season,
+    league_baseline_xga=1.4,
+    multiplier=0.3,
+    clamp_min=-0.25,
+    clamp_max=0.25
+):
+    """
+    Calcola bonus/malus difensivo per difensori (e GK)
+    basato su xGA della squadra.
+
+    Parameters
+    ----------
+    team_xga_last5 : float
+        xGA medio della squadra nelle ultime 5 giornate
+    matchday : int
+        Numero di giornate giocate
+    df_teams_curr_season : pd.DataFrame
+        Deve contenere la colonna 'xGA_last5_mean'
+    league_baseline_xga : float
+        Baseline iniziale di campionato
+    multiplier : float
+        Peso del delta
+    clamp_min, clamp_max : float
+        Limiti di sicurezza
+
+    Returns
+    -------
+    float
+        Bonus (>0) o malus (<0)
+    """
+
+    # ---- sicurezza ----
+    if team_xga_last5 is None or pd.isna(team_xga_last5):
+        return 0.0
+
+    # ---- STEP 1: media campionato ----
+    if matchday > 10 and 'xGA_last5_mean' in df_teams_curr_season.columns:
+        league_avg_xga = df_teams_curr_season['xGA_last5_mean'].mean()
+    else:
+        league_avg_xga = league_baseline_xga
+
+    # ---- STEP 2: confronto squadra vs campionato ----
+    delta = league_avg_xga - team_xga_last5
+
+    # ---- STEP 3: traduzione in bonus/malus ----
+    bonus = delta * multiplier
+
+    # ---- STEP 4: clamp ----
+    bonus = max(min(bonus, clamp_max), clamp_min)
+
+    return float(bonus)

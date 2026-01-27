@@ -225,7 +225,7 @@ def scrape_match(session, giornata, squadra):
 
     soup = get_soup(url, params=params, session=session)
     stagione = extract_season(soup)
-
+    match = extract_match_name(soup)
     table = find_votes_table(soup)
     if table is None:
         print(f"⚠️ Tabella voti NON trovata ({squadra}, G{giornata})")
@@ -263,6 +263,12 @@ def scrape_match(session, giornata, squadra):
             rig_segnati = 0
             rig_sbagliati = 0
 
+        if match and " - " in match:
+            squadre = [s.strip() for s in match.split(" - ")]
+            avversario = squadre[1] if squadre[0].lower() == squadra.lower() else squadre[0]
+        else:
+            avversario = None
+
         data.append({
             "stagione": stagione,
             "giornata": giornata,
@@ -277,7 +283,9 @@ def scrape_match(session, giornata, squadra):
             "espulsioni": espulsioni,
             "autogol": autogol,
             "rig_segnati": rig_segnati,
-            "rig_sbagliati": rig_sbagliati
+            "rig_sbagliati": rig_sbagliati,
+            "avversario": avversario,
+            "partita": match
         })
 
     return data
@@ -362,6 +370,38 @@ def find_votes_table(soup):
             return table
 
     return None
+
+def extract_match_name(soup):
+    """
+    Estrae 'Como - Milan' dalla riga header della giornata
+    """
+    for tr in soup.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 2:
+            continue
+
+        td_giornata = tds[0]
+        td_match = tds[1]
+
+        # controllo corretto
+        if (
+            "SottoTitoloPagina" in td_giornata.get("class", [])
+            and "giornata" in td_giornata.get_text(strip=True).lower()
+            and "SottoTitoloPiccolo" in td_match.get("class", [])
+        ):
+            b = td_match.find("b")
+            if not b:
+                continue
+
+            text = b.get_text(" ", strip=True)
+
+            # estrai solo "Squadra - Squadra"
+            m = re.search(r"([A-Za-zÀ-ÿ' ]+ - [A-Za-zÀ-ÿ' ]+)", text)
+            if m:
+                return m.group(1).strip()
+
+    return None
+
 
 
 # ============================================================

@@ -56,7 +56,7 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": [
+    "players": ["scamacca",'lautaro','doig','miranda','pavlovic',
         "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
@@ -65,6 +65,7 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
+        "atalanta","inter","sassuolo","bologna","milan",
         "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
@@ -72,14 +73,14 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
-        "udinese","ac milan","cagliari","juventus","pisa","cagliari", "juventus",
+        "cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
         "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"
     ],
     "h_a": [
-        "a","h","a","h","a","h","a","a",
+        "h","h","a","a","a","h","a","h","a","h","a","a",
         "h","a","h","a","h","h",
         "a","h","a","a","h","h","a",
         "a","h","a","h","a","h",
@@ -150,19 +151,20 @@ ROLE_WEIGHTS_ASSIST = {
         'SUB': {"mean":0.03, "std":0.18}
 }
 
-ROLE_WEIGHTS_VOTO = {
-    'A': 0.8,
-    'C': 0.7,
-    'D': 0.6,
-    'P': 0.5,
-    'SUB': 0.4
+ROLE_WEIGHTS_INDEX = {
+    'A': 1,
+    'C': 0.75,
+    'D': 0.65,
+    'P': 0.56,
+    'SUB': 0.40
 }
 
-ROLE_INDEX_OFFSET = {
-    "GK": 0,
-    "DF": 5,
-    "MF": 3,
-    "FW": 8
+ROLE_WEIGHTS_VOTO = {
+    'A': 0.88,
+    'C': 0.72,
+    'D': 0.64,
+    'P': 0.56,
+    'SUB': 0.40
 }
 
 # Lista dei nomi e ruoli che mi hai dato
