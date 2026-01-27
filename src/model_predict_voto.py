@@ -357,7 +357,8 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
     pos_means = df.groupby('position_clean')['fantavoto'].mean()
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-
+        if "giovane" in player.lower():
+            print("debug")
         player_df, player_full_name = get_player_data(df, player)
         if player_df.empty:
             continue
@@ -372,7 +373,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         # ---- rolling stats ultime 20 ----
         rolling_15 = player_df.tail(15)
 
-        if "paz" in player_full_name.lower():
+        if "scamacca" in player_full_name.lower():
             print("debug")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -500,7 +501,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         predictions.append({
             'Giocatore': player_full_name,
-            'Squadra': team,
+            #'Squadra': team,
             'Avversario': opponent,
             'Casa/Trasferta': ha_to_print,
             'Index': index
@@ -631,7 +632,7 @@ def main():
     df_voti = load_data(csv_path)
     df_fanta_roles = load_data(df_fanta_roles_path)
 
-     # Aggiungi fanta_role
+    # Aggiungi fanta_role
     #df_voti = add_fanta_role(df_voti, df_fanta_roles)
 
     X, y = preprocess_data(df_voti)

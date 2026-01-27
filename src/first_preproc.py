@@ -63,6 +63,11 @@ class Preprocessor:
         # lowercase + strip
         name = str(name).strip().lower()
 
+        #***** eccezione da gestire *****
+        if "malvano" in name.lower()    :
+            print("soulè")
+            return "soule"
+
         # 🔹 rimuove accenti
         name = unicodedata.normalize("NFKD", name)
         name = "".join(c for c in name if not unicodedata.combining(c))
@@ -966,7 +971,6 @@ class Preprocessor:
         # Normalizzazione nomi
         df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
         df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
-        df2
         ''''''
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
@@ -982,7 +986,7 @@ class Preprocessor:
             group_sorted = group.sort_values('date')
 
             #se player inizia con "jon"
-            if player.startswith("jonatha") or player.startswith("nicolo barel"):
+            if player.startswith("soule") or player.startswith("giovane"):
                 print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")   
 
             # Filtra df2 per giocatore e stagione
@@ -995,8 +999,17 @@ class Preprocessor:
             )
 
             if df2_player.empty:
-                #print(f"⚠️ Nessun dato voti per {player} ({season})")
-                continue
+                # Se non trovato, prova con player che inizia con 'player' (case-insensitive)
+                df2_player = (
+                    df2[
+                        df2['player'].str.lower().str.startswith(player.lower()) &
+                        (df2['stagione'].astype(str).str.startswith(str(season)))
+                    ]
+                    .copy()
+                )
+                # Se ancora vuoto, salta
+                if df2_player.empty:
+                    continue
             
             # ---- match_order base (uguale alla giornata) ----
             df2_player["match_order"] = df2_player["giornata"].astype(float)
@@ -1190,7 +1203,7 @@ class Preprocessor:
             name = re.sub(r'\s+', ' ', name).strip()
             return name
 
-        PREFIXES = {'de','da','di','del','van','von','der','le','la','el','al','du','ze'}
+        PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
 
         # -----------------------
         # Chiave: cognome completo senza iniziale

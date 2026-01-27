@@ -103,7 +103,7 @@ def get_voti_data():
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    scraper.run()
+    #scraper.run()
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(
@@ -132,8 +132,8 @@ def main():
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     args = parser.parse_args()
-    args.gol = True
-    args.assist = True
+    args.gol = False
+    args.assist = False
     args.voti = True
     # ==========================
     # ESECUZIONE

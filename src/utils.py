@@ -2729,7 +2729,7 @@ def compute_player_vs_strength_adjustment(
     min_matches=5,
     neutral_value=0.0,
     ema_span=5,
-    max_adjustment=0.25
+    max_adjustment=0.2
 ):
     """
     Calcola un adjustment basato sulle performance del giocatore
@@ -2837,7 +2837,7 @@ def compute_player_home_away_adjustment(
     adjustment = ha_mean - player_mean
 
     # clamp di sicurezza
-    adjustment = max(min(adjustment, 0.25), -0.25)
+    adjustment = max(min(adjustment, 0.2), -0.2)
 
     return adjustment
 
@@ -3068,7 +3068,7 @@ def compute_base_voto(
     season_n=15,
     recent_weight=0.75,
     feature_col='voto_gds',
-    ewma_span_recent=3,
+    ewma_span_recent=6,
     ewma_span_season=6
 ):
     """
@@ -3239,13 +3239,26 @@ def compute_assists_role_weighted(
 
 def z_to_index_asymmetric_soft(
     z,
+    role=None,
     scale_pos=1.4,
-    scale_neg=0.35,
-    base=55
+    scale_neg=0.35
 ):
     """
     Curva molto indulgente sotto media.
     """
+    base = 60
+    if role is not None:
+        if role == "A":
+            base = 65    
+        elif role == "D":
+            base = 60
+        elif role == "C":
+            base = 63
+        elif role == "SUB":
+            base = 60
+    else:
+        base = 60
+
     if z < 0:
         z = z * scale_neg
     else:
@@ -3274,7 +3287,7 @@ def fantavoto_to_schierability_index(
     z = (fv_pred - role_mean) / role_std
 
     # mappa su scala morbida (centrata su 60)
-    raw_index = z_to_index_asymmetric_soft(z)
+    raw_index = z_to_index_asymmetric_soft(z, position)
 
     # peso ruolo
     role_weight = config.ROLE_WEIGHTS_INDEX.get(position, 0.6)
