@@ -25,12 +25,12 @@ def main():
             background-color: transparent !important;
         }
 
-        /* 🔥 TESTO NERO */
+        /* 🔥 TESTO ULTRA LEGGIBILE */
         html, body, [class*="css"], .stMarkdown, .stText, .stSelectbox label, .stRadio label,
         .stMetric, .stMetric label, .stRadio, .stSelectbox, .stButton, .stAlert {
-            color: #111 !important;
+            color: #ffffff !important;
             font-weight: 600 !important;
-            text-shadow: none !important;
+            text-shadow: 1px 1px 2px #00000066;
         }
 
         /* Titolo */
