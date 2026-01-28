@@ -165,6 +165,8 @@ def main():
     # =====================================================
     # 🔹 Logica Top Indici per Ruolo
     # =====================================================
+    # =====================================================
+
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
@@ -173,12 +175,26 @@ def main():
             model = model_predict_voto.utils.load_fv_model()
 
             with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
-                model_predict_voto.predizioni_per_ruolo(
+                results = model_predict_voto.predizioni_per_ruolo(
                     df_voti,
                     next_games_df,
                     pipeline=model['fantavoto_model'],
                     top_n=5
                 )
+
+            # --- Visualizzazione risultati per ruolo ---
+            if results:
+                if 'D' in results:
+                    st.subheader("🛡 Difensori")
+                    st.dataframe(results['D'], use_container_width=True)
+
+                if 'C' in results:
+                    st.subheader("👟 Centrocampisti")
+                    st.dataframe(results['C'], use_container_width=True)
+
+                if 'A' in results:
+                    st.subheader("⚽ Attaccanti")
+                    st.dataframe(results['A'], use_container_width=True)
 
 # =====================================================
 # 🔹 Run app

@@ -468,7 +468,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         if assist_proba is None:
             print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.")
             assist_proba = 0.0
-            
+
         assist_impact = utils.compute_feature_role_impact(
             player_df,
             fanta_role,
@@ -639,8 +639,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
     pipeline: pipeline modello fantavoto da passare a pred_voto_prod
     top_n: quanti top player evidenziare
     """
-    
     ruoli = ['D', 'C', 'A']
+
+    risultati = {}
     
     for ruolo in ruoli:
         print(f"\n===== Ruolo: {ruolo} =====\n")
@@ -697,6 +698,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         # stampa la tabella
         display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
         print(df_pred_sorted[display_cols].to_string(index=False))
+        risultati[ruolo] = df_pred_sorted
+
+    return risultati
 
 
 def main():
