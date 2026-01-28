@@ -67,15 +67,7 @@ def main():
     # =====================================================
     st.title("🎯 Indice di Schierabilità")
     st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita.")
-    # === BOTTONI SEMPRE VISIBILI ===
-    colA, colB, colC = st.columns([4,2,2])
-
-    with colB:
-        submitted = st.button("Calcola Indice")
-
-    with colC:
-        top_ruolo = st.button("Top Indici per Ruolo")
-        
+    
     # Pulsante torna alla Home
     if st.button("🏠 Torna alla Home"):
         st.switch_page("app.py")
