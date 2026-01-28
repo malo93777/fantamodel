@@ -182,19 +182,19 @@ def main():
                     top_n=5
                 )
 
-            # --- Visualizzazione risultati per ruolo ---
+            # --- Visualizzazione risultati per ruolo --- tolgo index dalla colonna
             if results:
                 if 'D' in results:
                     st.subheader("🛡 Difensori")
-                    st.dataframe(results['D'], use_container_width=True)
+                    st.dataframe(results['D'], use_container_width=True).drop(columns=['index'])
 
                 if 'C' in results:
                     st.subheader("👟 Centrocampisti")
-                    st.dataframe(results['C'], use_container_width=True)
+                    st.dataframe(results['C'], use_container_width=True).drop(columns=['index'])
 
                 if 'A' in results:
                     st.subheader("⚽ Attaccanti")
-                    st.dataframe(results['A'], use_container_width=True)
+                    st.dataframe(results['A'], use_container_width=True).drop(columns=['index'])
 
 # =====================================================
 # 🔹 Run app
