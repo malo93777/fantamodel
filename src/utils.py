@@ -209,6 +209,10 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
 
     df = compute_finishing_form(df, window=12, use_rank=True, prod=True)
 
+    if df.empty:
+        print(f"⚠️ Nessun dato valido dopo preprocessing per {player}")
+        return None
+
     # 2️⃣ Calcolo residuo lineare della finishing_form
     pred_lin = lin_model.predict(df[["xg_mean_12"]])
     df["finishing_form_resid"] = df["finishing_form"] - pred_lin

@@ -269,7 +269,7 @@ def get_player_data(df: pd.DataFrame, player_name: str):
     # 3️⃣ Se ancora vuoto
     if player_df.empty:
         print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
-        return pd.DataFrame()
+        return pd.DataFrame(), None
 
     # 4️⃣ Se più giocatori hanno lo stesso nome
     matching_players = player_df["player"].unique()
@@ -357,8 +357,8 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
     pos_means = df.groupby('position_clean')['fantavoto'].mean()
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "giovane" in player.lower():
-            print("debug")
+        if "nkunku" in player.lower():
+            print(f"debug {player}")
         player_df, player_full_name = get_player_data(df, player)
         if player_df.empty:
             continue
@@ -428,14 +428,6 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         else:
             voto_base = voto_base + adj_opp_team + adj_home_away
 
-
-        goal_impact = utils.compute_feature_role_impact(
-            player_df,
-            fanta_role,
-            config.ROLE_WEIGHTS_GOAL,
-            feature_col='goals'
-        )
-
         # === PREDIZIONE GOAL ===
         features_names_goal = list(models_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
@@ -453,6 +445,17 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
                 h_a
         )
 
+        if goal_proba is None:
+            print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.")
+            goal_proba = 0.0
+
+        goal_impact = utils.compute_feature_role_impact(
+            player_df,
+            fanta_role,
+            config.ROLE_WEIGHTS_GOAL,
+            feature_col='goals'
+        )
+
         goal_feature = goal_proba * goal_impact
 
         # === PREDIZIONE ASSIST ===
@@ -462,7 +465,10 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
                 norm_name, team, opponent, df_orig_assist, df_teams,
                 df_teams_curr_season, h_a
         )
-   
+        if assist_proba is None:
+            print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.")
+            assist_proba = 0.0
+            
         assist_impact = utils.compute_feature_role_impact(
             player_df,
             fanta_role,
@@ -623,17 +629,86 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
+def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
+    """
+    Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
+    e stampa una tabella ordinata per index con evidenziazione dei top_n.
+    
+    df_voti: dataframe con colonne ['player_name', 'player_team', 'position_clean', ...]
+    next_games_df: dataframe con le prossime partite, colonne ['team', 'opponent', 'h_a']
+    pipeline: pipeline modello fantavoto da passare a pred_voto_prod
+    top_n: quanti top player evidenziare
+    """
+    
+    ruoli = ['D', 'C', 'A']
+    
+    for ruolo in ruoli:
+        print(f"\n===== Ruolo: {ruolo} =====\n")
+
+        df = df_voti.copy()
+
+        # lista dei giocatori per ruolo
+        players_role = df[df['fanta_role'] == ruolo]['player_norm'].tolist()
+        
+        #rimuovo duplicati
+        players_role = list(dict.fromkeys(players_role))
+
+        teams_role, opponents_role, ha_role = [], [], []
+        
+        for player in players_role:
+            team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
+            teams_role.append(team)
+            
+            # cerca la prossima partita del team
+            next_game = next_games_df[(next_games_df['home'] == team) | (next_games_df['away'] == team)]
+            
+            if not next_game.empty:
+                row = next_game.iloc[0]  # prendi la prima prossima partita disponibile
+                if row['home'] == team:
+                    h_a = 'h'
+                    opponent = row['away']
+                else:
+                    h_a = 'a'
+                    opponent = row['home']
+            else:
+                h_a = ""
+                opponent = ""
+            
+            ha_role.append(h_a)
+            opponents_role.append(opponent)
+        
+        # calcola le predizioni
+        df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role, df_voti, pipeline)
+
+        df_pred_50 = df_pred.head(50)  # limita a top 50 per ruolo
+        
+        # ordina per index discendente
+        df_pred_sorted = df_pred_50.sort_values('Index', ascending=False).reset_index(drop=True)
+        
+        # evidenzia i top N
+        def add_emoji(idx):
+            if idx < top_n:
+                return "🔥"
+            else:
+                return ""
+        
+        df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
+        
+        # stampa la tabella
+        display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
+        print(df_pred_sorted[display_cols].to_string(index=False))
+
+
 def main():
 
     train = False
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
+    next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
 
     df_voti = load_data(csv_path)
+    next_games_df = load_data(next_games_path)
     df_fanta_roles = load_data(df_fanta_roles_path)
-
-    # Aggiungi fanta_role
-    #df_voti = add_fanta_role(df_voti, df_fanta_roles)
 
     X, y = preprocess_data(df_voti)
 
@@ -656,7 +731,7 @@ def main():
     else:
         #carica modello
         pipeline = utils.load_fv_model()
-
+    '''
     pred_df = pred_voto_prod(
         config.INPUT["players"],
         config.INPUT["teams"],
@@ -665,6 +740,9 @@ def main():
         df_voti,
         pipeline['fantavoto_model']
         )
+    '''
+
+    predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=5)
 
 if __name__ == "__main__":
     main()

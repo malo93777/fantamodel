@@ -1,85 +1,88 @@
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+
 import streamlit as st
 import pandas as pd
 import model_predict_voto
 import config
 import utils
-import streamlit as st
-import pandas as pd
 
 def main():
+    # =====================================================
+    # 🔹 Config pagina e CSS
+    # =====================================================
     st.set_page_config(page_title="Indice Schierabilità ⚽", page_icon="✨", layout="centered")
+    
     st.markdown("""
-        <style>
-        /* Sfondo blu chiaro */
-        .stApp {
-            background: linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%) !important;
-        }
+    <style>
+    /* Sfondo blu chiaro */
+    .stApp {
+        background: linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%) !important;
+    }
 
-        /* Contenitori trasparenti */
-        .main, .stAppViewContainer, .block-container {
-            background: transparent !important;
-        }
-        [data-testid="stAppViewContainer"] {
-            background-color: transparent !important;
-        }
+    /* Contenitori trasparenti */
+    .main, .stAppViewContainer, .block-container {
+        background: transparent !important;
+    }
+    [data-testid="stAppViewContainer"] {
+        background-color: transparent !important;
+    }
 
-        /* 🔥 TESTO NERO GENERALE */
-        html, body, [class*="css"], .stMarkdown, .stText,
-        .stSelectbox label, .stRadio label,
-        .stMetric, .stMetric label,
-        .stRadio, .stSelectbox, .stAlert {
-            color: #111 !important;
-            font-weight: 600 !important;
-            text-shadow: none !important;
-        }
+    /* 🔥 TESTO NERO GENERALE */
+    html, body, [class*="css"], .stMarkdown, .stText,
+    .stSelectbox label, .stRadio label,
+    .stMetric, .stMetric label,
+    .stRadio, .stSelectbox, .stAlert {
+        color: #111 !important;
+        font-weight: 600 !important;
+        text-shadow: none !important;
+    }
 
-        /* Titoli */
-        h1,h2,h3,h4,h5 {
-            color: #111 !important;
-            text-shadow: none !important;
-        }
+    /* Titoli */
+    h1,h2,h3,h4,h5 {
+        color: #111 !important;
+        text-shadow: none !important;
+    }
 
-        /* ⚪ TESTO BIANCO NEI BOTTONI */
-        .stButton > button {
-            color: #ffffff !important;
-            font-weight: 700 !important;
-        }
+    /* ⚪ TESTO BIANCO NEI BOTTONI */
+    .stButton > button {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
 
-        /* (opzionale ma consigliato) sfondo bottoni */
-        .stButton > button {
-            background-color: #1e40af !important;
-            border: none !important;
-        }
+    /* Sfondo bottoni */
+    .stButton > button {
+        background-color: #1e40af !important;
+        border: none !important;
+    }
 
-        .stButton > button:hover {
-            background-color: #1d4ed8 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    .stButton > button:hover {
+        background-color: #1d4ed8 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-
+    # =====================================================
+    # 🔹 Titolo e descrizione
+    # =====================================================
     st.title("🎯 Indice di Schierabilità")
     st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita.")
 
-    # 🔙 Pulsante torna alla Home
+    # Pulsante torna alla Home
     if st.button("🏠 Torna alla Home"):
         st.switch_page("app.py")
 
-    st.title("Indice di Schierabilità")
-
-    # Carica dati giocatori disponibili (puoi personalizzare questa parte)
-    # Qui si assume che tu abbia un DataFrame con i giocatori e le squadre
-    # Sostituisci con il tuo caricamento dati reale
+    # =====================================================
+    # 🔹 Caricamento dati
+    # =====================================================
     try:
-        # --- Carica dataset e modelli
         df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
         df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
         df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
         df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+        next_games_df = pd.read_csv(config.DATASET_DATA_DIR / "next_games.csv")  # Assumendo il path corretto
 
-        # --- Dropdown dinamici
+        # Liste per dropdown
         players_list = sorted(df_orig_goal["player"].dropna().unique().tolist())
         teams_list = sorted(df_teams[df_teams['season'] == config.CURRENT_SEASON]['Team'].dropna().unique().tolist())
         opponents_list = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
@@ -90,12 +93,16 @@ def main():
         players_list = []
         teams_list = []
         opponents_list = []
+        next_games_df = pd.DataFrame()
 
-    # Selezione multipla giocatori
+    # =====================================================
+    # 🔹 Selezione giocatori e input
+    # =====================================================
     giocatori = st.multiselect("Seleziona giocatori", players_list)
     input_data = []
+
     for player in giocatori:
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([3,3,2])
         with col1:
             default_team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
             squadra = st.selectbox(
@@ -112,38 +119,66 @@ def main():
                 ha = "h" if ha_label == "Casa" else "a"
         else:
             ha = None
+
         input_data.append((player, squadra, avversario, ha))
 
-    submitted = st.button("Calcola Indice")
+    # =====================================================
+    # 🔹 Pulsanti affiancati
+    # =====================================================
+    col_btn1, col_btn2 = st.columns([1,1])
+    with col_btn1:
+        submitted = st.button("Calcola Indice")
+    with col_btn2:
+        top_ruolo = st.button("Top Indici per Ruolo")
 
+    # =====================================================
+    # 🔹 Logica Calcola Indice
+    # =====================================================
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
         else:
-            # Carica modello
             model = model_predict_voto.utils.load_fv_model()
-            # Prepara input per la funzione di predizione
             players, teams, opponents, h_a = zip(*input_data)
             df_pred = model_predict_voto.pred_voto_prod(
                 players, teams, opponents, h_a, df_voti, model['fantavoto_model']
             )
-            # Rimuovi la colonna degli indici se presente
             df_pred = df_pred.reset_index(drop=True)
-            # Formatta i nomi dei giocatori e l'indice di schierabilità
+
+            # Formattazione
             def format_player(val):
                 return f"<b>{str(val).title()}</b>"
             def format_index(val):
                 return f"<b>{val}</b>"
+
             styled = df_pred.style.format({
                 'player': format_player,
                 'fantavoto_pred': format_index,
                 'index': format_index if 'index' in df_pred.columns else lambda x: x
             }).hide(axis='index')
-            # Applica grassetto anche ai nomi delle colonne
+
             html = styled.to_html(escape=False)
             html = html.replace('<th ', '<th style="font-weight:bold;" ')
             st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
+
+    # =====================================================
+    # 🔹 Logica Top Indici per Ruolo
+    # =====================================================
+    if top_ruolo:
+        if df_voti.empty or next_games_df.empty:
+            st.warning("Dati insufficienti per calcolare i top indici.")
+        else:
+            st.write("## 🔝 Top Indici per Ruolo")
+            model = model_predict_voto.utils.load_fv_model()
+
+            with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
+                model_predict_voto.predizioni_per_ruolo(
+                    df_voti,
+                    next_games_df,
+                    pipeline=model['fantavoto_model'],
+                    top_n=5
+                )
 
 # =====================================================
 # 🔹 Run app

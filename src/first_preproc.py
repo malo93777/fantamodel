@@ -961,8 +961,8 @@ class Preprocessor:
         return df
 
     def merge_voti_player(self, csv1_path, csv2_path, csv3_path):
-        df1 = pd.read_csv(csv1_path)
-        df2 = pd.read_csv(csv2_path)
+        df1 = pd.read_csv(csv1_path) #df_prod_gol
+        df2 = pd.read_csv(csv2_path) #df_voti_gds
         df3 = pd.read_csv(csv3_path)
 
         # Rimuovo i senza voto_gds
@@ -986,7 +986,7 @@ class Preprocessor:
             group_sorted = group.sort_values('date')
 
             #se player inizia con "jon"
-            if player.startswith("soule") or player.startswith("giovane"):
+            if player.startswith("soule") or player.startswith("giovane") or player.startswith("nkunku"):
                 print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")   
 
             # Filtra df2 per giocatore e stagione
@@ -1009,6 +1009,7 @@ class Preprocessor:
                 )
                 # Se ancora vuoto, salta
                 if df2_player.empty:
+                    print(f"⚠️ Nessun dato df2 per {player} ({season})")
                     continue
             
             # ---- match_order base (uguale alla giornata) ----
@@ -1080,7 +1081,7 @@ class Preprocessor:
             df1_player = df1_player.sort_values('date')
 
             if len(df1_player) != len(df2_player):
-                print(f"⚠️ Differenza dimensioni per {player} ({season}): {len(df1_player)} vs {len(df2_player)}")
+                #print(f"⚠️ Differenza dimensioni per {player} ({season}): {len(df1_player)} vs {len(df2_player)}")
                 df2_player = self.reconcile_df2_by_partita(
                     df2_player=df2_player,
                     df1_player=group_sorted
@@ -1140,11 +1141,11 @@ class Preprocessor:
         mask_valid = partite.isin(valid_partite_set)
 
         # --- Debug opzionale ---
-        removed = df2_player.loc[~mask_valid, 'partita'].unique()
-        if len(removed) > 0:
-            print("⚠️ Partite rimosse da df2_player:")
-            for p in removed:
-                print("  -", p)
+        #removed = df2_player.loc[~mask_valid, 'partita'].unique()
+        #if len(removed) > 0:
+            #print("⚠️ Partite rimosse da df2_player:")
+            #for p in removed:
+                #print("  -", p)
 
         # --- Filtra ---
         df2_player_clean = df2_player.loc[mask_valid].copy()

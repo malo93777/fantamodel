@@ -1,10 +1,8 @@
 from first_preproc import Preprocessor
 import pandas as pd
-from matchscraper import MatchScraper
-from understatapi import UnderstatClient
 from scraper import Scraper
-from assist_scraper import AssistScraper
 from voti_scraper import VotiScraper
+from fbref_nextgames_scraper import NextGamesScraper
 import config
 import argparse
 
@@ -122,6 +120,18 @@ def get_voti_data():
     #to csv
     voti_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI, index=False)
 
+def get_next_games_data():
+
+    print("Starting partite prossima giornata processing...")
+
+    nextgames_scraper = NextGamesScraper()
+    games_df = nextgames_scraper.run()
+
+    print("Next games dataset:")
+    print(games_df.head())
+    #to csv
+    games_df.to_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE, index=False)
+
 def main():
 
     # ==========================
@@ -131,31 +141,37 @@ def main():
     parser.add_argument("--gol", action="store_true", help="Scraping e Prepocessing per il modello dei gol")
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
+    parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     args = parser.parse_args()
     args.gol = False
     args.assist = False
     args.voti = True
+    args.nextgames = False
     # ==========================
     # ESECUZIONE
     # ==========================
-    if args.gol and args.assist and args.voti:
+    if args.gol and args.assist and args.voti and args.nextgames:
         print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI...")
         get_goals_data()
         get_assists_data()
         get_voti_data()
+        get_next_games_data()
     elif args.gol and args.assist:
         print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST...")
         get_goals_data()
         get_assists_data()
     elif args.gol:
-        print("⚽  Scraping e Prepocessing GOL...")
+        print("⚽  Scraping e Prepocessing solo GOL...")
         get_goals_data()
     elif args.assist:
-        print("🎯  Scraping e Prepocessing ASSIST...")
+        print("🎯  Scraping e Prepocessing solo ASSIST...")
         get_assists_data()
     elif args.voti:
-        print("📝  Scraping e Prepocessing VOTI...")
+        print("📝  Scraping e Prepocessing solo VOTI...")
         get_voti_data()
+    elif args.nextgames:
+        print("📅  Scraping solo Next Games...")
+        get_next_games_data()
     else:
         print("❗ Nessun argomento specificato. Usa --gol e/o --assist")
 

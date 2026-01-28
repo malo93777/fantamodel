@@ -28,6 +28,7 @@ GOALS_DATA_FILE_ALL_LEAGUES = "all_leagues_goals.csv"
 VOTI_DATA_FILE = "voti_fantagiaveno_raw.csv"
 PROD_DATA_FILE_VOTI = "PROD_voti_2025_preproc_Serie_A.csv"
 FANTA_RUOLI_FILE = "ruoli_fanta_25.csv"
+NEXT_GAMES_FILE = "next_games.csv"
 
 # Modelli
 SCALER = "scaler.pkl"
@@ -56,7 +57,7 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
+    "players": ["nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
         "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
@@ -65,7 +66,7 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
+        "milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
         "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
@@ -73,7 +74,7 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "lecce","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
@@ -237,4 +238,6 @@ manual_roles = {
     "mandela keita": "C",
     "lautaro martinez": "A",
     "david neres": "C",
+    "jean butez": "P",
+    "valentin castellanos": "A"
 }
