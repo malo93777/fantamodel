@@ -302,7 +302,7 @@ def preprocess_data(df: pd.DataFrame):
         'voto_gds',
         'goals',
         'assists',
-        'ammonizioni',
+        #'ammonizioni',
         'position_clean'
     ]
 
@@ -484,7 +484,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
             'voto_gds': voto_base,
             'goals': goal_feature,
             'assists': assist_feature,
-            'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
+            #'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
             'position_clean': fanta_role
         }])
 
@@ -566,7 +566,6 @@ def train_xgboost(X: pd.DataFrame, y: pd.Series) -> XGBRegressor:
 def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     """Allena un modello di regressione lineare e stampa MAE e MSE"""
 
-    from sklearn.linear_model import LinearRegression
     from sklearn.pipeline import Pipeline
     from sklearn.compose import ColumnTransformer
     from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -585,7 +584,7 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
         'voto_gds',
         'goals',
         'assists',
-        'ammonizioni'
+        #'ammonizioni'
     ]
     CAT_FEATURES = ['position_clean']
     # ---- preprocessors ----
@@ -705,14 +704,13 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
 
 def main():
 
-    train = False
+    train = True
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
 
     df_voti = load_data(csv_path)
     next_games_df = load_data(next_games_path)
-    df_fanta_roles = load_data(df_fanta_roles_path)
 
     X, y = preprocess_data(df_voti)
 
@@ -735,18 +733,17 @@ def main():
     else:
         #carica modello
         pipeline = utils.load_fv_model()
-    '''
+    
     pred_df = pred_voto_prod(
         config.INPUT["players"],
         config.INPUT["teams"],
         config.INPUT["opponents"],
         config.INPUT["h_a"],
         df_voti,
-        pipeline['fantavoto_model']
+        pipeline #['fantavoto_model']
         )
-    '''
 
-    predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=5)
+    #predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=5)
 
 if __name__ == "__main__":
     main()
