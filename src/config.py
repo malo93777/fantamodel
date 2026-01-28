@@ -239,5 +239,10 @@ manual_roles = {
     "lautaro martinez": "A",
     "david neres": "C",
     "jean butez": "P",
-    "valentin castellanos": "A"
+    "valentin castellanos": "A",
+    "matteo tramoni": "C",
+    "lorenzo pellegrini": "C",
+    "evan ferguson": "A",
+    "franco vazquez": "C",
+    "davide bartesaghi": "D"
 }
