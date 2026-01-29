@@ -66,8 +66,9 @@ def main():
     # 🔹 Titolo e descrizione
     # =====================================================
     st.title("🎯 Indice di Schierabilità")
-    st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita.")
-    
+    st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita inserendo i giocatori.")
+    st.markdown("Seleziona Top Indice per Ruolo per vedere i 50 migliori giocatori per la prossima partita.")
+
     # Pulsante torna alla Home
     if st.button("🏠 Torna alla Home"):
         st.switch_page("app.py")
@@ -166,7 +167,7 @@ def main():
     # 🔹 Logica Top Indici per Ruolo
     # =====================================================
     # =====================================================
-    top_ruolo = True
+    #top_ruolo = True DEBUG
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
@@ -186,23 +187,24 @@ def main():
                 if 'D' in results:
                     st.subheader("🛡 Difensori")
                     st.dataframe(
-                        results['D'].style.hide(axis="index"),
+                        results['D'].reset_index(drop=True),
                         use_container_width=True
                     )
 
                 if 'C' in results:
                     st.subheader("👟 Centrocampisti")
                     st.dataframe(
-                        results['C'].style.hide(axis="index"),
+                        results['C'].reset_index(drop=True),
                         use_container_width=True
                     )
 
                 if 'A' in results:
                     st.subheader("⚽ Attaccanti")
                     st.dataframe(
-                        results['A'].style.hide(axis="index"),
+                        results['A'].reset_index(drop=True),
                         use_container_width=True
                     )
+
 
 
 
