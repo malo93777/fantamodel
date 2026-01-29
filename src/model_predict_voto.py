@@ -301,7 +301,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
             config.ROLE_WEIGHTS_GOAL,
             feature_col='goals'
         )
-
+        goal_proba=1
         goal_feature = goal_proba * goal_impact
 
         # === PREDIZIONE ASSIST ===
