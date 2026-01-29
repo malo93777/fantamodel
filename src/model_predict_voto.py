@@ -238,23 +238,23 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
                 target_ha=h_a
         ) 
 
-        # *************  BONUS DIFENSORI  SE LORO SQUADRE concedono poco **************  
+        # *************  BONUS DIFENSORI  SE LORO SQUADRE concedono poco e MALUS se affrontano squadra che crea molto**************  
         # 4️⃣ Recupera dati della squadra e avversario
         if fanta_role == 'D':
             num_giornate = utils.count_matchdays(df_teams_curr_season)
 
             #se ho un numero sufficiente di giornate, applico discriminante home/away
-            if num_giornate >= 15: 
-                h_a = utils.get_h_a_opponent(h_a)             
+            if num_giornate >= 15:
+
                 #PLAYER TEAM DATA home/away
-                team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, h_a, df_teams_curr_season)
+                xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
                     
             else:
                 #PLAYER TEAM DATA
-                team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
+                xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
             
             bonus_defensive_adj = utils.compute_defensive_xga_bonus(
-                team_xga_last5=team_xG_90_min_last5,
+                team_xga_last5=xGA_last5,
                 matchday=num_giornate,
                 df_teams_curr_season=df_teams_curr_season
             )
@@ -359,7 +359,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         'Index': index
         }) 
 
-    return pd.DataFrame(predictions)
+    return pd.DataFrame(predictions).reset_index(drop=True)
 
 def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     """Allena un modello di regressione lineare e stampa MAE e MSE"""

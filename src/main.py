@@ -143,8 +143,8 @@ def main():
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     args = parser.parse_args()
-    args.gol = True
-    args.assist = True
+    args.gol = False
+    args.assist = False
     args.voti = True
     args.nextgames = False
     # ==========================
