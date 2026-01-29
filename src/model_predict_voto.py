@@ -1,5 +1,4 @@
 from statistics import LinearRegression
-import unicodedata
 import joblib
 import pandas as pd
 from sklearn.linear_model import Ridge
@@ -9,167 +8,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, root_mean_squared_error
 import config
 import re
+import numpy as np
 import utils
 from unidecode import unidecode
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.preprocessing")
-
-def add_fanta_role(df_main, df_fanta_roles, debug=True):
-
-    def assign_manual_roles(df, manual_roles):
-        """
-        Assegna ruoli manuali a giocatori specifici mantenendo gli indici originali.
-
-        Args:
-            df (pd.DataFrame): DataFrame principale con colonna 'player_norm' già normalizzata.
-            manual_roles (dict): mappa {nome: ruolo}, esempio {'keinan davis': 'A', ...}
-
-        Returns:
-            pd.DataFrame: df con fanta_role aggiornato senza modificare gli indici.
-        """
-
-        # Assicuriamoci che fanta_role esista
-        if 'fanta_role' not in df.columns:
-            df['fanta_role'] = None
-
-        # Normalizza chiavi del manual_roles
-        manual_roles_norm = {k.lower(): v for k,v in manual_roles.items()}
-
-        # Assegna i ruoli manuali
-        for name_norm, role in manual_roles_norm.items():
-            mask = df['player_norm'].str.contains(name_norm, regex=False, na=False)
-            df.loc[mask, 'fanta_role'] = role
-
-        # Mantieni gli indici originali senza droppare righe
-        return df
-    
-    # -----------------------
-    # Normalizzazione
-    # -----------------------
-
-    def normalize_fn(name):
-        if not isinstance(name, str):
-            return ""
-        name = name.lower()
-        special_map = {
-            'ø':'o','æ':'ae','œ':'oe','ß':'ss','þ':'th',
-            'č':'c','ć':'c','š':'s','ž':'z','đ':'d','ğ':'g',
-            'ł':'l','ń':'n','ř':'r','ě':'e','ť':'t','ď':'d',
-            'á':'a','à':'a','ä':'a','â':'a','é':'e','è':'e','ë':'e','ê':'e',
-            'í':'i','ì':'i','ï':'i','î':'i','ó':'o','ò':'o','ö':'o','ô':'o',
-            'ú':'u','ù':'u','ü':'u','û':'u','ñ':'n'
-        }
-        for k,v in special_map.items():
-            name = name.replace(k,v)
-        name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-        name = re.sub(r'[^a-z0-9\s]', '', name)
-        name = re.sub(r'\s+', ' ', name).strip()
-        return name
-
-    PREFIXES = {'de','da','di','del','van','von','der','le','la','el','al','du','ze'}
-
-    # -----------------------
-    # Chiave: cognome completo senza iniziale
-    # -----------------------
-    def make_key_name(name):
-        tokens = name.split()
-        if not tokens:
-            return ""
-        # ignora prefissi iniziali
-        first_token_idx = 0
-        while first_token_idx < len(tokens) and tokens[first_token_idx] in PREFIXES:
-            first_token_idx += 1
-        if first_token_idx >= len(tokens):
-            first_token_idx = 0
-
-        # ultimo token è iniziale tipo "V."? togli punto
-        last_token = tokens[-1]
-        if len(last_token) == 2 and last_token.endswith('.'):
-            last_token = last_token[0]
-
-        # cognome = tutti i token da first_token_idx fino a penultimo se ultimo è iniziale
-        if len(tokens) > 1 and last_token != tokens[-1]:
-            surname_tokens = tokens[first_token_idx:-1]
-        else:
-            surname_tokens = tokens[first_token_idx:]
-
-        key = " ".join(surname_tokens)
-        return key.strip()
-
-    # -----------------------
-    # Copie difensive
-    # -----------------------
-    df = df_main.copy()
-    df_roles = df_fanta_roles.copy()
-
-    # Normalizza nomi e squadre
-    df['player_norm'] = df['player'].apply(normalize_fn)
-    df['team_norm'] = df['player_team'].apply(normalize_fn)
-    df_roles['player_norm'] = df_roles['Nome'].apply(normalize_fn)
-    df_roles['team_norm'] = df_roles['Squadra'].apply(normalize_fn)
-
-    # Chiave per match
-    df['key_name'] = df['player_norm'].apply(make_key_name)
-    df_roles['key_name'] = df_roles['player_norm'].apply(make_key_name)
-
-    # Conta duplicati sul cognome
-    surname_counts = df_roles['key_name'].value_counts().to_dict()
-
-    # Mappa key_name -> (ruolo, squadra se duplicato)
-    role_map = {}
-    for _, row in df_roles.iterrows():
-        key = row['key_name']
-        if surname_counts.get(key,0) > 1:
-            role_map[key] = (row['R'], row['team_norm'])
-        else:
-            role_map[key] = (row['R'], None)
-
-    # -----------------------
-    # Inizializza fanta_role
-    # -----------------------
-    df['fanta_role'] = None
-
-    # Mantieni SUB invariato
-    if 'position' in df.columns:
-        df.loc[df['position'].str.upper()=='SUB', 'fanta_role'] = 'SUB'
-
-    # -----------------------
-    # Match
-    # -----------------------
-    mask = df['fanta_role'].isna()
-    for key, (role, team) in role_map.items():
-        if "martinez" in key or "lautaro" in key:
-            print("debug")
-        mask2 = mask & df['key_name'].str.contains(key, regex=False)
-        if team:  # se duplicato, usa squadra come filtro
-            mask2 = mask2 & (df['team_norm'] == team)
-        df.loc[mask2,'fanta_role'] = role
-
-    # -----------------------
-    # Debug
-    # -----------------------
-    if debug:
-        df['debug_reason'] = None
-        df.loc[df['fanta_role'].notna(),'debug_reason'] = 'MATCH_OK'
-        df.loc[df['fanta_role'].isna(),'debug_reason'] = 'NO_MATCH'
-        print("\n📊 FANTA ROLE DEBUG REPORT")
-        print(f"Totale giocatori: {len(df)}")
-        print(f"Match riusciti: {(df['debug_reason']=='MATCH_OK').sum()}")
-        print(f"SUB: {(df['fanta_role']=='SUB').sum()}")
-        print(f"Senza match: {(df['debug_reason']=='NO_MATCH').sum()}")
-        problems = df[df['debug_reason']=='NO_MATCH']
-        if not problems.empty:
-            print("\n⚠️ Esempi senza match:")
-            print(problems[['player','player_team','key_name']].head(10))
-        # aggiungi stampa di nomi unioci che non hanno match
-        unmatched_keys = problems['key_name'].unique()
-        print("\n⚠️ Key names senza match:")
-        for uk in unmatched_keys:
-            print(f" - {uk}")
-    # Pulizia colonne temporanee
-    df.drop(columns=['team_norm','key_name','debug_reason'], inplace=True, errors='ignore')
-    df = assign_manual_roles(df, config.manual_roles)
-    return df
 
 def normalize_team(name):
     if pd.isna(name):
@@ -253,12 +96,13 @@ def get_player_data(df: pd.DataFrame, player_name: str):
     - match esatto o parola intera
     - ambiguità se esistono più giocatori con lo stesso nome
     """
-
     # Normalizza i nomi
     df = df.copy()
-    df["player_norm"] = df["player"].apply(lambda x: unidecode(str(x)).lower())
+
+    df["player_norm"] = df["player"].apply(utils.normalize_fn)
     player_norm = unidecode(player_name).lower()
     chosen_player = player_norm
+
     # 1️⃣ Match esatto
     player_df = df[df["player_norm"] == player_norm]
 
@@ -302,7 +146,7 @@ def preprocess_data(df: pd.DataFrame):
         'voto_gds',
         'goals',
         'assists',
-        #'ammonizioni',
+        'ammonizioni',
         'position_clean'
     ]
 
@@ -357,7 +201,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
     pos_means = df.groupby('position_clean')['fantavoto'].mean()
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "nkunku" in player.lower():
+        if "ostigar" in player.lower():
             print(f"debug {player}")
         player_df, player_full_name = get_player_data(df, player)
         if player_df.empty:
@@ -370,11 +214,8 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         fanta_role = utils.get_main_position_weighted(player_df["fanta_role"], window=10, decay=0.8)
         real_role = utils.get_main_position_weighted(player_df["position_clean"], window=10, decay=0.8)
         
-        # ---- rolling stats ultime 20 ----
+        # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
-
-        if "scamacca" in player_full_name.lower():
-            print("debug")
         
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
@@ -420,7 +261,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
             voto_base += bonus_defensive_adj
 
-        # *************  AGGIUSTAMENTI CONSISTENZA PER DIFENSORI E CC **************
+        # *************  AGGIUSTAMENTI CONSISTENZA PER DIFENSORI E MEDIANI **************
 
         if fanta_role == 'D' or (fanta_role == 'C' and real_role == 'M'):
             consistency_adj = utils.compute_consistency_adjustment(player_df)
@@ -428,6 +269,11 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         else:
             voto_base = voto_base + adj_opp_team + adj_home_away
 
+        # ************  AGGIUSTAMENTO TENDENZA AL CARTELLINO GIALLO  **********
+        yellowcard_adj = utils.compute_ammonizioni_adjustment(player_df, fanta_role)
+
+        voto_base += yellowcard_adj
+ 
         # === PREDIZIONE GOAL ===
         features_names_goal = list(models_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
@@ -484,7 +330,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
             'voto_gds': voto_base,
             'goals': goal_feature,
             'assists': assist_feature,
-            #'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
+            'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
             'position_clean': fanta_role
         }])
 
@@ -503,7 +349,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         print(f"Schierability index: {index:.2f}")
 
-        ha_to_print = "Casa" if h_a == "h" else "Trasf."
+        ha_to_print = "casa" if h_a == "h" else "trasf."
 
         predictions.append({
         'Giocatore': player_full_name,
@@ -514,54 +360,6 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         }) 
 
     return pd.DataFrame(predictions)
-
-def train_xgboost(X: pd.DataFrame, y: pd.Series) -> XGBRegressor:
-    """Allena un modello XGBoost e stampa RMSE"""
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-  
-    #bestmodel,params = utils.tune_catboost_regressor(X_train, y_train, cat_features=["position_clean"])
-    #print(f"Best hyperparameters found:{params}")
- 
-    model = CatBoostRegressor(
-        iterations=1000,
-        depth=6,
-        learning_rate=0.01,
-        random_state=42,
-        early_stopping_rounds=50,
-        cat_features=["position_clean"],
-        loss_function='RMSE'
-    )
-    
-    model.fit(
-        X_train,
-        y_train,
-        eval_set=[(X_test, y_test)],
-        verbose=False
-    )
-
-    print("\nBest iteration:", model.get_best_iteration())
-    importance = model.get_feature_importance(prettified=True)
-    print(importance.head(10))
-
-    # ===================== TRAIN vs TEST METRICS =====================
-    y_train_pred = model.predict(X_train)
-    y_test_pred = model.predict(X_test)
-
-    print("\n=== TRAIN vs TEST ===")
-    print(f"TRAIN -> MAE: {mean_absolute_error(y_train, y_train_pred):.4f} | "
-        f"MSE: {mean_squared_error(y_train, y_train_pred):.4f}")
-    print(f"TEST  -> MAE: {mean_absolute_error(y_test, y_test_pred):.4f} | "
-        f"MSE: {mean_squared_error(y_test, y_test_pred):.4f}")
-    
-    #stampa 20 esmpi di predizioni
-    print("\n=== Esempi di predizioni ===")
-    for i in range(20):
-        print(f"Predicted: {y_test_pred[i]:.2f} | Actual: {y_test.iloc[i]:.2f}")
-
-    return model
 
 def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     """Allena un modello di regressione lineare e stampa MAE e MSE"""
@@ -584,7 +382,7 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
         'voto_gds',
         'goals',
         'assists',
-        #'ammonizioni'
+        'ammonizioni'
     ]
     CAT_FEATURES = ['position_clean']
     # ---- preprocessors ----
@@ -626,6 +424,25 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     print(f"TEST  -> MAE: {mean_absolute_error(y_test, y_test_pred):.4f} | "
           f"MSE: {mean_squared_error(y_test, y_test_pred):.4f}")
     
+    # recupera nomi delle feature dopo il preprocessing
+    feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+
+    # recupera coefficienti della Ridge
+    coefs = model.named_steps["regressor"].coef_
+
+    # dataframe ordinato per importanza assoluta
+    feat_importance = (
+        pd.DataFrame({
+            "feature": feature_names,
+            "coefficient": coefs,
+            "abs_coefficient": np.abs(coefs)
+        })
+        .sort_values("abs_coefficient", ascending=False)
+    )
+
+    print("\n=== FEATURE IMPORTANCE (RIDGE) ===")
+    print(feat_importance.head(20))
+    
     return model
 
 def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
@@ -638,14 +455,17 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
     pipeline: pipeline modello fantavoto da passare a pred_voto_prod
     top_n: quanti top player evidenziare
     """
+    df = df_voti.copy()
+    next_games_df = next_games_df.copy()
+    next_games_df['home'] = next_games_df['home'].apply(normalize_team)
+    next_games_df['away'] = next_games_df['away'].apply(normalize_team)
+
     ruoli = ['D', 'C', 'A']
 
     risultati = {}
     
     for ruolo in ruoli:
         print(f"\n===== Ruolo: {ruolo} =====\n")
-
-        df = df_voti.copy()
 
         # lista dei giocatori per ruolo
         players_role = df[df['fanta_role'] == ruolo]['player_norm'].tolist()
@@ -657,6 +477,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
+            if team is None or pd.isna(team):
+                team = "squadra_sconosciuta"
+            team = team.lower().strip()
             teams_role.append(team)
             
             # cerca la prossima partita del team
@@ -664,7 +487,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
             
             if not next_game.empty:
                 row = next_game.iloc[0]  # prendi la prima prossima partita disponibile
-                if row['home'] == team:
+                if team in row['home']:
                     h_a = 'h'
                     opponent = row['away']
                 else:
@@ -701,10 +524,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
 
     return risultati
 
-
 def main():
 
-    train = True
+    train = False
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
@@ -734,16 +556,10 @@ def main():
         #carica modello
         pipeline = utils.load_fv_model()
     
-    pred_df = pred_voto_prod(
-        config.INPUT["players"],
-        config.INPUT["teams"],
-        config.INPUT["opponents"],
-        config.INPUT["h_a"],
-        df_voti,
-        pipeline #['fantavoto_model']
-        )
+    #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
+        #pipeline['fantavoto_model'])
 
-    #predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=5)
+    predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=5)
 
 if __name__ == "__main__":
     main()

@@ -143,15 +143,15 @@ def main():
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     args = parser.parse_args()
-    args.gol = False
-    args.assist = False
+    args.gol = True
+    args.assist = True
     args.voti = True
     args.nextgames = False
     # ==========================
     # ESECUZIONE
     # ==========================
     if args.gol and args.assist and args.voti and args.nextgames:
-        print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI...")
+        print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI che next games...")
         get_goals_data()
         get_assists_data()
         get_voti_data()

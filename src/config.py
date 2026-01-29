@@ -169,6 +169,14 @@ ROLE_WEIGHTS_VOTO = {
     'SUB': 0.7
 }
 
+AMMONIZIONI_MEAN_FANTAROLE = {
+    "A":     {"mean": 0.10, "std":0.30} ,
+    "C" :     {"mean": 0.15, "std":0.35},
+    "D" :     {"mean": 0.16, "std":0.36},
+    "P":      {"mean": 0.06, "std":0.24},
+    "SUB":    {"mean": 0.09, "std":0.3},
+}
+
 # Lista dei nomi e ruoli che mi hai dato
 manual_roles = {
     "keinan davis": "A",
@@ -246,3 +254,5 @@ manual_roles = {
     "franco vazquez": "C",
     "davide bartesaghi": "D"
 }
+
+PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}

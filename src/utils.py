@@ -11,14 +11,13 @@ from unidecode import unidecode
 import os
 from pathlib import Path
 import config
-from collections import Counter
+import unicodedata
 from collections import defaultdict
 from scipy.stats import skew, kurtosis
 import streamlit as st
 from datetime import datetime
 from sklearn.metrics import brier_score_loss, precision_score, recall_score
 from catboost import CatBoostRegressor
-from sklearn.model_selection import StratifiedKFold
 from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import log_loss, f1_score
 import random
@@ -459,6 +458,27 @@ def save_models_assist(model):
             return
         #joblib.dump(scaler, scaler_path)
         #print(f"✅ Scaler salvato in: {scaler_path}")
+
+def normalize_fn(name):
+    if not isinstance(name, str):
+        return ""
+    name = name.strip().lower()
+    #Sostituisco - con ""
+    name = name.replace("-", "")
+    special_map = {
+                'ø':'o','æ':'ae','œ':'oe','ß':'ss','þ':'th',
+                'č':'c','ć':'c','š':'s','ž':'z','đ':'d','ğ':'g',
+                'ł':'l','ń':'n','ř':'r','ě':'e','ť':'t','ď':'d',
+                'á':'a','à':'a','ä':'a','â':'a','é':'e','è':'e','ë':'e','ê':'e',
+                'í':'i','ì':'i','ï':'i','î':'i','ó':'o','ò':'o','ö':'o','ô':'o',
+                'ú':'u','ù':'u','ü':'u','û':'u','ñ':'n'
+    }
+    for k,v in special_map.items():
+        name = name.replace(k,v)
+    name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
+    name = re.sub(r'[^a-z0-9\s]', '', name)
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
 
 def normalize_team(name):
     if pd.isna(name):
@@ -3420,3 +3440,44 @@ def compute_defensive_xga_bonus(
     bonus = max(min(bonus, clamp_max), clamp_min)
 
     return float(bonus)
+
+def compute_ammonizioni_adjustment(player_df, role, max_malus=0.25, span=7):
+    """
+    Calcola un malus leggero in base alla media esponenziale dei cartellini 
+    rispetto alla media e std del ruolo.
+    
+    Parametri:
+        player_df : pd.DataFrame -> contiene almeno la colonna 'ammonizioni'
+        role : str -> ruolo del giocatore ['A','C','D','P','SUB']
+        max_adjustment : float -> massimo bonus/malus da applicare
+        span : int -> span per media esponenziale (ultimo N match)
+        
+    Ritorna:
+        float -> aggiustamento da sommare al voto
+    """
+    if player_df.empty or role not in config.AMMONIZIONI_MEAN_FANTAROLE:
+        return 0.0
+    
+    # consideriamo le ultime 15 partite
+    df_last = player_df.tail(15)
+    
+    # media esponenziale dei cartellini
+    amms_ewm = df_last['ammonizioni'].ewm(span=span, adjust=False).mean().iloc[-1]
+    
+    role_stats = config.AMMONIZIONI_MEAN_FANTAROLE[role]
+    mean_role = role_stats['mean']
+    std_role = role_stats['std']
+    
+    # differenza normalizzata rispetto al ruolo
+    z_score = (amms_ewm - mean_role) / std_role if std_role > 0 else 0.0
+    
+    # scalare lo z-score in range [-max_adjustment, +max_adjustment]
+    # se più cartellini della media -> malus, meno cartellini -> bonus
+    # malus scalato e clamped
+
+    malus = -z_score * max_malus
+
+    #clamp: non deve diventare positivo, massimo 0
+    malus = min(0.0, malus)
+    malus = max(-max_malus, malus)
+    return malus

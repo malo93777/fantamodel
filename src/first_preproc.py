@@ -27,7 +27,11 @@ class Preprocessor:
         if pd.isna(name):
             return ""
 
-        name = str(name).strip().lower()
+        # lowercase + strip + normalize caratteri
+        name = utils.normalize_fn(name)
+
+        if "zambo" in name:
+            print("zambo debug")
 
         # Rimuove accenti
         name = unicodedata.normalize("NFKD", name)
@@ -58,21 +62,17 @@ class Preprocessor:
         if pd.isna(name):
             return ""
 
-        import unicodedata
-
-        # lowercase + strip
-        name = str(name).strip().lower()
+        # lowercase + strip + normalize caratteri
+        name = utils.normalize_fn(name)
 
         #***** eccezione da gestire *****
         if "malvano" in name.lower()    :
-            print("soulè")
+            #print("soulè")
             return "soule"
 
         # 🔹 rimuove accenti
         name = unicodedata.normalize("NFKD", name)
         name = "".join(c for c in name if not unicodedata.combining(c))
-
-        particles = {"de", "di", "da", "del", "della", "van", "von", "la", "le"}
 
         parts = name.split()
 
@@ -81,12 +81,15 @@ class Preprocessor:
             return " ".join(parts)
 
         # Caso: nome + particella + cognome → NON TOCCARE
-        if parts[1] in particles:
+        if parts[1] in config.PREFIXES:
             return " ".join(parts)
 
         # Caso: nome + secondo_nome + cognome
         return f"{parts[0]} {parts[-1]}"
-
+    
+            # -----------------------
+        # Normalizzazione
+        # -----------------------
     
     def add_opponent_team_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -439,7 +442,7 @@ class Preprocessor:
         matches_df["id"] = matches_df["id"].astype(str)
         shots_df["match_id"] = shots_df["match_id"].astype(str)
 
-        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
 
            # --- Itera su ciascun giocatore per stagione ---
         for (player_name, season), group in shots_df.groupby(["player", "season"]):
@@ -567,8 +570,8 @@ class Preprocessor:
         all_season_players = pd.read_csv(df_to_merge_path)
 
         # Normalizzazione nomi
-        df["player"] = df["player"].apply(self.normalize_name)
-        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
+        df["player"] = df["player"].apply(utils.normalize_fn)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
 
         merged_df = df.merge(
             all_season_players,
@@ -662,8 +665,8 @@ class Preprocessor:
         all_season_players = pd.read_csv(df_to_merge_path)
 
         #normalizzazione nomi unicode, per non perdersi alcuni giocatori
-        df["player"] = df["player"].apply(self.normalize_name)
-        all_season_players["player_name"] = all_season_players["player_name"].apply(self.normalize_name)
+        df["player"] = df["player"].apply(utils.normalize_fn)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
 
         merged_df = df.merge(
         all_season_players,
@@ -968,10 +971,30 @@ class Preprocessor:
         # Rimuovo i senza voto_gds
         #df2 = df2[df2['voto_gds'].notna()]
 
-        # Normalizzazione nomi
+        # Normalizzazione nomi, rimozione secondi nomi nel df1 raw_data (es.jonatan CRISTIAN david), gestione cognomi composti df voti
         df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
         df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
-        ''''''
+
+        # 🔧 Fix nome Berat Djimsiti / Gjimshiti
+        df2['player_norm'] = df2['player_norm'].replace(
+            "berat djimsiti",
+            "berat gjimshiti"
+        )
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "alessand buongiorno",
+            "alessandro buongiorno"
+        )
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "vanja milinkovic",
+            "vanja milinkovicsavic"
+        )
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "z luvumbo sebastiao",
+            "zito"
+        )
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
             'ammonizioni','espulsioni','autogol'
@@ -982,116 +1005,60 @@ class Preprocessor:
 
         df1['date'] = pd.to_datetime(df1['date'])
 
-        for (player, season), group in df1.groupby(['player_norm','season']):
+        missing_players = []
+
+        #**** PRIMO TENTATIVO DI ACCORPAMENTO ****
+        for (player, season), group in df1.groupby(['player_norm', 'season']):
+
             group_sorted = group.sort_values('date')
 
-            #se player inizia con "jon"
-            if player.startswith("soule") or player.startswith("giovane") or player.startswith("nkunku"):
-                print(f"Processing player: {player} | season: {season} | matches: {len(group_sorted)}")   
-
-            # Filtra df2 per giocatore e stagione
-            df2_player = (
-                df2[
-                    (df2['player_norm'] == player.lower()) &
-                    (df2['stagione'].astype(str).str.startswith(str(season)))
-                ]
-                .copy()
+            self.enrich_df1_with_df2_player(
+                player=player,
+                season=season,
+                df1=df1,
+                df2=df2,
+                group_sorted=group_sorted,
+                columns_to_add=columns_to_add,
+                config=config,
+                reconcile_fn=self.reconcile_df2_by_partita,
+                missing_players=missing_players,
+                debug_players={
+                    "berat gjimshiti",
+                    "alessandro buongiorno",
+                    "armel kotchap"
+                }
             )
 
-            if df2_player.empty:
-                # Se non trovato, prova con player che inizia con 'player' (case-insensitive)
-                df2_player = (
-                    df2[
-                        df2['player'].str.lower().str.startswith(player.lower()) &
-                        (df2['stagione'].astype(str).str.startswith(str(season)))
-                    ]
-                    .copy()
-                )
-                # Se ancora vuoto, salta
-                if df2_player.empty:
-                    print(f"⚠️ Nessun dato df2 per {player} ({season})")
+        df2, fixed_players = find_similar_players_by_surname_and_fix(
+            df2=df2,
+            missing_players=missing_players,
+            interactive=True
+        )
+
+        if fixed_players:
+             #**** SECONDO TENTATIVO DI ACCORPAMENTO ****
+            for fixed_player in fixed_players.keys():
+
+                df1_player = df1[
+                    (df1['player_norm'] == fixed_player) &
+                    (df1['season'] == config.CURRENT_SEASON)
+                ]
+
+                if df1_player.empty:
                     continue
-            
-            # ---- match_order base (uguale alla giornata) ----
-            df2_player["match_order"] = df2_player["giornata"].astype(float)
 
-            # ---- FIX giornata 16 rinviata (Serie A 2025-2026) ----
-            if "2025-2026" in df2_player["stagione"].astype(str).iloc[0]:
+                group_sorted = df1_player.sort_values('date')
 
-                POSTPONED_TEAMS_2025_16 = {
-                    "como", "milan", "inter", "lecce", "napoli",
-                    "parma", "verona", "bologna"
-                }
-
-                squadra_player = (
-                    df2_player["squadra"]
-                    .astype(str)
-                    .str.lower()
-                    .iloc[0]
+                self.enrich_df1_with_df2_player(
+                    player=fixed_player,
+                    season=config.CURRENT_SEASON,
+                    df1=df1,
+                    df2=df2,
+                    group_sorted=group_sorted,
+                    columns_to_add=columns_to_add,
+                    config=config,
+                    reconcile_fn=self.reconcile_df2_by_partita
                 )
-
-                if squadra_player in POSTPONED_TEAMS_2025_16:
-
-                    if 16 not in df2_player["giornata"].values:
-
-                        if player.startswith("nico paz"):
-                            print("debug")
-
-                        # riga di riferimento (non fondamentale quale)
-                        base_row = df2_player.iloc[-1]
-
-                        new_row = {
-                            "stagione": "2025-2026",
-                            "giornata": 16,
-                            "match_order": 20.5,   #  POSIZIONATA TRA 20 E 21
-                            "squadra": base_row["squadra"],
-                            "player": player,
-                            "player_norm": player,
-                            "voto_gds": 6,
-                            "fantavoto": 6,
-                            "gol": 0,
-                            "assist": 0,
-                            "ammonizioni": 0,
-                            "espulsioni": 0,
-                            "autogol": 0,
-                            "rig_segnati": 0,
-                            "rig_sbagliati": 0,
-                            "is_virtual_match": True
-                        }
-
-                        df2_player = pd.concat(
-                            [df2_player, pd.DataFrame([new_row])],
-                            ignore_index=True
-                        )
-            
-            # 🔑 ORDINE CORRETTO: NON per giornata
-            df2_player = df2_player.sort_values("match_order")
-            
-            # CONTROLLO CHE IL DF COI VOTI NON ABBIA PIÙ RIGHE DEL DF1
-            # rappgruppo df1 per player e season, ordino per data e confronto le dimensioni con df2_player
-            df1_player = df1[
-                (df1['player_norm'] == player) &
-                (df1['season'] == season)
-            ].copy()
-
-            if df1_player.empty:
-                print(f"⚠️ Nessun dato df1 per {player} ({season})")
-                continue
-
-            df1_player = df1_player.sort_values('date')
-
-            if len(df1_player) != len(df2_player):
-                #print(f"⚠️ Differenza dimensioni per {player} ({season}): {len(df1_player)} vs {len(df2_player)}")
-                df2_player = self.reconcile_df2_by_partita(
-                    df2_player=df2_player,
-                    df1_player=group_sorted
-                )
-
-            for col in columns_to_add:
-                values = df2_player[col].tolist()
-                while len(values) < len(group_sorted):
-                    values.append(pd.NA)
-                df1.loc[group_sorted.index, col] = values[:len(group_sorted)]
 
         # --- MERGE MATCH-LEVEL CON DF3 ---
         df3['player_norm'] = df3['player'].apply(self.remove_middle_name)
@@ -1104,7 +1071,7 @@ class Preprocessor:
         )
 
         # Rimuovi colonna temporanea
-        df1 = df1.drop(columns=['player_norm'])
+        #df1 = df1.drop(columns=['player_norm'])
 
         return df1
 
@@ -1152,6 +1119,145 @@ class Preprocessor:
 
         return df2_player_clean
 
+    def enrich_df1_with_df2_player( self,
+        player: str,
+        season,
+        df1: pd.DataFrame,
+        df2: pd.DataFrame,
+        group_sorted: pd.DataFrame,
+        columns_to_add: list,
+        config,
+        reconcile_fn,
+        missing_players: list = None,
+        debug_players: set = None
+    ):
+        """
+        Arricchisce df1 con i dati df2 per un singolo giocatore e stagione.
+        Ritorna True se OK, False se dati mancanti.
+        """
+
+        if season != config.CURRENT_SEASON:
+            return False
+
+        if debug_players and player in debug_players:
+            print(f"🐞 DEBUG player: {player} | season: {season}")
+
+        # ==========================
+        # 🔍 FILTRO df2
+        # ==========================
+        df2_player = (
+            df2[
+                (df2['player_norm'] == player.lower()) &
+                (df2['stagione'].astype(str).str.startswith(str(season)))
+            ]
+            .copy()
+        )
+
+        # fallback: startswith sul nome player
+        if df2_player.empty:
+            df2_player = (
+                df2[
+                    df2['player'].str.lower().str.startswith(player.lower()) &
+                    (df2['stagione'].astype(str).str.startswith(str(season)))
+                ]
+                .copy()
+            )
+
+            if df2_player.empty:
+                print(f"⚠️ Nessun dato df2 per {player} ({season})")
+                if missing_players is not None:
+                    missing_players.append(player)
+                return False
+
+        # ==========================
+        # 📅 match_order
+        # ==========================
+        df2_player["match_order"] = df2_player["giornata"].astype(float)
+
+        # ==========================
+        # 🛠 FIX giornata 16 (2025-2026)
+        # ==========================
+        if "2025-2026" in df2_player["stagione"].astype(str).iloc[0]:
+
+            POSTPONED_TEAMS_2025_16 = {
+                "como", "milan", "inter", "lecce", "napoli",
+                "parma", "verona", "bologna"
+            }
+
+            squadra_player = (
+                df2_player["squadra"]
+                .astype(str)
+                .str.lower()
+                .iloc[0]
+            )
+
+            if squadra_player in POSTPONED_TEAMS_2025_16 and 16 not in df2_player["giornata"].values:
+
+                base_row = df2_player.iloc[-1]
+
+                new_row = {
+                    "stagione": "2025-2026",
+                    "giornata": 16,
+                    "match_order": 20.5,
+                    "squadra": base_row["squadra"],
+                    "player": player,
+                    "player_norm": player,
+                    "voto_gds": 6,
+                    "fantavoto": 6,
+                    "gol": 0,
+                    "assist": 0,
+                    "ammonizioni": 0,
+                    "espulsioni": 0,
+                    "autogol": 0,
+                    "rig_segnati": 0,
+                    "rig_sbagliati": 0,
+                    "is_virtual_match": True
+                }
+
+                df2_player = pd.concat(
+                    [df2_player, pd.DataFrame([new_row])],
+                    ignore_index=True
+                )
+
+        # ==========================
+        # 🔑 ordinamento corretto
+        # ==========================
+        df2_player = df2_player.sort_values("match_order")
+
+        # ==========================
+        # 📊 confronto con df1
+        # ==========================
+        df1_player = df1[
+            (df1['player_norm'] == player) &
+            (df1['season'] == season)
+        ].copy()
+
+        if df1_player.empty:
+            print(f"⚠️ Nessun dato df1 per {player} ({season})")
+            if missing_players is not None:
+                missing_players.append(player)
+            return False
+
+        df1_player = df1_player.sort_values('date')
+
+        if len(df1_player) != len(df2_player):
+            df2_player = reconcile_fn(
+                df2_player=df2_player,
+                df1_player=group_sorted
+            )
+
+        # ==========================
+        # ➕ copia colonne
+        # ==========================
+        for col in columns_to_add:
+            values = df2_player[col].tolist()
+            while len(values) < len(group_sorted):
+                values.append(pd.NA)
+            df1.loc[group_sorted.index, col] = values[:len(group_sorted)]
+
+        return True
+
+
     def add_fanta_role(self,df_main, df_fanta_roles, debug=True):
 
         def assign_manual_roles(df, manual_roles):
@@ -1180,31 +1286,6 @@ class Preprocessor:
 
             # Mantieni gli indici originali senza droppare righe
             return df
-        
-        # -----------------------
-        # Normalizzazione
-        # -----------------------
-
-        def normalize_fn(name):
-            if not isinstance(name, str):
-                return ""
-            name = name.lower()
-            special_map = {
-                'ø':'o','æ':'ae','œ':'oe','ß':'ss','þ':'th',
-                'č':'c','ć':'c','š':'s','ž':'z','đ':'d','ğ':'g',
-                'ł':'l','ń':'n','ř':'r','ě':'e','ť':'t','ď':'d',
-                'á':'a','à':'a','ä':'a','â':'a','é':'e','è':'e','ë':'e','ê':'e',
-                'í':'i','ì':'i','ï':'i','î':'i','ó':'o','ò':'o','ö':'o','ô':'o',
-                'ú':'u','ù':'u','ü':'u','û':'u','ñ':'n'
-            }
-            for k,v in special_map.items():
-                name = name.replace(k,v)
-            name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-            name = re.sub(r'[^a-z0-9\s]', '', name)
-            name = re.sub(r'\s+', ' ', name).strip()
-            return name
-
-        PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
 
         # -----------------------
         # Chiave: cognome completo senza iniziale
@@ -1215,7 +1296,7 @@ class Preprocessor:
                 return ""
             # ignora prefissi iniziali
             first_token_idx = 0
-            while first_token_idx < len(tokens) and tokens[first_token_idx] in PREFIXES:
+            while first_token_idx < len(tokens) and tokens[first_token_idx] in config.PREFIXES:
                 first_token_idx += 1
             if first_token_idx >= len(tokens):
                 first_token_idx = 0
@@ -1241,10 +1322,10 @@ class Preprocessor:
         df_roles = df_fanta_roles.copy()
 
         # Normalizza nomi e squadre
-        df['player_norm'] = df['player'].apply(normalize_fn)
-        df['team_norm'] = df['player_team'].apply(normalize_fn)
-        df_roles['player_norm'] = df_roles['Nome'].apply(normalize_fn)
-        df_roles['team_norm'] = df_roles['Squadra'].apply(normalize_fn)
+        df['player_norm'] = df['player'].apply(utils.normalize_fn)
+        df['team_norm'] = df['player_team'].apply(utils.normalize_fn)
+        df_roles['player_norm'] = df_roles['Nome'].apply(utils.normalize_fn)
+        df_roles['team_norm'] = df_roles['Squadra'].apply(utils.normalize_fn)
 
         # Chiave per match
         df['key_name'] = df['player_norm'].apply(make_key_name)
@@ -1351,3 +1432,84 @@ class Preprocessor:
         )
 
         return df
+
+from unidecode import unidecode
+
+def find_similar_players_by_surname_and_fix(
+    df2: pd.DataFrame,
+    missing_players: list,
+    player_col: str = "player_norm",
+    interactive: bool = True
+):
+    """
+    Fixa i player_norm in df2 per i giocatori missing.
+    Ritorna:
+      - df2 aggiornato
+      - dict {missing_player: fixed_player_norm}
+    """
+
+    df2 = df2.copy()
+    df2[player_col] = df2[player_col].astype(str).str.lower()
+
+    fixed_players = {}   # 🔑 mapping finale
+
+    for full_name in missing_players:
+        full_name_norm = unidecode(full_name.lower().strip())
+        parts = full_name_norm.split()
+        if len(parts) < 2:
+            continue
+
+        first_name = parts[0]
+        surname = parts[-1]
+
+        print(f"\n🔍 {full_name} → cognome '{surname}'")
+
+        matches = df2[
+            df2[player_col].str.contains(surname, na=False)
+        ][player_col].unique().tolist()
+
+        if not matches:
+            print("   ❌ Nessun match trovato")
+            continue
+
+        for m in matches:
+            print(f"   ✅ {m}")
+
+        chosen_match = None
+
+        # ---- CASO 1: match unico
+        if len(matches) == 1:
+            chosen_match = matches[0]
+
+        # ---- CASO 2: più match → prova col nome
+        else:
+            refined = [m for m in matches if first_name in m]
+
+            if len(refined) == 1:
+                chosen_match = refined[0]
+                print(f"   🎯 Match unico usando il nome: {chosen_match}")
+
+            elif interactive:
+                print("   ⚠️ Più match possibili:")
+                for i, m in enumerate(matches, 1):
+                    print(f"      {i}. {m}")
+
+                try:
+                    choice = int(input("👉 Scegli il numero (0 per saltare): "))
+                    if choice > 0:
+                        chosen_match = matches[choice - 1]
+                except (ValueError, IndexError):
+                    pass
+
+        # ---- APPLY FIX
+        if chosen_match:
+            print(f"   🔁 Replace: '{chosen_match}' → '{full_name_norm}'")
+
+            df2.loc[
+                df2[player_col] == chosen_match,
+                player_col
+            ] = full_name_norm
+
+            fixed_players[full_name_norm] = full_name_norm
+
+    return df2, fixed_players
