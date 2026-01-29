@@ -67,7 +67,7 @@ def main():
     # =====================================================
     st.title("🎯 Indice di Schierabilità")
     st.markdown("Calcola l'indice di schierabilità per uno o più giocatori nella prossima partita inserendo i giocatori.")
-    st.markdown("Seleziona Top Indice per Ruolo per vedere i 50 migliori giocatori per la prossima partita.")
+    st.markdown("Seleziona Top Indici per Ruolo per vedere i 50 migliori giocatori per la prossima partita.")
 
     # Pulsante torna alla Home
     if st.button("🏠 Torna alla Home"):
