@@ -1258,62 +1258,22 @@ class Preprocessor:
         return True
 
 
-    def add_fanta_role(self,df_main, df_fanta_roles, debug=True):
+    def add_fanta_role(self, df_main, df_fanta_roles, debug=True):
 
         def assign_manual_roles(df, manual_roles):
             """
             Assegna ruoli manuali a giocatori specifici mantenendo gli indici originali.
-
-            Args:
-                df (pd.DataFrame): DataFrame principale con colonna 'player_norm' già normalizzata.
-                manual_roles (dict): mappa {nome: ruolo}, esempio {'keinan davis': 'A', ...}
-
-            Returns:
-                pd.DataFrame: df con fanta_role aggiornato senza modificare gli indici.
             """
-
-            # Assicuriamoci che fanta_role esista
             if 'fanta_role' not in df.columns:
                 df['fanta_role'] = None
 
-            # Normalizza chiavi del manual_roles
-            manual_roles_norm = {k.lower(): v for k,v in manual_roles.items()}
+            manual_roles_norm = {k.lower(): v for k, v in manual_roles.items()}
 
-            # Assegna i ruoli manuali
             for name_norm, role in manual_roles_norm.items():
                 mask = df['player_norm'].str.contains(name_norm, regex=False, na=False)
                 df.loc[mask, 'fanta_role'] = role
 
-            # Mantieni gli indici originali senza droppare righe
             return df
-
-        # -----------------------
-        # Chiave: cognome completo senza iniziale
-        # -----------------------
-        def make_key_name(name):
-            tokens = name.split()
-            if not tokens:
-                return ""
-            # ignora prefissi iniziali
-            first_token_idx = 0
-            while first_token_idx < len(tokens) and tokens[first_token_idx] in config.PREFIXES:
-                first_token_idx += 1
-            if first_token_idx >= len(tokens):
-                first_token_idx = 0
-
-            # ultimo token è iniziale tipo "V."? togli punto
-            last_token = tokens[-1]
-            if len(last_token) == 2 and last_token.endswith('.'):
-                last_token = last_token[0]
-
-            # cognome = tutti i token da first_token_idx fino a penultimo se ultimo è iniziale
-            if len(tokens) > 1 and last_token != tokens[-1]:
-                surname_tokens = tokens[first_token_idx:-1]
-            else:
-                surname_tokens = tokens[first_token_idx:]
-
-            key = " ".join(surname_tokens)
-            return key.strip()
 
         # -----------------------
         # Copie difensive
@@ -1321,27 +1281,12 @@ class Preprocessor:
         df = df_main.copy()
         df_roles = df_fanta_roles.copy()
 
-        # Normalizza nomi e squadre
-        df['player_norm'] = df['player'].apply(utils.normalize_fn)
+        # -----------------------
+        # Normalizzazione
+        # -----------------------
         df['team_norm'] = df['player_team'].apply(utils.normalize_fn)
         df_roles['player_norm'] = df_roles['Nome'].apply(utils.normalize_fn)
         df_roles['team_norm'] = df_roles['Squadra'].apply(utils.normalize_fn)
-
-        # Chiave per match
-        df['key_name'] = df['player_norm'].apply(make_key_name)
-        df_roles['key_name'] = df_roles['player_norm'].apply(make_key_name)
-
-        # Conta duplicati sul cognome
-        surname_counts = df_roles['key_name'].value_counts().to_dict()
-
-        # Mappa key_name -> (ruolo, squadra se duplicato)
-        role_map = {}
-        for _, row in df_roles.iterrows():
-            key = row['key_name']
-            if surname_counts.get(key,0) > 1:
-                role_map[key] = (row['R'], row['team_norm'])
-            else:
-                role_map[key] = (row['R'], None)
 
         # -----------------------
         # Inizializza fanta_role
@@ -1350,44 +1295,68 @@ class Preprocessor:
 
         # Mantieni SUB invariato
         if 'position' in df.columns:
-            df.loc[df['position'].str.upper()=='SUB', 'fanta_role'] = 'SUB'
+            df.loc[df['position'].str.upper() == 'SUB', 'fanta_role'] = 'SUB'
 
         # -----------------------
-        # Match
+        # Costruzione mappa ruoli
         # -----------------------
-        mask = df['fanta_role'].isna()
-        for key, (role, team) in role_map.items():
-            if "martinez" in key or "lautaro" in key:
-                print("debug")
-            mask2 = mask & df['key_name'].str.contains(key, regex=False)
-            if team:  # se duplicato, usa squadra come filtro
-                mask2 = mask2 & (df['team_norm'] == team)
-            df.loc[mask2,'fanta_role'] = role
+        name_counts = df_roles['player_norm'].value_counts().to_dict()
+
+        role_map = {}
+        for _, row in df_roles.iterrows():
+            name = row['player_norm']
+            if name_counts.get(name, 0) > 1:
+                role_map[name] = (row['R'], row['team_norm'])
+            else:
+                role_map[name] = (row['R'], None)
+
+        # -----------------------
+        # Match player_norm ⊂ player_norm
+        # -----------------------
+        mask_base = df['fanta_role'].isna()
+
+        for name, (role, team) in role_map.items():
+
+            # protezione da match troppo generici
+            if len(name) < 4:
+                continue
+
+            mask = mask_base & df['player_norm'].str.contains(name, regex=False, na=False)
+
+            if team:
+                mask = mask & (df['team_norm'] == team)
+
+            df.loc[mask, 'fanta_role'] = role
 
         # -----------------------
         # Debug
         # -----------------------
         if debug:
             df['debug_reason'] = None
-            df.loc[df['fanta_role'].notna(),'debug_reason'] = 'MATCH_OK'
-            df.loc[df['fanta_role'].isna(),'debug_reason'] = 'NO_MATCH'
+            df.loc[df['fanta_role'].notna(), 'debug_reason'] = 'MATCH_OK'
+            df.loc[df['fanta_role'].isna(), 'debug_reason'] = 'NO_MATCH'
+
             print("\n📊 FANTA ROLE DEBUG REPORT")
             print(f"Totale giocatori: {len(df)}")
-            print(f"Match riusciti: {(df['debug_reason']=='MATCH_OK').sum()}")
-            print(f"SUB: {(df['fanta_role']=='SUB').sum()}")
-            print(f"Senza match: {(df['debug_reason']=='NO_MATCH').sum()}")
-            problems = df[df['debug_reason']=='NO_MATCH']
+            print(f"Match riusciti: {(df['debug_reason'] == 'MATCH_OK').sum()}")
+            print(f"SUB: {(df['fanta_role'] == 'SUB').sum()}")
+            print(f"Senza match: {(df['debug_reason'] == 'NO_MATCH').sum()}")
+
+            problems = df[df['debug_reason'] == 'NO_MATCH']
             if not problems.empty:
-                print("\n⚠️ Esempi senza match:")
-                print(problems[['player','player_team','key_name']].head(10))
-            # aggiungi stampa di nomi unioci che non hanno match
-            unmatched_keys = problems['key_name'].unique()
-            print("\n⚠️ Key names senza match:")
-            for uk in unmatched_keys:
-                print(f" - {uk}")
-        # Pulizia colonne temporanee
-        df.drop(columns=['team_norm','key_name','debug_reason'], inplace=True, errors='ignore')
+                #print("\n⚠️ Esempi senza match:")
+                #print(problems[['player', 'player_team', 'player_norm']].head(100))
+
+                print("\n⚠️ player_norm senza match:")
+                for p in problems['player_norm'].unique():
+                    print(f" - {p}")
+
+        # -----------------------
+        # Pulizia + manual override
+        # -----------------------
+        df.drop(columns=['team_norm', 'debug_reason'], inplace=True, errors='ignore')
         df = assign_manual_roles(df, config.manual_roles)
+
         return df
 
     def normalize_team(self, name):

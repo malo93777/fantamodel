@@ -255,8 +255,26 @@ manual_roles = {
     "davide bartesaghi": "D",
     "kouadio kone":"C",
     "kephren thuram": "C",
-    "david de gea": "P"
-
+    "david de gea": "P",
+    "francesco coppola": "D",
+    "juan rodriguez": "D",
+    "robinio vaz": "A",
+    "danilo veiga": "D",
+    "al musrati": "C",
+    "ivan smolcic": "D",
+    "matias perez": "D",
+    "luca moro": "A",
+    "gabriele piccinini": "C",
+    "christian ordonez": "C",
+    "vakoun bayo": "A",
+    "lennon miller": "C",
+    "kenneth taylor": "C",
+    "justin bijlow": "P",
+    "pierre kyatengwa": "D",
+    "hans caviglia": "C",
+    "thomas kristensen": "D",
+    "romano floriani": "C",
+    "romano floriani mussolini": "C"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
