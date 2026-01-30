@@ -3264,11 +3264,11 @@ def compute_assists_role_weighted(
 def z_to_index_asymmetric_soft(
     z,
     role=None,
-    scale_pos=1.4,
-    scale_neg=0.35
+    scale_pos=1.5,
+    scale_neg=0.8
 ):
     """
-    Curva molto indulgente sotto media.
+    Curva indulgente sotto media.
     """
     base = 60
     if role is not None:

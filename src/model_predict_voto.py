@@ -353,10 +353,10 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         predictions.append({
         'Giocatore': player_full_name,
+        'Index': index,
         #'Squadra': team,
         'Avversario': opponent,
-        'Campo': ha_to_print,
-        'Index': index
+        'Campo': ha_to_print
         }) 
 
     return pd.DataFrame(predictions).reset_index(drop=True)
@@ -477,8 +477,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if team is None or pd.isna(team):
-                team = "squadra_sconosciuta"
+            if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
+                print(f"Player {player} è andato all'estero, squadra non trovata")
             team = team.lower().strip()
             teams_role.append(team)
             

@@ -167,7 +167,8 @@ def main():
     # 🔹 Logica Top Indici per Ruolo
     # =====================================================
     # =====================================================
-    #top_ruolo = True DEBUG
+    #DEBUG
+    top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
