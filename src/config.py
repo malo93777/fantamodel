@@ -274,7 +274,8 @@ manual_roles = {
     "hans caviglia": "C",
     "thomas kristensen": "D",
     "romano floriani": "C",
-    "romano floriani mussolini": "C"
+    "romano floriani mussolini": "C",
+    "josep martinez":"P"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}

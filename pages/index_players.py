@@ -135,6 +135,7 @@ def main():
     # =====================================================
     # 🔹 Logica Calcola Indice
     # =====================================================
+    #submitted=True
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
@@ -181,7 +182,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    top_ruolo = True 
+    #top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
@@ -190,7 +191,10 @@ def main():
             model = model_predict_voto.utils.load_fv_model()
 
             with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
-                results = model_predict_voto.predizioni_per_ruolo(
+                    #preprocesso df voti
+                    df_voti = utils.prepare_voto_dataframe(df_voti)
+                    
+                    results = model_predict_voto.predizioni_per_ruolo(
                     df_voti,
                     next_games_df,
                     pipeline=model['fantavoto_model'],
