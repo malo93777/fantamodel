@@ -135,9 +135,9 @@ def main():
     # =====================================================
     # 🔹 Logica Calcola Indice
     # =====================================================
-    submitted=True
-    giocatori = "berardi"
-    input_data.append((giocatori, "sassuolo","inter","h"))
+    #submitted=True
+    #giocatori = "berardi"
+    #input_data.append((giocatori, "sassuolo","inter","h"))
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
@@ -157,7 +157,7 @@ def main():
             players, teams, opponents, h_a = zip(*input_data)
             #preprocesso df voti
             df_voti = utils.prepare_voto_dataframe(df_voti)
-            
+
             df_pred = model_predict_voto.pred_voto_prod(
                 players, teams, opponents, h_a, 
                 df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
@@ -187,7 +187,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    top_ruolo = True 
+    #top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
