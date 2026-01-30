@@ -439,7 +439,7 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
-def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
+def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     """
     Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
     e stampa una tabella ordinata per index con evidenziazione dei top_n.
@@ -482,12 +482,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         players_role = list(dict.fromkeys(players_role))
 
         teams_role, opponents_role, ha_role = [], [], []
-        
+
         
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if player == "luka modric":
+            if player == "luka modric" or player == "niclas fullkrug" or  player == "manor solomon":
                 print("debug")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
@@ -518,11 +518,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
                                  df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
                                  model_goal, model_assist, model_xg, 
                                  pipeline)
-
-        df_pred_50 = df_pred.head(50)  # limita a top 50 per ruolo
         
-        # ordina per index discendente
-        df_pred_sorted = df_pred_50.sort_values('Index', ascending=False).reset_index(drop=True)
+        df_pred_sorted = df_pred.sort_values('Index', ascending=False).reset_index(drop=True)
+
+        df_pred_50 = df_pred_sorted.head(50)  # limita a top 50 per ruolo
         
         # evidenzia i top N
         def add_emoji(idx):
@@ -531,12 +530,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
             else:
                 return ""
         
-        df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
+        df_pred_50['Top'] = [add_emoji(i) for i in df_pred_50.index]
         
         # stampa la tabella
         display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
-        print(df_pred_sorted[display_cols].to_string(index=False))
-        risultati[ruolo] = df_pred_sorted
+        print(df_pred_50[display_cols].to_string(index=False))
+        risultati[ruolo] = df_pred_50
 
     return risultati
 
