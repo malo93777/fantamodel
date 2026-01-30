@@ -253,7 +253,10 @@ manual_roles = {
     "evan ferguson": "A",
     "franco vazquez": "C",
     "davide bartesaghi": "D",
-    "kouadio kone":"C"
+    "kouadio kone":"C",
+    "kephren thuram": "C",
+    "david de gea": "P"
+
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}

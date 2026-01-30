@@ -176,34 +176,28 @@ def preprocess_data(df: pd.DataFrame):
 
     return X, y
 
-def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
-    # --- Carica dataset e modelli
-    models_goal = utils.load_models()
-    models_assist = utils.load_models_assist()
-    model_xg = utils.load_xg_model()
-    df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
-    df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
-    df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
-    df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+def pred_voto_prod(
+        players,
+        teams,
+        opponents,
+        h_a_players,
+        df_voti,                
+        df_orig_goal,
+        df_orig_assist,
+        df_teams,
+        df_teams_curr_season,
+        model_goal,
+        model_assist,
+        model_xg,
+        pipeline
+    ):
+
     predictions = []
 
-    # lavoro solo sulla stagione corrente
-    df = df[df['season'] == config.CURRENT_SEASON].copy()
-    df['date'] = pd.to_datetime(df['date'])
-
-    #rimuovo tutti i Senza voto
-    df = df[df['voto_gds'].notna()]
-
-    # pulizia posizione
-    df['position_clean'] = df['position'].apply(clean_position)
-
-    # media globale per posizione (fallback finale)
-    pos_means = df.groupby('position_clean')['fantavoto'].mean()
-
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "ostigar" in player.lower():
+        if "modric" in player.lower():
             print(f"debug {player}")
-        player_df, player_full_name = get_player_data(df, player)
+        player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
             continue
 
@@ -275,7 +269,7 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         voto_base += yellowcard_adj
  
         # === PREDIZIONE GOAL ===
-        features_names_goal = list(models_goal["poiss_reg"].feature_names_)
+        features_names_goal = list(model_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
             features_names_goal.remove("finishing_form_resid")
 
@@ -284,10 +278,10 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
 
         goal_proba = utils.get_goal_prob(
                 model_xg["poisson_regressor_xg"],
-                models_goal["poiss_reg"],
+                model_goal["poiss_reg"],
                 features_names_goal,
                 norm_name, team, opponent, df_orig_goal, df_teams,
-                df_teams_curr_season, models_goal["lin"], config.ROLE_STATS,
+                df_teams_curr_season, model_goal["lin"], config.ROLE_STATS,
                 h_a
         )
 
@@ -305,9 +299,9 @@ def pred_voto_prod(players, teams, opponents, h_a_players, df, pipeline):
         goal_feature = goal_proba * goal_impact
 
         # === PREDIZIONE ASSIST ===
-        features_names_assist = models_assist["poisson_reg_assist"].feature_names_
+        features_names_assist = model_assist["poisson_reg_assist"].feature_names_
         assist_proba = utils.get_assist_prob(
-                models_assist["poisson_reg_assist"], features_names_assist,
+                model_assist["poisson_reg_assist"], features_names_assist,
                 norm_name, team, opponent, df_orig_assist, df_teams,
                 df_teams_curr_season, h_a
         )
@@ -455,10 +449,24 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
     pipeline: pipeline modello fantavoto da passare a pred_voto_prod
     top_n: quanti top player evidenziare
     """
-    df = df_voti.copy()
+    #preprocesso df voti
+    df_voti = utils.prepare_voto_dataframe(df_voti)
+    
+    #preprocesso df prossima giornata
     next_games_df = next_games_df.copy()
     next_games_df['home'] = next_games_df['home'].apply(normalize_team)
     next_games_df['away'] = next_games_df['away'].apply(normalize_team)
+
+    #carico tutti i df per le probabilità gol/assist e dati squadre
+    df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
+    df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
+    df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
+    df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+
+    # --- Carica dataset e modelli 
+    model_goal = utils.load_models() 
+    model_assist = utils.load_models_assist() 
+    model_xg = utils.load_xg_model()
 
     ruoli = ['D', 'C', 'A']
 
@@ -468,16 +476,18 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         print(f"\n===== Ruolo: {ruolo} =====\n")
 
         # lista dei giocatori per ruolo
-        players_role = df[df['fanta_role'] == ruolo]['player_norm'].tolist()
+        players_role = df_voti[df_voti['fanta_role'] == ruolo]['player_norm'].tolist()
         
         #rimuovo duplicati
         players_role = list(dict.fromkeys(players_role))
 
         teams_role, opponents_role, ha_role = [], [], []
         
+        
+        #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if player == "christian pulisic":
+            if player == "luka modric":
                 print("debug")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
@@ -504,7 +514,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
             opponents_role.append(opponent)
         
         # calcola le predizioni
-        df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role, df_voti, pipeline)
+        df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
+                                 df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
+                                 model_goal, model_assist, model_xg, 
+                                 pipeline)
 
         df_pred_50 = df_pred.head(50)  # limita a top 50 per ruolo
         

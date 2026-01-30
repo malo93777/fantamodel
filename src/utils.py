@@ -1061,6 +1061,28 @@ def process_positions(df, position_col="position"):
 
     return df
 
+def prepare_voto_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepara il dataframe voti:
+    - filtra stagione corrente
+    - converte date
+    - rimuove senza voto
+    - pulisce la posizione
+    """
+    df = df_raw.copy()
+
+    df = df[df['season'] == config.CURRENT_SEASON]
+    df['date'] = pd.to_datetime(df['date'])
+
+    # rimuovo senza voto
+    df = df[df['voto_gds'].notna()]
+
+    # pulizia posizione
+    df['position_clean'] = df['position'].apply(clean_position)
+
+    return df
+
+
 def add_other_leagues_data(player_df, player, DATASET_DATA_DIR, GOALS_DATA_FILE_ALL_LEAGUES, CURRENT_SEASON):
     # se è la prima stagione in Serie A → aggiungi dati da altri campionati
     if player_df["season"].min() == CURRENT_SEASON:
