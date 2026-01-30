@@ -477,10 +477,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=5):
         
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
+            if player == "christian pulisic":
+                print("debug")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
-                team == "squadra sconosciuta"
-            team = team.lower().strip()
+                team = "squadra sconosciuta"
+            team = utils.normalize_team_name(team)
             teams_role.append(team)
             
             # cerca la prossima partita del team
