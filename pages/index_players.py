@@ -139,10 +139,23 @@ def main():
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
         else:
+             #carico tutti i df per le probabilità gol/assist e dati squadre
+            df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
+            df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
+            df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
+            df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+
+            # --- Carica dataset e modelli 
+            model_goal = utils.load_models() 
+            model_assist = utils.load_models_assist() 
+            model_xg = utils.load_xg_model()
             model = model_predict_voto.utils.load_fv_model()
+
             players, teams, opponents, h_a = zip(*input_data)
             df_pred = model_predict_voto.pred_voto_prod(
-                players, teams, opponents, h_a, df_voti, model['fantavoto_model']
+                players, teams, opponents, h_a, 
+                df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
+                model_goal, model_assist, model_xg,model['fantavoto_model']
             )
             df_pred = df_pred.reset_index(drop=True)
 
