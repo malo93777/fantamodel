@@ -971,30 +971,21 @@ class Preprocessor:
         # Rimuovo i senza voto_gds
         #df2 = df2[df2['voto_gds'].notna()]
 
+        # Assegna lega e filtra SOLO Serie A
+        #df1["league"] = df1["h_team"].apply(self.assign_league)
+        #df1 = df1[df1["league"] == "Serie A"]
+        
+        df1 = build_partita_column(df1, normalize_team_name=utils.normalize_team_name)
+
         # Normalizzazione nomi, rimozione secondi nomi nel df1 raw_data (es.jonatan CRISTIAN david), gestione cognomi composti df voti
         df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
         df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
 
-        # 🔧 Fix nome Berat Djimsiti / Gjimshiti
-        df2['player_norm'] = df2['player_norm'].replace(
-            "berat djimsiti",
-            "berat gjimshiti"
-        )
+        #Normalizzazione nomi partite df2
+        df2["partita"] = df2["partita"].apply(utils.normalize_match_string)
+        
+        df1,df2 = self.fix_eccezioni(df1,df2)
 
-        df2['player_norm'] = df2['player_norm'].replace(
-            "alessand buongiorno",
-            "alessandro buongiorno"
-        )
-
-        df2['player_norm'] = df2['player_norm'].replace(
-            "vanja milinkovic",
-            "vanja milinkovicsavic"
-        )
-
-        df2['player_norm'] = df2['player_norm'].replace(
-            "z luvumbo sebastiao",
-            "zito"
-        )
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
             'ammonizioni','espulsioni','autogol'
@@ -1009,6 +1000,8 @@ class Preprocessor:
 
         #**** PRIMO TENTATIVO DI ACCORPAMENTO ****
         for (player, season), group in df1.groupby(['player_norm', 'season']):
+            if player == "niclas fullkrug":
+                print("debug")
 
             group_sorted = group.sort_values('date')
 
@@ -1022,10 +1015,7 @@ class Preprocessor:
                 config=config,
                 reconcile_fn=self.reconcile_df2_by_partita,
                 missing_players=missing_players,
-                debug_players={
-                    "berat gjimshiti",
-                    "alessandro buongiorno",
-                    "armel kotchap"
+                debug_players={"niclas fullkrug"         
                 }
             )
 
@@ -1087,6 +1077,56 @@ class Preprocessor:
         Returns:
             pd.DataFrame: df2_player filtrato
         """
+        def fix_virtual_matches_to_define(
+            df: pd.DataFrame,
+            mask_valid: pd.Series
+        ):
+            """
+            Sistema le partite virtuali rinviate (match_order = 20.5)
+            e aggiorna la maschera delle partite valide includendo
+            la partita rinviata.
+            """
+            df = df.copy()
+            mask_valid = mask_valid.copy()
+
+            postponed_matches = {
+                "como":     ("milan",   "como - milan"),
+                "milan":    ("como",    "como - milan"),
+
+                "inter":    ("lecce",   "inter - lecce"),
+                "lecce":    ("inter",   "inter - lecce"),
+
+                "napoli":   ("parma",   "napoli - parma"),
+                "parma":    ("napoli",  "napoli - parma"),
+
+                "verona":   ("bologna", "verona - bologna"),
+                "bologna":  ("verona",  "verona - bologna"),
+            }
+
+            mask_virtual = (
+                (df["match_order"] == 20.5) &
+                (df["is_virtual_match"] == True) &
+                (df["avversario"].astype(str).str.contains("to_define", case=False, na=False)) &
+                (df["partita"].astype(str).str.contains("to_define", case=False, na=False))
+            )
+
+            for idx, row in df[mask_virtual].iterrows():
+                squadra = str(row["squadra"]).lower().strip()
+
+                if squadra in postponed_matches:
+                    avv, partita = postponed_matches[squadra]
+
+                    df.at[idx, "avversario"] = avv
+                    df.at[idx, "partita"] = partita
+
+                    # AGGIUNTA ALLA MASCHERA
+                    mask_valid.loc[idx] = True
+
+                else:
+                    print(f"⚠️ Squadra non mappata per match virtuale: {squadra}")
+
+            return df, mask_valid
+
         # --- Normalizza squadre df1 ---
         h_norm = df1_player['h_team'].apply(
             lambda x: utils.normalize_team_name(x)
@@ -1114,8 +1154,11 @@ class Preprocessor:
             #for p in removed:
                 #print("  -", p)
 
+        if "is_virtual_match" in df2_player:
+            df2_player, mask_valid = fix_virtual_matches_to_define(df2_player, mask_valid)
+
         # --- Filtra ---
-        df2_player_clean = df2_player.loc[mask_valid].copy()
+        df2_player_clean = df2_player.loc[mask_valid].copy()    
 
         return df2_player_clean
 
@@ -1211,6 +1254,8 @@ class Preprocessor:
                     "autogol": 0,
                     "rig_segnati": 0,
                     "rig_sbagliati": 0,
+                    "avversario":"to_define",
+                    "partita":"to_define",
                     "is_virtual_match": True
                 }
 
@@ -1249,14 +1294,48 @@ class Preprocessor:
         # ==========================
         # ➕ copia colonne
         # ==========================
+
+        # Creiamo una mappa partita -> valori per ciascuna colonna
         for col in columns_to_add:
-            values = df2_player[col].tolist()
-            while len(values) < len(group_sorted):
-                values.append(pd.NA)
-            df1.loc[group_sorted.index, col] = values[:len(group_sorted)]
+            partita_to_val = dict(zip(df2_player['partita'], df2_player[col]))
+            # Applichiamo solo alle righe del giocatore corrente
+            df1.loc[group_sorted.index, col] = group_sorted['partita'].map(partita_to_val)
 
         return True
+    
+    def fix_eccezioni(self,df1, df2):
+        # 🔧 Fix nome Berat Djimsiti / Gjimshiti
+        df2['player_norm'] = df2['player_norm'].replace(
+            "berat djimsiti",
+            "berat gjimshiti"
+        )
 
+        df2['player_norm'] = df2['player_norm'].replace(
+            "alessand buongiorno",
+            "alessandro buongiorno"
+        )
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "vanja milinkovic",
+            "vanja milinkovicsavic"
+        )
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "z luvumbo sebastiao",
+            "zito"
+        )
+
+        df1['player_norm'] = df1['player_norm'].replace(
+            "franck zambo",
+            "franck zambo anguissa"
+        )
+
+        df2['player'] = df2['player'].replace(
+            "zam anguissa andre",
+            "franck zambo anguissa"
+        )
+
+        return df1, df2
 
     def add_fanta_role(self, df_main, df_fanta_roles, debug=True):
 
@@ -1402,8 +1481,6 @@ class Preprocessor:
 
         return df
 
-from unidecode import unidecode
-
 def find_similar_players_by_surname_and_fix(
     df2: pd.DataFrame,
     missing_players: list,
@@ -1482,3 +1559,29 @@ def find_similar_players_by_surname_and_fix(
             fixed_players[full_name_norm] = full_name_norm
 
     return df2, fixed_players
+
+def build_partita_column(
+    df,
+    normalize_team_name,
+    h_col="h_team",
+    a_col="a_team",
+    out_col="partita"
+):
+    """
+    Normalizza h_team e a_team e crea la colonna 'partita'
+    nel formato: h_team - a_team
+    """
+
+    for col in (h_col, a_col):
+        if col not in df.columns:
+            raise ValueError(f"Colonna mancante: {col}")
+
+        df[col] = df[col].apply(normalize_team_name)
+
+    df[out_col] = (
+        df[h_col].astype(str).str.strip()
+        + " - " +
+        df[a_col].astype(str).str.strip()
+    )
+
+    return df

@@ -782,7 +782,6 @@ def get_att_data_last5_team_h_a(team: str, h_a: str, teams_df: pd.DataFrame) -> 
     return xG_last5, Goal_last5  
 
 
-    
 def clean_position(pos):
     """
     Pulisce e classifica la posizione di un calciatore:
@@ -794,6 +793,10 @@ def clean_position(pos):
     - Singola lettera -> 'D', 'M' o 'F'
     """
     text = str(pos).upper()
+
+     # Gestione SUB
+    if "SUB" in text:
+        return "SUB"
     
     # Escludi portieri
     #if "GK" in text:

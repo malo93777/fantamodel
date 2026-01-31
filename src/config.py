@@ -39,6 +39,7 @@ POISS_MODEL = "poisson_regressor.pkl"
 POISS_MODEL_ASSIST = "poisson_regressor_assist.pkl"
 POISS_MODEL_XG = "poisson_regressor_xg.pkl"
 FV_MODEL = "fantavoto_model.pkl"
+FV_MODEL_GK = "fantavoto_model_gk.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
