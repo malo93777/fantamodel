@@ -2777,7 +2777,7 @@ def compute_player_vs_strength_adjustment(
     target_opponent_strength,
     min_matches=5,
     neutral_value=0.0,
-    ema_span=5,
+    ema_span=7,
     max_adjustment=0.2
 ):
     """
@@ -3117,8 +3117,8 @@ def compute_base_voto(
     season_n=15,
     recent_weight=0.75,
     feature_col='voto_gds',
-    ewma_span_recent=6,
-    ewma_span_season=6
+    ewma_span_recent=7,
+    ewma_span_season=7
 ):
     """
     Calcola il fantavoto base come media ponderata

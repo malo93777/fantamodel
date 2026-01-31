@@ -2,8 +2,9 @@ from statistics import LinearRegression
 import joblib
 import pandas as pd
 from sklearn.linear_model import Ridge
-from xgboost import XGBRegressor
-from catboost import CatBoostRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, root_mean_squared_error
 import config
@@ -176,6 +177,42 @@ def preprocess_data(df: pd.DataFrame):
 
     return X, y
 
+def preprocess_data_GK(df: pd.DataFrame, df_curr_teams: pd.DataFrame):
+    """
+    Seleziona le feature e il target.
+    Rimuove le righe con NaN nelle colonne usate.
+    """
+    #df = add_team_strength_column(df, 'opponent_team', 'opponent_team_strength')
+    #df = add_team_strength_column(df, 'player_team', 'player_team_strength')
+
+    features = [
+        'voto_gds',
+        'goals',
+        'ammonizioni',
+        'player_team_strength'
+    ]
+
+    target = 'fantavoto'
+
+    #PLAYER TEAM DATA
+    #xGA_last5, GA_last5 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_curr_teams)
+
+    #rimuovo tutti i Senza voto
+    df = df[df['voto_gds'].notna()]
+
+    #per ora teniamo solo le colonne con season 2025
+    df = df[df['season'] == config.CURRENT_SEASON]
+ 
+        # Tieni solo le colonne necessarie
+    df_model = df[features + [target]].dropna()
+
+      # Aggiungi il DataFrame delle squadre se disponibile
+
+    X = df_model[features]
+    y = df_model[target]
+
+    return X, y
+
 def pred_voto_prod(
         players,
         teams,
@@ -195,7 +232,7 @@ def pred_voto_prod(
     predictions = []
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "modric" in player.lower():
+        if "berardi" in player.lower():
             print(f"debug {player}")
         player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
@@ -355,12 +392,129 @@ def pred_voto_prod(
 
     return pd.DataFrame(predictions).reset_index(drop=True)
 
+def pred_voto_prod_gk(
+        players,
+        teams,
+        opponents,
+        h_a_players,
+        df_voti,                
+        df_teams,
+        df_teams_curr_season,
+        pipeline
+    ):
+
+    predictions = []
+
+    for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
+
+        player_df, player_full_name = get_player_data(df_voti, player)
+        if player_df.empty:
+            continue
+
+        player_df = player_df.sort_values('date')
+
+        player_df = utils.add_home_away_column(player_df)     
+
+        fanta_role = utils.get_main_position_weighted(player_df["fanta_role"], window=10, decay=0.8)
+        
+        # ---- rolling stats ultime 15 ----
+        rolling_15 = player_df.tail(15)
+        
+        voto_base = utils.compute_base_voto_by_role(
+           player_df=player_df,
+            role=fanta_role
+        )
+
+        # aggiustamento in base alla forza dell'avversario
+        opponent = normalize_team(opponent)
+        opponent_strength = map_strength(opponent) 
+        team_strength = map_strength(team)
+
+        adj_opp_team = utils.compute_player_vs_strength_adjustment(
+                player_df=player_df,
+                target_opponent_strength=opponent_strength
+        )
+
+        #correzione in base a come il giocatore performa in casa o trasferta
+        adj_home_away = utils.compute_player_home_away_adjustment(
+                player_df=player_df,
+                target_ha=h_a
+        ) 
+
+        # *************  BONUS SE LORO SQUADRE concedono poco e MALUS se affrontano squadra che crea molto**************  
+        # 4️⃣ Recupera dati della squadra e avversario
+        num_giornate = utils.count_matchdays(df_teams_curr_season)
+
+        #se ho un numero sufficiente di giornate, applico discriminante home/away
+        if num_giornate >= 15:
+
+            #PLAYER TEAM DATA home/away
+            xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
+                    
+        else:
+            #PLAYER TEAM DATA
+            xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
+            
+        bonus_defensive_adj = utils.compute_defensive_xga_bonus(
+            team_xga_last5=xGA_last5,
+            matchday=num_giornate,
+            df_teams_curr_season=df_teams_curr_season
+        )
+
+        voto_base += bonus_defensive_adj
+
+        # *************  AGGIUSTAMENTI CONSISTENZA **************
+
+        consistency_adj = utils.compute_consistency_adjustment(player_df)
+        voto_base += adj_opp_team + adj_home_away + consistency_adj
+
+        # ************  AGGIUSTAMENTO TENDENZA AL CARTELLINO GIALLO  **********
+        yellowcard_adj = utils.compute_ammonizioni_adjustment(player_df, fanta_role)
+
+        voto_base += yellowcard_adj 
+
+        print(f"Voto base pesato: {voto_base:.2f}")
+
+        #CALCOLO GOALS SUBITI PROSSIMA PARTITA
+        #goals_subiti
+
+        # ---- costruzione features pre-match ----
+        X_pred = pd.DataFrame([{
+            'voto_gds': voto_base,
+            #'goals': goals_subiti,
+            'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
+            'position_clean': fanta_role
+        }])
+
+        # fallback posizione se NaN
+        if pd.isna(X_pred['position_clean'].iloc[0]):
+            X_pred['position_clean'] = player_df['position_clean'].mode().iloc[0]
+
+        # --- Gestione categoriche e standardizzazione come nel training ---
+        if pipeline is not None:
+            # Se il model è una pipeline, NON applicare preprocessor.transform!
+            fantavoto_pred = pipeline.predict(X_pred)[0]
+
+        print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
+
+        index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
+
+        print(f"Schierability index: {index:.2f}")
+
+        ha_to_print = "casa" if h_a == "h" else "trasf."
+
+        predictions.append({
+        'Giocatore': player_full_name,
+        'Index': index,
+        #'Squadra': team,
+        'Avversario': opponent,
+        'Campo': ha_to_print
+        }) 
+
+    return pd.DataFrame(predictions).reset_index(drop=True)
+
 def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     """Allena un modello di regressione lineare e stampa MAE e MSE"""
-
-    from sklearn.pipeline import Pipeline
-    from sklearn.compose import ColumnTransformer
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
     # Suddividi in train e test
     X_train, X_test, y_train, y_test = train_test_split(
@@ -439,6 +593,85 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
+def train_log_regression_GK(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
+    """Allena un modello di regressione lineare e stampa MAE e MSE"""
+
+    # Suddividi in train e test
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    # ===============================
+    # PREPROCESSING E MODELLO
+    # ===============================
+
+    # Identifica feature numeriche e categoriche
+    NUM_FEATURES = [
+        'voto_gds',
+        'goals',
+        'ammonizioni'
+    ]
+    CAT_FEATURES = ['player_team_strength']
+    # ---- preprocessors ----
+    numeric_transformer = Pipeline(
+        steps=[("scaler", StandardScaler())]
+    )   
+    categorical_transformer = Pipeline(
+        steps=[(
+            "onehot",
+            OneHotEncoder(
+                drop="first",
+                handle_unknown="ignore"
+            )
+        )]
+    )
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", numeric_transformer, NUM_FEATURES),
+            ("cat", categorical_transformer, CAT_FEATURES),      
+        ]
+    )
+    # ---- model ----
+    model = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("regressor", Ridge(alpha=2.0))
+        ]
+    )
+    model.fit(X_train, y_train)
+
+    # ===============================
+    # EVALUATION
+    # ===============================
+    y_train_pred = model.predict(X_train)
+    y_test_pred = model.predict(X_test)
+    print("\n=== TRAIN vs TEST ===")
+    print(f"TRAIN -> MAE: {mean_absolute_error(y_train, y_train_pred):.4f} | "
+          f"MSE: {mean_squared_error(y_train, y_train_pred):.4f}")
+    print(f"TEST  -> MAE: {mean_absolute_error(y_test, y_test_pred):.4f} | "
+          f"MSE: {mean_squared_error(y_test, y_test_pred):.4f}")
+    
+    # recupera nomi delle feature dopo il preprocessing
+    feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+
+    # recupera coefficienti della Ridge
+    coefs = model.named_steps["regressor"].coef_
+
+    # dataframe ordinato per importanza assoluta
+    feat_importance = (
+        pd.DataFrame({
+            "feature": feature_names,
+            "coefficient": coefs,
+            "abs_coefficient": np.abs(coefs)
+        })
+        .sort_values("abs_coefficient", ascending=False)
+    )
+
+    print("\n=== FEATURE IMPORTANCE (RIDGE) ===")
+    print(feat_importance.head(20))
+    
+    return model
+
 def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     """
     Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
@@ -468,7 +701,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
 
-    ruoli = ['D', 'C', 'A']
+    #ruoli = ['D', 'C', 'A']
+    ruoli = ['A']
 
     risultati = {}
     
@@ -482,16 +716,16 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
         players_role = list(dict.fromkeys(players_role))
 
         teams_role, opponents_role, ha_role = [], [], []
-
         
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if player == "luka modric" or player == "niclas fullkrug" or  player == "manor solomon":
-                print("debug")
+            #if player == "niclas fullkrug" or  player == "manor solomon":
+                #print("debug")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
+                #continue
             team = utils.normalize_team_name(team)
             teams_role.append(team)
             
@@ -542,14 +776,24 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
 def main():
 
     train = False
+    train_gk = False
+
+    test = True
+    test_gk = False
+
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
+    df_curr_teams_path = config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE
 
     df_voti = load_data(csv_path)
     next_games_df = load_data(next_games_path)
 
+    df_curr_teams = load_data(df_curr_teams_path)
+
     X, y = preprocess_data(df_voti)
+
+    X_gk, y_gk = preprocess_data_GK(df_voti, df_curr_teams)
 
     if train:
         pipeline = train_log_regression(X, y)
@@ -570,11 +814,39 @@ def main():
     else:
         #carica modello
         pipeline = utils.load_fv_model()
-    
-    #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
-        #pipeline['fantavoto_model'])
 
-    predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=10)
+    if train_gk:
+        pipeline = train_log_regression_GK(X_gk, y_gk)
+        #salva modello
+        MODEL_PATH = config.MODEL_DIR_FV / config.FV_MODEL_GK
+        #chiedi all'utente se vuole salvare il modello
+        if MODEL_PATH.exists():
+                overwrite = input(f"⚠️ Il file '{MODEL_PATH.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()
+                if overwrite != "y":
+                    print("❌ Salvataggio modello annullato.")
+                else:
+                    joblib.dump(pipeline, MODEL_PATH)
+                    print(f"✅ Modello sovrascritto in: {MODEL_PATH}")
+        else:
+            joblib.dump(pipeline, MODEL_PATH)
+            print(f"✅ Modello salvato in: {MODEL_PATH}")
+
+    else:
+        #carica modello
+        pipeline = utils.load_fv_model()
+    if test:
+
+        #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
+            #pipeline['fantavoto_model'])
+
+        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=10)
+
+    if test_gk:
+
+        #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
+            #pipeline['fantavoto_model'])
+
+        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()
