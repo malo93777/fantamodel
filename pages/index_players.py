@@ -203,7 +203,7 @@ def main():
                     df_voti,
                     next_games_df,
                     pipeline=model['fantavoto_model'],
-                    top_n=5
+                    top_n=10
                 )
 
             if results:

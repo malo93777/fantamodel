@@ -604,7 +604,6 @@ def normalize_match_string(s):
     Normalizza una stringa di match (es. 'Milan - Parma' -> 'milan - parma'),
     rimuovendo accenti, apostrofi e portando tutto in minuscolo.
     """
-    import unicodedata
     if not isinstance(s, str):
         return ""
     s = s.strip().lower()
@@ -620,7 +619,7 @@ def normalize_team_name(name: str) -> str:
         return ""
     name = name.lower()
     # Rimuovi prefissi e parole comuni
-    name = re.sub(r'\b(fc|ac|ss|us|as|cf|sc|calcio|club|sporting)\b', '', name)
+    name = re.sub(r'\b(fc|ac|ss|us|as|cf|sc|calcio|club|sporting|hellas)\b', '', name)
     # Rimuovi spazi e punteggiatura
     name = re.sub(r'[^a-z]', '', name)
     return name.strip()

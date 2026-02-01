@@ -15,11 +15,6 @@ from unidecode import unidecode
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.preprocessing")
 
-def normalize_team(name):
-    if pd.isna(name):
-        return None
-    return name.strip().lower()
-
 def map_strength(team):
     if team is None:
         return 'weak'
@@ -52,7 +47,7 @@ def add_team_strength_column(
 
     df[new_col] = (
         df[team_col]
-        .apply(normalize_team)
+        .apply(utils.normalize_team_name)
         .apply(map_strength)
     )
 
@@ -232,11 +227,15 @@ def pred_voto_prod(
     predictions = []
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "berardi" in player.lower():
+        if "orban" in player.lower() or "mazzitelli" in player.lower():
             print(f"debug {player}")
         player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
             continue
+        
+        #caso in cui giocatore ha cambiato squadra durante la stagione
+        if isinstance(team, str) and "," in team:
+            team = team.split(",")[-1].strip()
 
         player_df = player_df.sort_values('date')
 
@@ -254,7 +253,7 @@ def pred_voto_prod(
         )
 
         # aggiustamento in base alla forza dell'avversario
-        opponent = normalize_team(opponent)
+        opponent = utils.normalize_team_name(opponent)
         opponent_strength = map_strength(opponent) 
         team_strength = map_strength(team)
 
@@ -426,7 +425,7 @@ def pred_voto_prod_gk(
         )
 
         # aggiustamento in base alla forza dell'avversario
-        opponent = normalize_team(opponent)
+        opponent = utils.normalize_team_name(opponent)
         opponent_strength = map_strength(opponent) 
         team_strength = map_strength(team)
 
@@ -687,8 +686,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     
     #preprocesso df prossima giornata
     next_games_df = next_games_df.copy()
-    next_games_df['home'] = next_games_df['home'].apply(normalize_team)
-    next_games_df['away'] = next_games_df['away'].apply(normalize_team)
+    next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
+    next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
 
     #carico tutti i df per le probabilità gol/assist e dati squadre
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
@@ -701,8 +700,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
 
-    #ruoli = ['D', 'C', 'A']
-    ruoli = ['A']
+    ruoli = ['D', 'C', 'A']
+    #ruoli = ['A']
 
     risultati = {}
     
@@ -720,8 +719,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            #if player == "niclas fullkrug" or  player == "manor solomon":
-                #print("debug")
+            #if "orban" in player.lower() or "mazzitelli" in player.lower():
+                #print(f"debug {player}")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
