@@ -213,7 +213,7 @@ def main():
                 if 'P' in results:
                     st.subheader("🧤 Portieri")
                     st.dataframe(
-                        results['D'].reset_index(drop=True),
+                        results['P'].reset_index(drop=True),
                         use_container_width=True
                     )
 
