@@ -3313,7 +3313,7 @@ def z_to_index_asymmetric_soft(
         z = z * scale_pos
 
     index = base + 45 * (1 / (1 + np.exp(-z)) - 0.5) * 2
-    return index
+    return round(index, 1)
 
 BASELINE_INDEX = 60  # neutro
 
@@ -3346,7 +3346,7 @@ def fantavoto_to_schierability_index(
     # scaling per ruolo
     index = BASELINE_INDEX + delta * role_weight
 
-    return int(np.clip(index, 30, 100))
+    return round(float(np.clip(index, 30.0, 100.0)),1)
 
 def compute_consistency_adjustment(
     player_df,
