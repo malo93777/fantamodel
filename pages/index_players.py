@@ -11,7 +11,7 @@ def main():
     # =====================================================
     # 🔹 Config pagina e CSS
     # =====================================================
-    #st.set_page_config(page_title="Indice Schierabilità ⚽", page_icon="✨", layout="centered")
+    st.set_page_config(page_title="Indice Schierabilità ⚽", page_icon="✨", layout="centered")
     
     st.markdown("""
     <style>
