@@ -849,9 +849,9 @@ def main():
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
         if train_gk:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline['fantavoto_model_gk'], top_n=10)
         else:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()

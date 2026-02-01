@@ -153,6 +153,7 @@ def main():
             model_assist = utils.load_models_assist() 
             model_xg = utils.load_xg_model()
             model = model_predict_voto.utils.load_fv_model()
+            model_gk = model_predict_voto.utils.load_fv_model_gk()
 
             players, teams, opponents, h_a = zip(*input_data)
             #preprocesso df voti
@@ -187,7 +188,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    #top_ruolo = True 
+    top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
