@@ -194,6 +194,7 @@ def main():
         else:
             st.write("## 🔝 Top Indici per Ruolo")
             model = model_predict_voto.utils.load_fv_model()
+            model_gk = model_predict_voto.utils.load_fv_model_gk()
 
             with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
                     #preprocesso df voti
@@ -203,6 +204,7 @@ def main():
                     df_voti,
                     next_games_df,
                     pipeline=model['fantavoto_model'],
+                    pipeline_gk=model_gk['fantavoto_model_gk'],
                     top_n=10
                 )
 

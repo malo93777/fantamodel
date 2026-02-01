@@ -51,6 +51,10 @@ def load_fv_model():
     return {
         "fantavoto_model": joblib.load(config.MODEL_DIR_FV / config.FV_MODEL)
     }
+def load_fv_model_gk():
+    return {
+        "fantavoto_model_gk": joblib.load(config.MODEL_DIR_FV / config.FV_MODEL_GK)
+    }
 
 def get_latest_team(df_orig, player_name, team_col):
     """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
@@ -3296,14 +3300,7 @@ def z_to_index_asymmetric_soft(
     """
     base = 60
     if role is not None:
-        if role == "A":
-            base = 65    
-        elif role == "D":
-            base = 60
-        elif role == "C":
-            base = 63
-        elif role == "SUB":
-            base = 60
+        base = config.ROLE_FANTAVOTO_STATS[role]['mean'] * 10    
     else:
         base = 60
 

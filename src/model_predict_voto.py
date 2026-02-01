@@ -192,6 +192,8 @@ def preprocess_data_GK(df: pd.DataFrame, df_curr_teams: pd.DataFrame):
     #PLAYER TEAM DATA
     #xGA_last5, GA_last5 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_curr_teams)
 
+    df = df[df['fanta_role'] == 'P']
+
     #rimuovo tutti i Senza voto
     df = df[df['voto_gds'].notna()]
 
@@ -475,19 +477,15 @@ def pred_voto_prod_gk(
         print(f"Voto base pesato: {voto_base:.2f}")
 
         #CALCOLO GOALS SUBITI PROSSIMA PARTITA
-        #goals_subiti
+        goals_subiti = 0
 
         # ---- costruzione features pre-match ----
         X_pred = pd.DataFrame([{
             'voto_gds': voto_base,
-            #'goals': goals_subiti,
+            'goals': goals_subiti,
             'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
-            'position_clean': fanta_role
+            'player_team_strength': team_strength
         }])
-
-        # fallback posizione se NaN
-        if pd.isna(X_pred['position_clean'].iloc[0]):
-            X_pred['position_clean'] = player_df['position_clean'].mode().iloc[0]
 
         # --- Gestione categoriche e standardizzazione come nel training ---
         if pipeline is not None:
@@ -671,7 +669,7 @@ def train_log_regression_GK(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
-def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
+def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None, top_n=10):
     """
     Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
     e stampa una tabella ordinata per index con evidenziazione dei top_n.
@@ -700,7 +698,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
 
-    ruoli = ['D', 'C', 'A']
+    ruoli = ['P','D', 'C', 'A']
     #ruoli = ['A']
 
     risultati = {}
@@ -746,11 +744,17 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
             ha_role.append(h_a)
             opponents_role.append(opponent)
         
-        # calcola le predizioni
-        df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
-                                 df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
-                                 model_goal, model_assist, model_xg, 
-                                 pipeline)
+        if ruolo == 'P':
+            # calcola le predizioni
+            df_pred = pred_voto_prod_gk(players_role, teams_role, opponents_role, ha_role,
+                                    df_voti, df_teams, df_teams_curr_season,                                 
+                                    pipeline_gk)    
+        else:
+            # calcola le predizioni
+            df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
+                                    df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
+                                    model_goal, model_assist, model_xg, 
+                                    pipeline)
         
         df_pred_sorted = df_pred.sort_values('Index', ascending=False).reset_index(drop=True)
 
@@ -775,10 +779,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, top_n=10):
 def main():
 
     train = False
-    train_gk = False
+    train_gk = True
 
-    test = True
-    test_gk = False
+    test = False
+    test_gk = True
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
@@ -838,14 +842,16 @@ def main():
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
 
-        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], top_n=10)
+        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], pipeline_gk=None, top_n=10)
 
     if test_gk:
 
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
-
-        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
+        if train_gk:
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
+        else:
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline=pipeline['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()
