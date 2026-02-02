@@ -95,7 +95,7 @@ def get_player_data(df: pd.DataFrame, player_name: str):
     # Normalizza i nomi
     df = df.copy()
 
-    df["player_norm"] = df["player"].apply(utils.normalize_fn)
+    #df["player_norm"] = df["player"].apply(utils.normalize_fn)
     player_norm = unidecode(player_name).lower()
     chosen_player = player_norm
 
@@ -229,7 +229,7 @@ def pred_voto_prod(
     predictions = []
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "orban" in player.lower() or "mazzitelli" in player.lower():
+        if "jonathan" in player.lower():
             print(f"debug {player}")
         player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
@@ -280,13 +280,16 @@ def pred_voto_prod(
 
                 #PLAYER TEAM DATA home/away
                 xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
-                    
+                xGA_last5 = xGA_last5/5    
             else:
                 #PLAYER TEAM DATA
                 xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
-            
+                xGA_last5 = xGA_last5/5
+
             bonus_defensive_adj = utils.compute_defensive_xga_bonus(
+                fanta_role,
                 team_xga_last5=xGA_last5,
+                team_goal_against_last5=None,
                 matchday=num_giornate,
                 df_teams_curr_season=df_teams_curr_season
             )
@@ -449,20 +452,47 @@ def pred_voto_prod_gk(
         #se ho un numero sufficiente di giornate, applico discriminante home/away
         if num_giornate >= 15:
 
+            h_a_opp = utils.get_h_a_opponent(h_a)
+
             #PLAYER TEAM DATA home/away
             xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
-                    
+            GA_last5_per90= GA_last5/num_giornate
+
+            #OPPONENT TEAM DATA
+            xG_last5_team, Goal_last5_opponent = utils.get_att_data_last5_team_h_a(opponent, h_a_opp, df_teams_curr_season)
+            Goal_last5_opponent_per90 = Goal_last5_opponent/5             
         else:
-            #PLAYER TEAM DATA
+            #PLAYER TEAM DATA home/away
             xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
-            
+            GA_last5_per90= GA_last5/num_giornate
+
+            #OPPONENT TEAM DATA
+            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(opponent, "", df_teams_curr_season)
+            Goal_last5_team_per90 = Goal_last5_team/5
+
         bonus_defensive_adj = utils.compute_defensive_xga_bonus(
-            team_xga_last5=xGA_last5,
+            fanta_role,
+            team_xga_last5=None,
+            team_goal_against_last5=GA_last5_per90,
             matchday=num_giornate,
-            df_teams_curr_season=df_teams_curr_season
+            df_teams_curr_season=df_teams_curr_season,      
         )
 
-        voto_base += bonus_defensive_adj
+        bonus_opponent_off_adj = utils.compute_opponent_offense_bonus(
+            fanta_role,
+            opponent_xg_last5=None,
+            opponent_goal_last5=Goal_last5_opponent_per90,
+            matchday=num_giornate,
+            df_teams_curr_season=df_teams_curr_season,        
+        )
+
+        def_stats = utils.compute_clean_sheet(
+            df_teams_curr_season,
+            opponent_xg_last5=None,
+            opponent_goal_last5=Goal_last5_opponent_per90,
+        )
+
+        voto_base += bonus_defensive_adj + bonus_opponent_off_adj + def_stats["bonus"]
 
         # *************  AGGIUSTAMENTI CONSISTENZA **************
 
@@ -477,12 +507,12 @@ def pred_voto_prod_gk(
         print(f"Voto base pesato: {voto_base:.2f}")
 
         #CALCOLO GOALS SUBITI PROSSIMA PARTITA
-        goals_subiti = 0
+        gol_subiti_feature = def_stats["mean_ga_last5"] * def_stats["clean_sheet_prob"]
 
         # ---- costruzione features pre-match ----
         X_pred = pd.DataFrame([{
             'voto_gds': voto_base,
-            'goals': goals_subiti,
+            'goals': gol_subiti_feature,
             'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
             'player_team_strength': team_strength
         }])
@@ -698,7 +728,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
 
-    ruoli = ['P','D', 'C', 'A']
+    if pipeline_gk is None:
+        ruoli = ['D', 'C', 'A']
+    elif pipeline is not None and pipeline_gk is not None:
+        ruoli = ['P','D', 'C', 'A']
     #ruoli = ['A']
 
     risultati = {}
@@ -717,8 +750,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            #if "orban" in player.lower() or "mazzitelli" in player.lower():
-                #print(f"debug {player}")
+            if "jonathan david" == player.lower():
+                print(f"debug {player}")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
@@ -744,12 +777,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
             ha_role.append(h_a)
             opponents_role.append(opponent)
         
-        if ruolo == 'P':
+        if ruolo == 'P' and pipeline_gk is not None:
             # calcola le predizioni
             df_pred = pred_voto_prod_gk(players_role, teams_role, opponents_role, ha_role,
                                     df_voti, df_teams, df_teams_curr_season,                                 
                                     pipeline_gk)    
-        else:
+        elif pipeline is not None:
             # calcola le predizioni
             df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
                                     df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
@@ -779,10 +812,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
 def main():
 
     train = False
-    train_gk = True
+    train_gk = False
 
-    test = False
-    test_gk = True
+    test = True
+    test_gk = False
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
@@ -849,7 +882,7 @@ def main():
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
         if train_gk:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline['fantavoto_model_gk'], top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline, top_n=10)
         else:
             predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline['fantavoto_model_gk'], top_n=10)
 

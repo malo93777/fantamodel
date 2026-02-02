@@ -571,6 +571,7 @@ class Preprocessor:
 
         # Normalizzazione nomi
         df["player"] = df["player"].apply(utils.normalize_fn)
+        df["player"] = df["player"].apply(self.remove_middle_name) #test
         all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
 
         merged_df = df.merge(
@@ -1325,14 +1326,14 @@ class Preprocessor:
             "zito"
         )
 
-        df1['player_norm'] = df1['player_norm'].replace(
-            "franck zambo",
-            "franck zambo anguissa"
-        )
-
-        df2['player'] = df2['player'].replace(
+        df2['player_norm'] = df2['player_norm'].replace(
             "zam anguissa andre",
-            "franck zambo anguissa"
+            "zambo anguissa"
+        ) 
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "jonathan christian david",
+            "jonathan david"
         )
 
         return df1, df2

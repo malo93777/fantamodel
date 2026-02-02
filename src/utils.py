@@ -2520,7 +2520,6 @@ def compute_defensive_overperf_stats(df, team_col="team_name", ga_col="missed", 
 
     return df
 
-
 def adjust_sumxg_by_defensive_factor(sum_xg, def_factor):
     """
     Applica il fattore difensivo alla probabilità gol del giocatore.
@@ -3406,12 +3405,86 @@ def compute_consistency_adjustment(
 
     return float(adjustment)
 
+def compute_opponent_offense_bonus(
+    role,
+    opponent_xg_last5,
+    opponent_goal_last5,
+    matchday,
+    df_teams_curr_season,
+    league_baseline_xg=1.4,
+    league_baseline_goal=1.17,
+    multiplier=0.3,
+    clamp_min=-0.25,
+    clamp_max=0.25,
+):
+    """
+    Calcola BONUS/MALUS offensivo se la squadra avversaria
+    produce poco offensivamente (xG).
+
+    Parameters
+    ----------
+    opponent_xg_last5 : float
+        xG medio dell'avversario nelle ultime 5 giornate
+    matchday : int
+        Numero di giornate giocate
+    df_teams_curr_season : pd.DataFrame
+        Deve contenere la colonna 'xG_last5_mean'
+    league_baseline_xg : float
+        Baseline iniziale di campionato
+    multiplier : float
+        Peso del delta
+    clamp_min, clamp_max : float
+        Limiti di sicurezza (solo bonus)
+
+    Returns
+    -------
+    float
+        Bonus <>= 0
+    """
+    if role != "P":  #SE NON è PORTIERI USO XG
+
+        # ---- sicurezza ----
+        if opponent_xg_last5 is None or pd.isna(opponent_xg_last5):
+            return 0.0
+
+        # ---- STEP 1: media campionato ----
+        if matchday >= 15 and 'xG_last5_mean' in df_teams_curr_season.columns:
+            league_avg_xg = df_teams_curr_season['xG_last5_mean'].mean()
+        else:
+            league_avg_xg = league_baseline_xg
+
+        # ---- STEP 2: confronto avversario vs campionato ----
+        delta = league_avg_xg - opponent_xg_last5
+
+        bonus = delta * multiplier
+    else:
+        # ---- sicurezza ----
+        if opponent_goal_last5 is None or pd.isna(opponent_goal_last5):
+            return 0.0
+        
+        # ---- STEP 1: media campionato ----
+        if matchday >= 15 and 'scored' in df_teams_curr_season.columns:
+            league_avg_goal = df_teams_curr_season['scored'].mean()
+        else:
+            league_avg_goal = league_baseline_goal
+        # ---- STEP 2: confronto avversario vs campionato ----
+        delta = league_avg_goal - opponent_goal_last5
+
+        bonus = delta * multiplier
+
+    # ---- STEP 4: clamp ----
+    bonus = max(min(bonus, clamp_max), clamp_min)
+
+    return float(bonus)
 
 def compute_defensive_xga_bonus(
+    role,
     team_xga_last5,
+    team_goal_against_last5,
     matchday,
     df_teams_curr_season,
     league_baseline_xga=1.4,
+    league_baseline_ga=1.17,
     multiplier=0.3,
     clamp_min=-0.25,
     clamp_max=0.25
@@ -3440,19 +3513,33 @@ def compute_defensive_xga_bonus(
     float
         Bonus (>0) o malus (<0)
     """
+    if role != "P":  #SE NON è PORTIERI USO XG
 
-    # ---- sicurezza ----
-    if team_xga_last5 is None or pd.isna(team_xga_last5):
-        return 0.0
+        # ---- sicurezza ----
+        if team_xga_last5 is None or pd.isna(team_xga_last5):
+            return 0.0
 
-    # ---- STEP 1: media campionato ----
-    if matchday > 10 and 'xGA_last5_mean' in df_teams_curr_season.columns:
-        league_avg_xga = df_teams_curr_season['xGA_last5_mean'].mean()
+        # ---- STEP 1: media campionato ----
+        if matchday >= 15 and 'xGA_last5_mean' in df_teams_curr_season.columns:
+            league_avg_xga = df_teams_curr_season['xGA_last5_mean'].mean()
+        else:
+            league_avg_xga = league_baseline_xga
+
+        # ---- STEP 2: confronto squadra vs campionato ----
+        delta = league_avg_xga - team_xga_last5
     else:
-        league_avg_xga = league_baseline_xga
+        # ---- sicurezza ----
+        if team_goal_against_last5 is None or pd.isna(team_goal_against_last5):
+            return 0.0
+        
+        # ---- STEP 1: media campionato ----
+        if matchday >= 15 and 'missed' in df_teams_curr_season.columns:
+            league_avg_ga = df_teams_curr_season['missed'].mean()
+        else:
+            league_avg_ga = league_baseline_ga
 
-    # ---- STEP 2: confronto squadra vs campionato ----
-    delta = league_avg_xga - team_xga_last5
+        # ---- STEP 2: confronto squadra vs campionato ----
+        delta = league_avg_ga - team_goal_against_last5
 
     # ---- STEP 3: traduzione in bonus/malus ----
     bonus = delta * multiplier
@@ -3461,6 +3548,84 @@ def compute_defensive_xga_bonus(
     bonus = max(min(bonus, clamp_max), clamp_min)
 
     return float(bonus)
+
+def compute_clean_sheet(
+    df_team,
+    opponent_xg_last5=None,
+    opponent_goal_last5=None,
+    baseline_ga=1.17,
+    baseline_xg=1.4,
+    weight_def=0.6,
+    weight_opp=0.4,
+    multiplier=0.3,
+    clamp_min=-0.3,
+    clamp_max=0.3,
+):
+    """
+    Bonus/malus difensivo (GK / difesa) che combina:
+    - forma difensiva squadra (gol subiti)
+    - forza offensiva avversaria (xG o gol)
+
+    Returns
+    -------
+    dict
+        {
+            mean_ga_last5,
+            clean_sheet_prob,
+            bonus
+        }
+    """
+
+    if df_team is None or df_team.empty or "missed" not in df_team.columns:
+        return {
+            "mean_ga_last5": None,
+            "clean_sheet_prob": None,
+            "bonus": 0.0
+        }
+
+    # --- ultime 5 ---
+    last5 = df_team.tail(5)
+    if len(last5) < 3:
+        return {
+            "mean_ga_last5": None,
+            "clean_sheet_prob": None,
+            "bonus": 0.0
+        }
+
+    # ===============================
+    # 1️⃣ DIFESA SQUADRA
+    # ===============================
+    mean_ga = last5["missed"].mean()
+    clean_sheet_prob = (last5["missed"] == 0).sum() / len(last5)
+
+    delta_def = baseline_ga - mean_ga
+    score_def = delta_def * weight_def
+
+    # ===============================
+    # 2️⃣ ATTACCO AVVERSARIO
+    # ===============================
+    score_opp = 0.0
+
+    if opponent_xg_last5 is not None and not pd.isna(opponent_xg_last5):
+        delta_opp = baseline_xg - opponent_xg_last5
+        score_opp = delta_opp * weight_opp
+
+    elif opponent_goal_last5 is not None and not pd.isna(opponent_goal_last5):
+        delta_opp = baseline_ga - opponent_goal_last5
+        score_opp = delta_opp * weight_opp
+
+    # ===============================
+    # 3️⃣ BONUS FINALE
+    # ===============================
+    bonus = (score_def + score_opp) * multiplier
+
+    bonus = max(min(bonus, clamp_max), clamp_min)
+
+    return {
+        "mean_ga_last5": float(mean_ga),
+        "clean_sheet_prob": float(clean_sheet_prob),
+        "bonus": float(bonus),
+    }
 
 def compute_ammonizioni_adjustment(player_df, role, max_malus=0.25, span=7):
     """
