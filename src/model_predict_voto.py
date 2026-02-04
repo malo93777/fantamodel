@@ -735,12 +735,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
 
-    if pipeline_gk is None:
-        ruoli = ['D', 'C', 'A']
+    #if pipeline_gk is None:
+        #ruoli = ['D', 'C', 'A']
         #ruoli = ['A']
-    if pipeline is None and  pipeline_gk is not None:
-        ruoli = ['P']
-    elif pipeline is not None and pipeline_gk is not None:
+    #if pipeline is None and  pipeline_gk is not None:
+        #ruoli = ['P']
+    if pipeline is not None and pipeline_gk is not None:
         ruoli = ['P','D', 'C', 'A']
         
 
