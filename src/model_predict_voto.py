@@ -382,13 +382,18 @@ def pred_voto_prod(
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
 
-        print(f"Schierability index: {index:.2f}")
+        if fanta_role == "C":
+            print("debug")
+        index_boost = utils.apply_fantarole_boost(index, fanta_role)
+
+        print(f"Schierability REAl index: {index:.2f}")
+        print(f"Schierability index BOOST: {index_boost:.2f}")
 
         ha_to_print = "casa" if h_a == "h" else "trasf."
 
         predictions.append({
         'Giocatore': player_full_name,
-        'Index': index,
+        'Index': index_boost,
         #'Squadra': team,
         'Avversario': opponent,
         'Campo': ha_to_print
@@ -526,13 +531,15 @@ def pred_voto_prod_gk(
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
 
-        print(f"Schierability index: {index:.2f}")
+        index_boost = utils.apply_fantarole_boost(index, fanta_role)
+
+        print(f"Schierability index: {index_boost:.2f}")
 
         ha_to_print = "casa" if h_a == "h" else "trasf."
 
         predictions.append({
         'Giocatore': player_full_name,
-        'Index': index,
+        'Index': index_boost,
         #'Squadra': team,
         'Avversario': opponent,
         'Campo': ha_to_print
@@ -730,9 +737,11 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
 
     if pipeline_gk is None:
         ruoli = ['D', 'C', 'A']
+    if pipeline is None and  pipeline_gk is not None:
+        ruoli = ['P']
     elif pipeline is not None and pipeline_gk is not None:
-        ruoli = ['P','D', 'C', 'A']
-    #ruoli = ['A']
+        #ruoli = ['P','D', 'C', 'A']
+        ruoli = ['A']
 
     risultati = {}
     
@@ -750,8 +759,6 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if "jonathan david" == player.lower():
-                print(f"debug {player}")
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
@@ -850,6 +857,7 @@ def main():
     else:
         #carica modello
         pipeline = utils.load_fv_model()
+        pipeline_gk = utils.load_fv_model_gk()
 
     if train_gk:
         pipeline = train_log_regression_GK(X_gk, y_gk)
@@ -884,7 +892,7 @@ def main():
         if train_gk:
             predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline, top_n=10)
         else:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline['fantavoto_model_gk'], top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline_gk['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()

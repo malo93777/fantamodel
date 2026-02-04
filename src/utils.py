@@ -3667,3 +3667,34 @@ def compute_ammonizioni_adjustment(player_df, role, max_malus=0.25, span=7):
     malus = min(0.0, malus)
     malus = max(-max_malus, malus)
     return malus
+
+def apply_fantarole_boost(index, fantarole, cap_max=99.9):
+    """
+    Applica un boost percentuale all'indice finale
+    in base al fantarole e clippa il risultato.
+
+    P : +20%
+    D : +15%
+    A,C : +10%
+    """
+
+    if index is None or np.isnan(index):
+        return None
+
+    boost_map = {
+        "P": 0.20,
+        "D": 0.09,
+        "A": 0.06,
+        "C": 0.03,
+    }
+
+    boost = boost_map.get(fantarole, 0.0)
+
+    # ---- BOOST ESPLICITO ----
+    increment = index * boost
+    boosted_index = index + increment
+
+    # ---- CLIP DI SICUREZZA ----
+    boosted_index = np.clip(boosted_index, 0.0, cap_max)
+
+    return float(round(boosted_index, 1))
