@@ -146,7 +146,7 @@ def main():
     args.gol = True
     args.assist = True
     args.voti = True
-    args.nextgames = False
+    args.nextgames = True
     # ==========================
     # ESECUZIONE
     # ==========================

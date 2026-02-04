@@ -3683,9 +3683,9 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
 
     boost_map = {
         "P": 0.20,
-        "D": 0.09,
-        "A": 0.06,
-        "C": 0.03,
+        "D": 0.07,
+        "A": 0.05,
+        "C": 0.02,
     }
 
     boost = boost_map.get(fantarole, 0.0)

@@ -573,6 +573,7 @@ class Preprocessor:
         df["player"] = df["player"].apply(utils.normalize_fn)
         df["player"] = df["player"].apply(self.remove_middle_name) #test
         all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
+        all_season_players["player_name"] = all_season_players["player_name"].apply(self.remove_middle_name)
 
         merged_df = df.merge(
             all_season_players,

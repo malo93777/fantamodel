@@ -737,11 +737,12 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
 
     if pipeline_gk is None:
         ruoli = ['D', 'C', 'A']
+        #ruoli = ['A']
     if pipeline is None and  pipeline_gk is not None:
         ruoli = ['P']
     elif pipeline is not None and pipeline_gk is not None:
-        #ruoli = ['P','D', 'C', 'A']
-        ruoli = ['A']
+        ruoli = ['P','D', 'C', 'A']
+        
 
     risultati = {}
     
