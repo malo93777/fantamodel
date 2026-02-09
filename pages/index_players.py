@@ -99,7 +99,16 @@ def main():
     # =====================================================
     # 🔹 Selezione giocatori e input
     # =====================================================
-    giocatori = st.multiselect("Seleziona giocatori", players_list)
+    players_list_display = [p.lower().title() for p in players_list]
+    player_display_to_raw = dict(zip(players_list_display, players_list))
+
+    giocatori_display = st.multiselect(
+        "Seleziona giocatori",
+        players_list_display
+    )
+
+    giocatori = [player_display_to_raw[p] for p in giocatori_display]
+
     input_data = []
 
     for player in giocatori:
@@ -188,7 +197,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    #top_ruolo = True 
+    top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
