@@ -3699,7 +3699,7 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
 
     return float(round(boosted_index, 1))
 
-def prepare_df_for_display(df, name_col="player"):
+def prepare_df_for_display(df, name_col="Giocatore"):
     df = df.copy()
 
     # Nome Cognome con iniziali maiuscole
