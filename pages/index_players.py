@@ -213,30 +213,31 @@ def main():
                 if 'P' in results:
                     st.subheader("🧤 Portieri")
                     st.dataframe(
-                        results['P'].reset_index(drop=True),
+                        utils.prepare_df_for_display(results['P']),
                         use_container_width=True
                     )
 
                 if 'D' in results:
                     st.subheader("🛡 Difensori")
                     st.dataframe(
-                        results['D'].reset_index(drop=True),
+                        utils.prepare_df_for_display(results['D']),
                         use_container_width=True
                     )
 
                 if 'C' in results:
                     st.subheader("👟 Centrocampisti")
                     st.dataframe(
-                        results['C'].reset_index(drop=True),
+                        utils.prepare_df_for_display(results['C']),
                         use_container_width=True
                     )
 
                 if 'A' in results:
                     st.subheader("⚽ Attaccanti")
                     st.dataframe(
-                        results['A'].reset_index(drop=True),
+                        utils.prepare_df_for_display(results['A']),
                         use_container_width=True
                     )
+
 
 # =====================================================
 # 🔹 Run app
