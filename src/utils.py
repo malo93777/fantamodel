@@ -3698,3 +3698,16 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
     boosted_index = np.clip(boosted_index, 0.0, cap_max)
 
     return float(round(boosted_index, 1))
+
+def prepare_df_for_display(df, name_col="player"):
+    df = df.copy()
+
+    # Nome Cognome con iniziali maiuscole
+    if name_col in df.columns:
+        df[name_col] = df[name_col].astype(str).str.title()
+
+    # Index che parte da 1
+    df = df.reset_index(drop=True)
+    df.index = df.index + 1
+
+    return df
