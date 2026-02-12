@@ -111,7 +111,7 @@ def main():
 
     input_data = []
 
-    for player in giocatori:
+    for player in giocatori_display:
         col1, col2, col3 = st.columns([3,3,2])
         with col1:
             default_team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""

@@ -3349,7 +3349,7 @@ def compute_consistency_adjustment(
     recent_n=5,
     season_n=10,
     weight_recent=0.7,
-    max_adjustment=0.3,
+    max_adjustment=0.15,
     neutral_value=0.0
 ):
     """
@@ -3711,3 +3711,116 @@ def prepare_df_for_display(df, name_col="Giocatore"):
     df.index = df.index + 1
 
     return df
+
+def normalize_name_short(name: str):
+    """
+    Converte 'Rossi A.' -> ('rossi', 'a')
+    """
+    name = name.lower().replace(".", "").strip()
+    parts = name.split()
+
+    if len(parts) == 1:
+        return parts[0], ""
+
+    return parts[0], parts[1]
+
+import pandas as pd
+
+
+def remove_unavailable_players(
+    df_pred: pd.DataFrame,
+    df_unavailable: pd.DataFrame,
+    col_pred: str = "Giocatore",
+    debug: bool = True
+) -> pd.DataFrame:
+
+    df_pred = df_pred.copy()
+
+    # ---------- 1️⃣ Estrai cognome + iniziale (Nome Cognome) ----------
+    pred_info = []
+
+    for name in df_pred[col_pred]:
+        parts = str(name).strip().split()
+
+        if len(parts) > 1:
+            surname = parts[-1]                # ultima parola = cognome
+            first_name = " ".join(parts[:-1])  # resto = nome
+            initial = first_name[0]
+        else:
+            surname = parts[0]
+            initial = ""
+
+        pred_info.append((surname, initial))
+
+    surname_counts = pd.Series([s for s, _ in pred_info]).value_counts()
+
+    # ---------- 2️⃣ Costruisci set indisponibili (Cognome N.) ----------
+    unavailable_keys = set()
+
+    compound_particles = {
+        "de", "di", "da", "do", "dos", "del", "della", "dei",
+        "van", "von", "la", "le", "zo", "el", "al", "il"
+    }
+
+    for name in df_unavailable["Giocatore"]:
+
+        parts = str(name).replace(".", "").strip().split()
+
+        if not parts:
+            continue
+
+        parts_lower = [p.lower() for p in parts]
+
+        # ---- CASO COGNOME COMPOSTO ----
+        if len(parts_lower) >= 3 and parts_lower[0] in compound_particles:
+            surname = parts_lower[0] + " " + parts_lower[1]
+            initial = parts_lower[2]
+
+        # ---- CASO NORMALE ----
+        elif len(parts_lower) >= 2:
+            surname = parts_lower[0]
+            initial = parts_lower[1]
+
+        # ---- CASO SOLO COGNOME ----
+        else:
+            surname = parts_lower[0]
+            initial = ""
+
+        # Logica rimozione
+        if surname_counts.get(surname, 0) > 1:
+            unavailable_keys.add((surname, initial))
+        else:
+            unavailable_keys.add((surname, None))
+
+    # ---------- 3️⃣ Filtro + DEBUG ----------
+    keep_mask = []
+    excluded_players = []
+
+    for (surname, initial), original_name in zip(pred_info, df_pred[col_pred]):
+
+        if surname_counts.get(surname, 0) > 1:
+            key = (surname.lower(), initial.lower())
+            reason = "cognome duplicato → match su iniziale"
+        else:
+            key = (surname.lower(), None)
+            reason = "cognome unico → match diretto"
+
+        if key in unavailable_keys:
+            keep_mask.append(False)
+            excluded_players.append((original_name, reason))
+        else:
+            keep_mask.append(True)
+
+    df_filtered = df_pred[keep_mask].copy()
+
+    # ---------- DEBUG ----------
+    if debug:
+        print("\n=== DEBUG INFORTUNATI ===")
+        print(f"Totale esclusi: {len(excluded_players)}\n")
+
+        for name, reason in excluded_players:
+            print(f"Escluso: {name}  |  Motivo: {reason}")
+
+        print("=========================\n")
+
+    return df_filtered

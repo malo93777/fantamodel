@@ -559,21 +559,23 @@ class Preprocessor:
             .reset_index()
         )
 
-        if is_SerieA:
-            # Assegna lega e filtra Serie A
-            df["league"] = df["h_team"].apply(self.assign_league)
-            df = df[df["league"] == "Serie A"]     
-
-        # Ordino cronologicamente
-        df = df.sort_values(["player", "date"])
+        df = filter_current_serie_a_players(df, self.assign_league)
 
         all_season_players = pd.read_csv(df_to_merge_path)
 
         # Normalizzazione nomi
         df["player"] = df["player"].apply(utils.normalize_fn)
         df["player"] = df["player"].apply(self.remove_middle_name) #test
+        df['player'] = df['player'].replace(    #PATCH ANGUISSA
+            "franck zambo",
+            "zambo anguissa"
+        ) 
         all_season_players["player_name"] = all_season_players["player_name"].apply(utils.normalize_fn)
         all_season_players["player_name"] = all_season_players["player_name"].apply(self.remove_middle_name)
+        all_season_players['player_name'] = all_season_players['player_name'].replace( #PATCH ANGUISSA
+            "franck zambo",
+            "zambo anguissa"
+        )
 
         merged_df = df.merge(
             all_season_players,
@@ -658,11 +660,7 @@ class Preprocessor:
         )
 
         # Assegna lega
-        df["league"] = df["h_team"].apply(self.assign_league)
-        df = df[df["league"] == "Serie A"]
-
-        # Ordino cronologicamente
-        df = df.sort_values(["player", "date"])
+        df = filter_current_serie_a_players(df, self.assign_league)
         
         all_season_players = pd.read_csv(df_to_merge_path)
 
@@ -976,7 +974,7 @@ class Preprocessor:
         # Assegna lega e filtra SOLO Serie A
         #df1["league"] = df1["h_team"].apply(self.assign_league)
         #df1 = df1[df1["league"] == "Serie A"]
-        
+                
         df1 = build_partita_column(df1, normalize_team_name=utils.normalize_team_name)
 
         # Normalizzazione nomi, rimozione secondi nomi nel df1 raw_data (es.jonatan CRISTIAN david), gestione cognomi composti df voti
@@ -1002,7 +1000,7 @@ class Preprocessor:
 
         #**** PRIMO TENTATIVO DI ACCORPAMENTO ****
         for (player, season), group in df1.groupby(['player_norm', 'season']):
-            if player == "niclas fullkrug":
+            if player == "benjamin pavard":
                 print("debug")
 
             group_sorted = group.sort_values('date')
@@ -1061,6 +1059,8 @@ class Preprocessor:
             on=['player_norm', 'date'],
             how='left'
         )
+
+        df1 = filter_current_serie_a_players(df1, self.assign_league)
 
         # Rimuovi colonna temporanea
         #df1 = df1.drop(columns=['player_norm'])
@@ -1330,6 +1330,10 @@ class Preprocessor:
         df2['player_norm'] = df2['player_norm'].replace(
             "zam anguissa andre",
             "zambo anguissa"
+        )
+        df1['player_norm'] = df1['player_norm'].replace(
+            "franck zambo",
+            "zambo anguissa"
         ) 
 
         df2['player_norm'] = df2['player_norm'].replace(
@@ -1585,5 +1589,66 @@ def build_partita_column(
         + " - " +
         df[a_col].astype(str).str.strip()
     )
+
+    return df
+
+def filter_current_serie_a_players(
+    df: pd.DataFrame,
+    assign_league_func,
+    debug: bool = True
+) -> pd.DataFrame:
+    """
+    Rimuove completamente i giocatori la cui ultima partita
+    non è stata giocata in Serie A.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset con almeno colonne: ['player', 'date', 'h_team']
+    assign_league_func : function
+        Funzione che prende h_team e restituisce la lega
+    debug : bool
+        Se True stampa informazioni sui giocatori rimossi
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataset filtrato e ordinato per player/date
+    """
+
+    df = df.copy()
+
+    # 1️⃣ Assegna lega
+    df["league"] = df["h_team"].apply(assign_league_func)
+
+    # 2️⃣ Trova ultima partita per ogni player
+    idx_last = df.groupby("player")["date"].idxmax()
+    last_rows = df.loc[idx_last]
+
+    # 3️⃣ Individua giocatori trasferiti
+    players_abroad = last_rows.loc[
+        last_rows["league"] != "Serie A",
+        "player"
+    ].unique()
+
+    # 4️⃣ Debug
+    if debug:
+        if len(players_abroad) > 0:
+            print("\n==============================")
+            print(f"❌ Rimossi {len(players_abroad)} giocatori trasferiti all’estero:")
+            for p in sorted(players_abroad):
+                print(f"   - {p}")
+            print("==============================\n")
+        else:
+            print("✅ Nessun giocatore trasferito all’estero rilevato.\n")
+
+    # 5️⃣ Rimuovi completamente questi giocatori
+    df = df[~df["player"].isin(players_abroad)]
+
+    # 6️⃣ Mantieni solo Serie A
+    df = df[df["league"] == "Serie A"]
+
+    # 7️⃣ Ordinamento finale
+    df = df.sort_values(["player", "date"])
 
     return df

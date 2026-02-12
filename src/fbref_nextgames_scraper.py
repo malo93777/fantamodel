@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 from datetime import datetime, timezone
-
+import config
 
 class NextGamesScraper:
     def __init__(self):
@@ -23,7 +23,7 @@ class NextGamesScraper:
             status = m.get("status", {})
 
             # solo partite NON finite (future)
-            if status.get("finished") is True:
+            if status.get("finished") is True and status.get("round") != config.NEXT_GIORNATA:
                 continue
 
             utc_time = status.get("utcTime")
@@ -49,10 +49,8 @@ class NextGamesScraper:
             return df
 
         # 🔑 prossima giornata reale
-        next_round = df["round"].min()
-
         next_matchday = (
-            df[df["round"] == next_round]
+            df[df["round"] == config.NEXT_GIORNATA]
             .sort_values(["date", "time"])
             .reset_index(drop=True)
         )
