@@ -229,8 +229,7 @@ def pred_voto_prod(
     predictions = []
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
-        if "jonathan" in player.lower():
-            print(f"debug {player}")
+
         player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
             continue
@@ -327,8 +326,8 @@ def pred_voto_prod(
         )
 
         if goal_proba is None:
-            print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.")
-            goal_proba = 0.0
+            print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.1")
+            goal_proba = 0.1
 
         goal_impact = utils.compute_feature_role_impact(
             player_df,
@@ -347,8 +346,8 @@ def pred_voto_prod(
                 df_teams_curr_season, h_a
         )
         if assist_proba is None:
-            print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.")
-            assist_proba = 0.0
+            print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.1")
+            assist_proba = 0.1
 
         assist_impact = utils.compute_feature_role_impact(
             player_df,
@@ -540,12 +539,28 @@ def pred_voto_prod_gk(
         predictions.append({
         'Giocatore': player_full_name,
         'Index': index_boost,
-        #'Squadra': team,
+        'Squadra': team,
         'Avversario': opponent,
         'Campo': ha_to_print
         }) 
 
-    return pd.DataFrame(predictions).reset_index(drop=True)
+    df_players = pd.DataFrame(predictions).reset_index(drop=True)
+
+    df_teams = (
+        df_players
+        .groupby("Squadra", as_index=False)
+        .agg({
+            "Index": "mean",
+            "Avversario": "first",
+            "Campo": "first"
+        })
+        .rename(columns={"Squadra": "Porta Squadra"})
+    )
+
+    # arrotonda index
+    df_teams["Index"] = df_teams["Index"].round(1)
+
+    return df_teams
 
 def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     """Allena un modello di regressione lineare e stampa MAE e MSE"""
@@ -706,7 +721,7 @@ def train_log_regression_GK(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
-def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None, top_n=10):
+def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=None, top_n=10):
     """
     Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
     e stampa una tabella ordinata per index con evidenziazione dei top_n.
@@ -724,6 +739,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
     next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
     next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
 
+    #normalizzo nomi inofrtuni
+    df_infortunati["Giocatore"] = df_infortunati["Giocatore"].apply(utils.normalize_fn)
+
     #carico tutti i df per le probabilità gol/assist e dati squadre
     df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
@@ -734,15 +752,13 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
     model_goal = utils.load_models() 
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
-
-    #if pipeline_gk is None:
-        #ruoli = ['D', 'C', 'A']
-        #ruoli = ['A']
-    #if pipeline is None and  pipeline_gk is not None:
-        #ruoli = ['P']
+    #ruoli = ['P','D', 'C', 'A']
+    if pipeline_gk is None:
+        ruoli = ['D', 'C', 'A']
+    if pipeline is None and  pipeline_gk is not None:
+         ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:
-        ruoli = ['P','D', 'C', 'A']
-        
+        ruoli = ['P','D', 'C', 'A']    
 
     risultati = {}
     
@@ -760,6 +776,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
+            if "zambo" in player:
+                print("debug") 
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
@@ -797,7 +815,24 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
                                     model_goal, model_assist, model_xg, 
                                     pipeline)
         
-        df_pred_sorted = df_pred.sort_values('Index', ascending=False).reset_index(drop=True)
+        is_porta = False
+
+        if "Porta Squadra" not in df_pred:
+            is_porta = False
+            df_pred_clean = utils.remove_unavailable_players(df_pred, df_infortunati)
+        else:
+            is_porta = True
+
+        if is_porta == False:
+            df_pred_sorted = df_pred_clean.sort_values(
+                'Index',
+                ascending=False
+            ).reset_index(drop=True)
+        else:
+             df_pred_sorted = df_pred.sort_values(
+                'Index',
+                ascending=False
+            ).reset_index(drop=True)
 
         df_pred_50 = df_pred_sorted.head(50)  # limita a top 50 per ruolo
         
@@ -811,7 +846,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=None
         df_pred_50['Top'] = [add_emoji(i) for i in df_pred_50.index]
         
         # stampa la tabella
-        display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
+        if "Porta Squadra" in df_pred_50.columns:
+            display_cols = ['Top', 'Porta Squadra', 'Avversario', 'Campo', 'Index']
+        else:
+            display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
         print(df_pred_50[display_cols].to_string(index=False))
         risultati[ruolo] = df_pred_50
 
@@ -823,17 +861,17 @@ def main():
     train_gk = False
 
     test = True
-    test_gk = False
+    test_gk = True
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
-    df_fanta_roles_path = config.DATASET_DATA_DIR / config.FANTA_RUOLI_FILE
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
     df_curr_teams_path = config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE
+    df_infortunati_path =  config.DATASET_DATA_DIR / config.INFORTUNATI_FILE
 
     df_voti = load_data(csv_path)
     next_games_df = load_data(next_games_path)
-
     df_curr_teams = load_data(df_curr_teams_path)
+    df_infortunati = load_data(df_infortunati_path)
 
     X, y = preprocess_data(df_voti)
 
@@ -884,16 +922,16 @@ def main():
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
 
-        predizioni_per_ruolo(df_voti, next_games_df, pipeline=pipeline['fantavoto_model'], pipeline_gk=None, top_n=10)
+        predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=pipeline['fantavoto_model'], pipeline_gk=None, top_n=10)
 
     if test_gk:
 
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
         if train_gk:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline, top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline, top_n=10)
         else:
-            predizioni_per_ruolo(df_voti, next_games_df, pipeline=None, pipeline_gk=pipeline_gk['fantavoto_model_gk'], top_n=10)
+            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline_gk['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()

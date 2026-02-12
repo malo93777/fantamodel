@@ -3,6 +3,7 @@ import pandas as pd
 from scraper import Scraper
 from voti_scraper import VotiScraper
 from fbref_nextgames_scraper import NextGamesScraper
+from pianeta_fanta_infortuni_scraper import UnavailablePlayersScraper
 import config
 import argparse
 
@@ -22,7 +23,7 @@ def get_goals_data():
 
     # 1. Scraping
     scraper = Scraper()
-    scraper.run_scraper()
+    #scraper.run_scraper()
 
     # 2. Preprocessa dataset tiri
     goals_df = preproc.preproc_goals_dataset(
@@ -132,6 +133,24 @@ def get_next_games_data():
     #to csv
     games_df.to_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE, index=False)
 
+def get_infortunati():
+
+    print("Starting scraping infortunati...")
+
+    scraper = UnavailablePlayersScraper()
+    players_out_df = scraper.run()
+    #patch anguissa
+    players_out_df['Giocatore'] = players_out_df['Giocatore'].replace(
+            "Anguissa A.",
+            "Anguissa Z."
+        ) 
+
+    print("Infortunati dataset:")
+    print(players_out_df.head())
+
+    #to csv
+    players_out_df.to_csv(config.DATASET_DATA_DIR / config.INFORTUNATI_FILE, index=False)
+
 def main():
 
     # ==========================
@@ -142,20 +161,24 @@ def main():
     parser.add_argument("--assist", action="store_true", help="Scraping e Prepocessing per il modello degli assist")
     parser.add_argument("--voti", action="store_true", help="Scraping e Prepocessing per il dataset dei voti")
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
+    parser.add_argument("--infortunati", action="store_true", help="Scraping dei giocatori infortunati")
     args = parser.parse_args()
-    args.gol = True
-    args.assist = True
+    args.gol = False
+    args.assist = False
     args.voti = True
-    args.nextgames = True
+    args.nextgames = False
+    args.infortunati = False
     # ==========================
     # ESECUZIONE
     # ==========================
-    if args.gol and args.assist and args.voti and args.nextgames:
+        
+    if args.gol and args.assist and args.voti and args.nextgames and args.infortunati:
         print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI che next games...")
         get_goals_data()
         get_assists_data()
         get_voti_data()
         get_next_games_data()
+        get_infortunati()
     elif args.gol and args.assist and args.voti and args.nextgames:
         print("⚙️  Scraping e Prepocessing sia di GOL che ASSIST e VOTI ...")
         get_goals_data()
@@ -177,6 +200,9 @@ def main():
     elif args.nextgames:
         print("📅  Scraping solo Next Games...")
         get_next_games_data()
+    elif args.infortunati:
+        print("📅  Scraping solo infortunati...")
+        get_infortunati()
     else:
         print("❗ Nessun argomento specificato. Usa --gol e/o --assist")
 
