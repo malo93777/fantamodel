@@ -156,7 +156,7 @@ def main():
             df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
             df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
             df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
-
+            df_infortunati = pd.read_csv(config.DATASET_DATA_DIR / config.INFORTUNATI_FILE)
             # --- Carica dataset e modelli 
             model_goal = utils.load_models() 
             model_assist = utils.load_models_assist() 
@@ -213,6 +213,7 @@ def main():
                     results = model_predict_voto.predizioni_per_ruolo(
                     df_voti,
                     next_games_df,
+                    df_infortunati,
                     pipeline=model['fantavoto_model'],
                     pipeline_gk=model_gk['fantavoto_model_gk'],
                     top_n=10
