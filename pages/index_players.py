@@ -124,39 +124,7 @@ def main():
                 key=f"team_{player}"
             )
         with col2:
-            # 🔎 Recupera ultima squadra reale dal dataset
-            team = utils.get_latest_team(df_orig_goal, player, "player_team")
-
-            if team is None or pd.isna(team):
-                print(f"Player {player} è andato all'estero, squadra non trovata")
-                opponent = ""
-                h_a = ""
-                st.write("Avversario: squadra sconosciuta")
-            else:
-                    team = utils.normalize_team_name(team)
-
-                    # 🔎 Cerca la prossima partita della squadra
-                    next_game = next_games_df[
-                        (next_games_df['home'] == team) |
-                        (next_games_df['away'] == team)
-                    ]
-
-                    if not next_game.empty:
-                        row = next_game.iloc[0]
-
-                        if team == row['home']:
-                            h_a = 'h'
-                            opponent = row['away']
-                        else:
-                            h_a = 'a'
-                            opponent = row['home']
-
-                        st.write(f"Avversario: {opponent} ({'Casa' if h_a == 'h' else 'Trasferta'})")
-
-                    else:
-                        opponent = ""
-                        h_a = ""
-                        st.write("Avversario: non trovato")
+            avversario = st.selectbox(f"Avversario di {player}", opponents_list, key=f"opp_{player}")
         if num_giornate > 15:
             with col3:
                 ha_label = st.selectbox(f"Casa/Trasferta {player}", ["Casa", "Trasferta"], key=f"ha_{player}")
@@ -164,7 +132,7 @@ def main():
         else:
             ha = None
 
-        input_data.append((player, squadra, opponent, ha))
+        input_data.append((player, squadra, avversario, ha))
 
     # =====================================================
     # 🔹 Pulsanti affiancati
@@ -209,7 +177,7 @@ def main():
             def format_player(val):
                 return f"<b>{str(val).title()}</b>"
             def format_index(val):
-                return f"<b>{val}</b>"
+                return f"<b>{val:.1f}</b>"
 
             styled = df_pred.style.format({
                 'player': format_player,
