@@ -244,7 +244,7 @@ def main():
                 if 'P' in results:
                     st.subheader("🧤 Portieri")
                     st.dataframe(
-                        utils.prepare_df_for_display(results['P'], name_col="Porta Squadra"),
+                        utils.prepare_df_for_display(results['P']),
                         use_container_width=True
                     )
 
