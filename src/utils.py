@@ -3724,8 +3724,6 @@ def normalize_name_short(name: str):
 
     return parts[0], parts[1]
 
-import pandas as pd
-
 
 def remove_unavailable_players(
     df_pred: pd.DataFrame,
@@ -3736,18 +3734,34 @@ def remove_unavailable_players(
 
     df_pred = df_pred.copy()
 
-    # ---------- 1️⃣ Estrai cognome + iniziale (Nome Cognome) ----------
+    # ---------- 1️⃣ Estrai cognome + iniziale (gestione cognomi composti) ----------
     pred_info = []
+    compound_particles = config.PREFIXES  # es: ["de", "di", "da", "van", "del", ...]
 
     for name in df_pred[col_pred]:
         parts = str(name).strip().split()
 
-        if len(parts) > 1:
-            surname = parts[-1]                # ultima parola = cognome
-            first_name = " ".join(parts[:-1])  # resto = nome
-            initial = first_name[0]
+        if not parts:
+            pred_info.append(("", ""))
+            continue
+
+        parts_lower = [p.lower() for p in parts]
+
+        # ---- COGNOME COMPOSTO (Nome De Cognome) ----
+        if len(parts_lower) >= 3 and parts_lower[-2] in compound_particles:
+            surname = parts_lower[-2] + " " + parts_lower[-1]
+            first_name = " ".join(parts_lower[:-2])
+            initial = first_name[0] if first_name else ""
+
+        # ---- CASO NORMALE ----
+        elif len(parts_lower) >= 2:
+            surname = parts_lower[-1]
+            first_name = " ".join(parts_lower[:-1])
+            initial = first_name[0] if first_name else ""
+
+        # ---- SOLO COGNOME ----
         else:
-            surname = parts[0]
+            surname = parts_lower[0]
             initial = ""
 
         pred_info.append((surname, initial))
@@ -3757,13 +3771,11 @@ def remove_unavailable_players(
     # ---------- 2️⃣ Costruisci set indisponibili (Cognome N.) ----------
     unavailable_keys = set()
 
-    compound_particles = {
-        "de", "di", "da", "do", "dos", "del", "della", "dei",
-        "van", "von", "la", "le", "zo", "el", "al", "il"
-    }
+    compound_particles = config.PREFIXES
 
     for name in df_unavailable["Giocatore"]:
-
+        if "lorenzo" in name:
+            print("debug")
         parts = str(name).replace(".", "").strip().split()
 
         if not parts:
@@ -3797,7 +3809,7 @@ def remove_unavailable_players(
     excluded_players = []
 
     for (surname, initial), original_name in zip(pred_info, df_pred[col_pred]):
-
+        
         if surname_counts.get(surname, 0) > 1:
             key = (surname.lower(), initial.lower())
             reason = "cognome duplicato → match su iniziale"
