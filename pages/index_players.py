@@ -78,10 +78,12 @@ def main():
     # =====================================================
     try:
         df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
+        df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
         df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
         df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
         df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
-        next_games_df = pd.read_csv(config.DATASET_DATA_DIR / "next_games.csv")  # Assumendo il path corretto
+        next_games_df = pd.read_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE)  # Assumendo il path corretto
+        df_infortunati = pd.read_csv(config.DATASET_DATA_DIR / config.INFORTUNATI_FILE)
 
         # Liste per dropdown
         players_list = sorted(df_orig_goal["player"].dropna().unique().tolist())
@@ -150,13 +152,8 @@ def main():
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
-        else:
-             #carico tutti i df per le probabilità gol/assist e dati squadre
-            df_orig_goal = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
-            df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
-            df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
-            df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
-            df_infortunati = pd.read_csv(config.DATASET_DATA_DIR / config.INFORTUNATI_FILE)
+        else:         
+            
             # --- Carica dataset e modelli 
             model_goal = utils.load_models() 
             model_assist = utils.load_models_assist() 
