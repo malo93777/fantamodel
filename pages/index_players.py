@@ -164,7 +164,7 @@ def main():
         else:
             ha = None
 
-        input_data.append((player, squadra, avversario, ha))
+        input_data.append((player, squadra, opponent, ha))
 
     # =====================================================
     # 🔹 Pulsanti affiancati
