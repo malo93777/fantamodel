@@ -820,6 +820,10 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
         if "Porta Squadra" not in df_pred:
             is_porta = False
             df_pred_clean = utils.remove_unavailable_players(df_pred, df_infortunati)
+            df_pred_clean = df_pred_clean[
+            ~df_pred_clean["Giocatore"].isin(config.GONE_PLAYERS_NOT_TOP5_LEAGUES)
+        ]
+
         else:
             is_porta = True
 
