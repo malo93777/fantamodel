@@ -3699,12 +3699,12 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
 
     return float(round(boosted_index, 1))
 
-def prepare_df_for_display(df, name_col="Giocatore"):
+def prepare_df_for_display(df):
     df = df.copy()
 
-    # Nome Cognome con iniziali maiuscole
-    if name_col in df.columns:
-        df[name_col] = df[name_col].astype(str).str.title()
+    # 🔠 Metti iniziali maiuscole in tutte le colonne stringa
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].astype(str).str.title()
 
     # Index che parte da 1
     df = df.reset_index(drop=True)
