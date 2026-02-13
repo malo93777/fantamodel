@@ -29,6 +29,7 @@ VOTI_DATA_FILE = "voti_fantagiaveno_raw.csv"
 PROD_DATA_FILE_VOTI = "PROD_voti_2025_preproc_Serie_A.csv"
 FANTA_RUOLI_FILE = "ruoli_fanta_25.csv"
 NEXT_GAMES_FILE = "next_games.csv"
+INFORTUNATI_FILE = "infortunati.csv"
 
 # Modelli
 SCALER = "scaler.pkl"
@@ -43,6 +44,11 @@ FV_MODEL_GK = "fantavoto_model_gk.pkl"
 
 # Costanti varie
 CURRENT_SEASON = 2025
+
+#
+
+NEXT_GIORNATA = 25
+
 BOOST_FACTORS = {
     "sum_xG": 1.0,
     "xG_last5": 1.0,
@@ -75,7 +81,7 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "lecce","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
@@ -278,7 +284,8 @@ manual_roles = {
     "romano floriani mussolini": "C",
     "josep martinez":"P",
     "filippo terracciano":"D",
-    "pietro terracciano": "P"
+    "pietro terracciano": "P",
+    "alberto moreno": "D"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
