@@ -171,22 +171,45 @@ def main():
                 model_goal, model_assist, model_xg,model['fantavoto_model']
             )
             df_pred = df_pred.reset_index(drop=True)
-            df_pred = utils.prepare_df_for_display(df_pred)
+            df_pred = utils.prepare_df_for_display(df_pred).copy()
 
-            # Formattazione
+            # 🔢 Assicuriamoci che siano numerici e arrotondiamo
+            if 'fantavoto_pred' in df_pred.columns:
+                df_pred['fantavoto_pred'] = pd.to_numeric(
+                    df_pred['fantavoto_pred'], errors='coerce'
+                ).round(1)
+
+            if 'Index' in df_pred.columns:
+                df_pred['Index'] = pd.to_numeric(
+                    df_pred['Index'], errors='coerce'
+                ).round(1)
+
+            # 🎨 Formattazione
             def format_player(val):
                 return f"<b>{str(val).title()}</b>"
-            def format_index(val):
+
+            def format_number(val):
+                if pd.isna(val):
+                    return ""
                 return f"<b>{val:.1f}</b>"
 
-            styled = df_pred.style.format({
+            format_dict = {
                 'player': format_player,
-                'fantavoto_pred': format_index,
-                'index': format_index if 'index' in df_pred.columns else lambda x: x
-            }).hide(axis='index')
+                'fantavoto_pred': format_number,
+            }
+
+            if 'Index' in df_pred.columns:
+                format_dict['Index'] = format_number
+
+            styled = (
+                df_pred.style
+                .format(format_dict)
+                .hide(axis='index')
+            )
 
             html = styled.to_html(escape=False)
             html = html.replace('<th ', '<th style="font-weight:bold;" ')
+
             st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
 
