@@ -295,9 +295,9 @@ def pred_voto_prod(
 
             voto_base += bonus_defensive_adj
 
-        # *************  AGGIUSTAMENTI CONSISTENZA PER DIFENSORI E MEDIANI **************
+        # *************  AGGIUSTAMENTI CONSISTENZA PER DIFENSORI **************
 
-        if fanta_role == 'D' or (fanta_role == 'C' and real_role == 'M'):
+        if fanta_role == 'D':
             consistency_adj = utils.compute_consistency_adjustment(player_df)
             voto_base += adj_opp_team + adj_home_away + consistency_adj
         else:
