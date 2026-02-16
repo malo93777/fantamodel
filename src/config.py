@@ -285,7 +285,8 @@ manual_roles = {
     "josep martinez":"P",
     "filippo terracciano":"D",
     "pietro terracciano": "P",
-    "alberto moreno": "D"
+    "alberto moreno": "D",
+    "davide zappacosta": "D"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}

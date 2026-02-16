@@ -146,8 +146,8 @@ def main():
     # =====================================================
     # 🔹 Logica Calcola Indice
     # =====================================================
-    submitted=True
-    giocatori = "berardi"
+    #submitted=True
+    #giocatori = "berardi"
     input_data.append((giocatori, "sassuolo","inter","h"))
     if submitted:
         if not giocatori:
