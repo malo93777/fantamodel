@@ -202,7 +202,7 @@ manual_roles = {
     "kamaldeen sulemana": "A",
     "medon berisha": "C",
     "vitinha": "A",
-    "francesco pio esposito": "A",
+    "pio esposito": "A",
     "alberto moreno": "A",
     "pedro": "A",
     "duvan zapata": "A",

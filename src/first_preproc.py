@@ -1341,6 +1341,16 @@ class Preprocessor:
             "jonathan david"
         )
 
+        df1['player_norm'] = df1['player_norm'].replace(
+            "francesco esposito",
+            "pio esposito"
+        ) 
+
+        df2['player_norm'] = df2['player_norm'].replace(
+            "francesco esposito",
+            "pio esposito"
+        )
+
         return df1, df2
 
     def add_fanta_role(self, df_main, df_fanta_roles, debug=True):
