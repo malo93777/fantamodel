@@ -148,7 +148,7 @@ def main():
     # =====================================================
     #submitted=True
     #giocatori = "francesco esposito"
-    input_data.append((giocatori, "sassuolo","inter","h"))
+    #input_data.append((giocatori, "sassuolo","inter","h"))
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
