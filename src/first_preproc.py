@@ -984,7 +984,7 @@ class Preprocessor:
         #Normalizzazione nomi partite df2
         df2["partita"] = df2["partita"].apply(utils.normalize_match_string)
         
-        df1,df2 = self.fix_eccezioni(df1,df2)
+        df1,df2,df3 = self.fix_eccezioni(df1,df2, df3)
 
         columns_to_add = [
             'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
@@ -1305,7 +1305,7 @@ class Preprocessor:
 
         return True
     
-    def fix_eccezioni(self,df1, df2):
+    def fix_eccezioni(self,df1, df2, df3):
         # 🔧 Fix nome Berat Djimsiti / Gjimshiti
         df2['player_norm'] = df2['player_norm'].replace(
             "berat djimsiti",
@@ -1351,7 +1351,12 @@ class Preprocessor:
             "pio esposito"
         )
 
-        return df1, df2
+        df3['player'] = df3['player'].replace(
+            "francesco esposito",
+            "pio esposito"
+        )
+
+        return df1, df2, df3
 
     def add_fanta_role(self, df_main, df_fanta_roles, debug=True):
 
