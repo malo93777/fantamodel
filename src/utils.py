@@ -3728,6 +3728,7 @@ def normalize_name_short(name: str):
 def remove_unavailable_players(
     df_pred: pd.DataFrame,
     df_unavailable: pd.DataFrame,
+    suspended: tuple,
     col_pred: str = "Giocatore",
     debug: bool = True
 ) -> pd.DataFrame:
@@ -3772,6 +3773,18 @@ def remove_unavailable_players(
     unavailable_keys = set()
 
     compound_particles = config.PREFIXES
+
+    # AGGIUNGO GLI SQUALIFICATI
+    suspended_players = [player for player, _ in suspended]
+
+    # crea un DataFrame solo con i nuovi giocatori
+    df_suspended_players = pd.DataFrame({"Giocatore": suspended_players})
+
+    # concatena al df_unavailable esistente
+    df_unavailable = pd.concat([df_unavailable, df_suspended_players], ignore_index=True)
+
+    # opzionale: rimuovere duplicati
+    #df_unavailable = df_unavailable.drop_duplicates(subset="Giocatore").reset_index(drop=True)
 
     for name in df_unavailable["Giocatore"]:
         if "lorenzo" in name:
@@ -3836,3 +3849,28 @@ def remove_unavailable_players(
         print("=========================\n")
 
     return df_filtered
+
+def get_suspended_players(
+        
+    path_squalificati: str
+) -> tuple:
+    """
+    Legge il file 'squalificati' che contiene una riga tipo:
+    'Nome (Team), Nome (Team), ...'
+    Se player + team matchano, lo rimuove dal df.
+    """
+
+    # 🔹 Leggi file come testo puro
+    with open(path_squalificati, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 🔍 Estrae coppie (Nome, Team)
+    matches = re.findall(r"([^,]+?)\s*\(([^)]+)\)", content)
+
+    # 🔹 Normalizza elenco squalificati
+    suspended = [
+        (name.lower().strip(), squad.lower().strip())
+        for name, squad in matches
+    ]
+
+    return suspended

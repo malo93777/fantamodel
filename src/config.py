@@ -30,6 +30,7 @@ PROD_DATA_FILE_VOTI = "PROD_voti_2025_preproc_Serie_A.csv"
 FANTA_RUOLI_FILE = "ruoli_fanta_25.csv"
 NEXT_GAMES_FILE = "next_games.csv"
 INFORTUNATI_FILE = "infortunati.csv"
+SQUALIFICATI_FILE = "squalificati.csv"
 
 # Modelli
 SCALER = "scaler.pkl"
@@ -47,7 +48,7 @@ CURRENT_SEASON = 2025
 
 #
 
-NEXT_GIORNATA = 25
+NEXT_GIORNATA = 26
 
 BOOST_FACTORS = {
     "sum_xG": 1.0,
@@ -286,9 +287,41 @@ manual_roles = {
     "filippo terracciano":"D",
     "pietro terracciano": "P",
     "alberto moreno": "D",
-    "davide zappacosta": "D"
+    "davide zappacosta": "D",
+    "davide frattesi":"C"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
 
-GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang"}
+GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko"}
+
+POSTPONED_TEAMS_2025 = {
+    16: {
+        "teams": {
+            "como", "milan", "inter", "lecce",
+            "napoli", "parma", "verona", "bologna"
+        },
+        "match_order": 20.5
+    },
+    24: {
+        "teams": {"milan", "como"},
+        "match_order": 25.5
+    }
+}
+
+POSTPONED_MATCHES = {
+        20.5: {
+            "como":     ("milan",   "como - milan"),
+            "milan":    ("como",    "como - milan"),
+            "inter":    ("lecce",   "inter - lecce"),
+            "lecce":    ("inter",   "inter - lecce"),
+            "napoli":   ("parma",   "napoli - parma"),
+            "parma":    ("napoli",  "napoli - parma"),
+            "verona":   ("bologna", "verona - bologna"),
+            "bologna":  ("verona",  "verona - bologna"),
+        },
+        25.5: {
+            "como":  ("milan", "milan - como"),
+            "milan": ("como",  "milan - como"),
+        }
+}

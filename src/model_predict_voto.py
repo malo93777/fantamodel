@@ -819,7 +819,8 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
 
         if "Porta Squadra" not in df_pred:
             is_porta = False
-            df_pred_clean = utils.remove_unavailable_players(df_pred, df_infortunati)
+            players_team_tuple = utils.get_suspended_players(config.DATASET_DATA_DIR / config.SQUALIFICATI_FILE)
+            df_pred_clean = utils.remove_unavailable_players(df_pred, df_infortunati, players_team_tuple)
             df_pred_clean = df_pred_clean[
             ~df_pred_clean["Giocatore"].isin(config.GONE_PLAYERS_NOT_TOP5_LEAGUES)
         ]
@@ -838,7 +839,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
                 ascending=False
             ).reset_index(drop=True)
 
-        df_pred_50 = df_pred_sorted.head(50)  # limita a top 50 per ruolo
+        df_pred_50 = df_pred_sorted.head(100)  # limita a top 50 per ruolo
         
         # evidenzia i top N
         def add_emoji(idx):

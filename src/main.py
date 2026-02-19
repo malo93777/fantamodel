@@ -102,7 +102,7 @@ def get_voti_data():
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    scraper.run()
+    #scraper.run()
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(
@@ -163,7 +163,7 @@ def main():
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     parser.add_argument("--infortunati", action="store_true", help="Scraping dei giocatori infortunati")
     args = parser.parse_args()
-    args.gol = True
+    args.gol = False
     args.assist = False
     args.voti = True
     args.nextgames = False

@@ -1015,7 +1015,7 @@ class Preprocessor:
                 config=config,
                 reconcile_fn=self.reconcile_df2_by_partita,
                 missing_players=missing_players,
-                debug_players={"niclas fullkrug"         
+                debug_players={"rafael leao"         
                 }
             )
 
@@ -1084,50 +1084,44 @@ class Preprocessor:
             mask_valid: pd.Series
         ):
             """
-            Sistema le partite virtuali rinviate (match_order = 20.5)
+            Sistema le partite virtuali rinviate (es. 20.5, 25.5)
             e aggiorna la maschera delle partite valide includendo
             la partita rinviata.
             """
+
             df = df.copy()
             mask_valid = mask_valid.copy()
 
-            postponed_matches = {
-                "como":     ("milan",   "como - milan"),
-                "milan":    ("como",    "como - milan"),
+            # 🔹 Tutti i recuperi mappati per match_order           
 
-                "inter":    ("lecce",   "inter - lecce"),
-                "lecce":    ("inter",   "inter - lecce"),
+            # 🔍 Loop su tutti i match_order da sistemare
+            for match_order_value, postponed_dict in config.POSTPONED_MATCHES.items():
 
-                "napoli":   ("parma",   "napoli - parma"),
-                "parma":    ("napoli",  "napoli - parma"),
+                mask_virtual = (
+                    (df["match_order"] == match_order_value) &
+                    (df["is_virtual_match"] == True) &
+                    (df["avversario"].astype(str).str.contains("to_define", case=False, na=False)) &
+                    (df["partita"].astype(str).str.contains("to_define", case=False, na=False))
+                )
 
-                "verona":   ("bologna", "verona - bologna"),
-                "bologna":  ("verona",  "verona - bologna"),
-            }
+                for idx, row in df[mask_virtual].iterrows():
+                    squadra = str(row["squadra"]).lower().strip()
 
-            mask_virtual = (
-                (df["match_order"] == 20.5) &
-                (df["is_virtual_match"] == True) &
-                (df["avversario"].astype(str).str.contains("to_define", case=False, na=False)) &
-                (df["partita"].astype(str).str.contains("to_define", case=False, na=False))
-            )
+                    if squadra in postponed_dict:
+                        avv, partita = postponed_dict[squadra]
 
-            for idx, row in df[mask_virtual].iterrows():
-                squadra = str(row["squadra"]).lower().strip()
+                        df.at[idx, "avversario"] = avv
+                        df.at[idx, "partita"] = partita
 
-                if squadra in postponed_matches:
-                    avv, partita = postponed_matches[squadra]
-
-                    df.at[idx, "avversario"] = avv
-                    df.at[idx, "partita"] = partita
-
-                    # AGGIUNTA ALLA MASCHERA
-                    mask_valid.loc[idx] = True
-
-                else:
-                    print(f"⚠️ Squadra non mappata per match virtuale: {squadra}")
+                        mask_valid.loc[idx] = True
+                    else:
+                        print(
+                            f"⚠️ Squadra non mappata per match_order "
+                            f"{match_order_value}: {squadra}"
+                        )
 
             return df, mask_valid
+
 
         # --- Normalizza squadre df1 ---
         h_norm = df1_player['h_team'].apply(
@@ -1219,57 +1213,13 @@ class Preprocessor:
         # ==========================
         df2_player["match_order"] = df2_player["giornata"].astype(float)
 
-        # ==========================
-        # 🛠 FIX giornata 16 (2025-2026)
-        # ==========================
-        if "2025-2026" in df2_player["stagione"].astype(str).iloc[0]:
-
-            POSTPONED_TEAMS_2025_16 = {
-                "como", "milan", "inter", "lecce", "napoli",
-                "parma", "verona", "bologna"
-            }
-
-            squadra_player = (
-                df2_player["squadra"]
-                .astype(str)
-                .str.lower()
-                .iloc[0]
-            )
-
-            if squadra_player in POSTPONED_TEAMS_2025_16 and 16 not in df2_player["giornata"].values:
-
-                base_row = df2_player.iloc[-1]
-
-                new_row = {
-                    "stagione": "2025-2026",
-                    "giornata": 16,
-                    "match_order": 20.5,
-                    "squadra": base_row["squadra"],
-                    "player": player,
-                    "player_norm": player,
-                    "voto_gds": 6,
-                    "fantavoto": 6,
-                    "gol": 0,
-                    "assist": 0,
-                    "ammonizioni": 0,
-                    "espulsioni": 0,
-                    "autogol": 0,
-                    "rig_segnati": 0,
-                    "rig_sbagliati": 0,
-                    "avversario":"to_define",
-                    "partita":"to_define",
-                    "is_virtual_match": True
-                }
-
-                df2_player = pd.concat(
-                    [df2_player, pd.DataFrame([new_row])],
-                    ignore_index=True
-                )
-
-        # ==========================
-        # 🔑 ordinamento corretto
-        # ==========================
-        df2_player = df2_player.sort_values("match_order")
+        df2_player = add_virtual_postponed_matches(
+            df2_player,
+            player,
+            config.POSTPONED_TEAMS_2025,
+            season="2025-2026",
+            debug=True
+        )
 
         # ==========================
         # 📊 confronto con df1
@@ -1667,3 +1617,99 @@ def filter_current_serie_a_players(
     df = df.sort_values(["player", "date"])
 
     return df
+
+def add_virtual_postponed_matches(
+    df_player: pd.DataFrame,
+    player: str,
+    postponed_config: dict,
+    season: str = "2025-2026",
+    debug: bool = False
+) -> pd.DataFrame:
+    """
+    Aggiunge righe virtuali per giornate rinviate.
+
+    postponed_config esempio:
+    {
+        16: {
+            "teams": {"como", "milan", "inter"},
+            "match_order": 20.5
+        },
+        24: {
+            "teams": {"milan", "como"},
+            "match_order": 25.5
+        }
+    }
+    """
+
+    if df_player.empty:
+        return df_player
+
+    df_player = df_player.copy()
+
+    stagione_corrente = str(df_player["stagione"].iloc[0])
+    if season not in stagione_corrente:
+        return df_player
+
+    squadra_player = (
+        df_player["squadra"]
+        .astype(str)
+        .str.lower()
+        .iloc[0]
+    )
+
+    base_row = df_player.iloc[-1]
+
+    if "leao" in player:
+        print("debug")
+
+    for giornata, config in postponed_config.items():
+
+        teams = config["teams"]
+        match_order = config["match_order"]
+
+        if (
+            squadra_player in teams
+           # and giornata not in df_player["giornata"].values
+        ):
+
+            if debug:
+                print(f"Aggiunta giornata virtuale {giornata} per {player}")
+
+            new_row = {
+                "stagione": season,
+                "giornata": giornata,
+                "match_order": match_order,
+                "squadra": base_row["squadra"],
+                "player": player,
+                "player_norm": player,
+                "voto_gds": 6,
+                "fantavoto": 6,
+                "gol": 0,
+                "assist": 0,
+                "ammonizioni": 0,
+                "espulsioni": 0,
+                "autogol": 0,
+                "rig_segnati": 0,
+                "rig_sbagliati": 0,
+                "avversario": "to_define",
+                "partita": "to_define",
+                "is_virtual_match": True
+            }
+
+            df_player = pd.concat(
+                [df_player, pd.DataFrame([new_row])],
+                ignore_index=True
+            )
+            # Rimuovi la riga dove giornata e match_order coincidono
+            df_player = df_player[
+                ~(
+                    (df_player["giornata"].astype(float) == float(giornata)) &
+                    (df_player["match_order"].astype(float) == float(giornata))
+                )
+            ]
+
+    # Ordinamento finale con rimozione riga duplicata
+
+    df_player = df_player.sort_values("match_order")
+
+    return df_player
