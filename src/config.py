@@ -293,7 +293,7 @@ manual_roles = {
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
 
-GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko"}
+GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko", "matteo guendouzi"}
 
 POSTPONED_TEAMS_2025 = {
     16: {
