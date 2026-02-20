@@ -90,7 +90,11 @@ class Preprocessor:
             # -----------------------
         # Normalizzazione
         # -----------------------
-    
+
+    def remove_numbers(self, text: str) -> str:
+        return ''.join(char for char in text if not char.isdigit())
+
+
     def add_opponent_team_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Aggiunge una colonna 'opponent_team' al dataframe.
@@ -566,6 +570,7 @@ class Preprocessor:
         # Normalizzazione nomi
         df["player"] = df["player"].apply(utils.normalize_fn)
         df["player"] = df["player"].apply(self.remove_middle_name) #test
+        df["player"] = df["player"].apply(self.remove_numbers)
         df['player'] = df['player'].replace(    #PATCH ANGUISSA
             "franck zambo",
             "zambo anguissa"
@@ -979,7 +984,10 @@ class Preprocessor:
 
         # Normalizzazione nomi, rimozione secondi nomi nel df1 raw_data (es.jonatan CRISTIAN david), gestione cognomi composti df voti
         df1["player_norm"] = df1["player"].apply(self.remove_middle_name)
+        df1["player_norm"] = df1["player_norm"].apply(self.remove_numbers) 
+
         df2['player_norm'] = df2['player_norm'].apply(self.normalize_surname_name)
+        df2['player_norm'] = df2['player_norm'].apply(self.remove_numbers)
 
         #Normalizzazione nomi partite df2
         df2["partita"] = df2["partita"].apply(utils.normalize_match_string)
@@ -1305,7 +1313,7 @@ class Preprocessor:
             "francesco esposito",
             "pio esposito"
         )
-
+    
         return df1, df2, df3
 
     def add_fanta_role(self, df_main, df_fanta_roles, debug=True):
