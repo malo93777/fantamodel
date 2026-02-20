@@ -3733,6 +3733,34 @@ def remove_unavailable_players(
     debug: bool = True
 ) -> pd.DataFrame:
 
+    PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
+
+    def normalize_player_name_squalificati(full_name: str) -> str:
+        """
+        Normalizza il nome giocatore per ottenere il cognome corretto.
+        """
+
+        name = full_name.lower().strip()
+        parts = name.split()
+
+        # 🔹 Caso 1: iniziale + cognome → inverti
+        # es: "s. esposito"
+        if len(parts) == 2 and parts[0].endswith('.'):
+            return f"{parts[1]} {parts[0]}"
+
+        # 🔹 Caso 2: cognome con prefisso → tienilo intero
+        # es: "da cunha"
+        if len(parts) >= 2 and parts[0] in config.PREFIXES:
+            return " ".join(parts[:2])
+
+        # 🔹 Caso 3: nome + cognome normale → tieni solo cognome
+        # es: "nico paz"
+        if len(parts) >= 2:
+            return parts[-1]
+
+        # 🔹 Caso fallback (nome singolo)
+        return name
+
     df_pred = df_pred.copy()
 
     # ---------- 1️⃣ Estrai cognome + iniziale (gestione cognomi composti) ----------
@@ -3774,11 +3802,15 @@ def remove_unavailable_players(
 
     compound_particles = config.PREFIXES
 
-    # AGGIUNGO GLI SQUALIFICATI
-    suspended_players = [player for player, _ in suspended]
+    # AGGIUNGO GLI SQUALIFICATI NORMALIZZANDO
+
+    suspended_players_clean = [
+        normalize_player_name_squalificati(player)
+        for player, _ in suspended
+    ]
 
     # crea un DataFrame solo con i nuovi giocatori
-    df_suspended_players = pd.DataFrame({"Giocatore": suspended_players})
+    df_suspended_players = pd.DataFrame({"Giocatore": suspended_players_clean})
 
     # concatena al df_unavailable esistente
     df_unavailable = pd.concat([df_unavailable, df_suspended_players], ignore_index=True)
@@ -3787,8 +3819,7 @@ def remove_unavailable_players(
     #df_unavailable = df_unavailable.drop_duplicates(subset="Giocatore").reset_index(drop=True)
 
     for name in df_unavailable["Giocatore"]:
-        if "lorenzo" in name:
-            print("debug")
+
         parts = str(name).replace(".", "").strip().split()
 
         if not parts:

@@ -839,7 +839,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
                 ascending=False
             ).reset_index(drop=True)
 
-        df_pred_50 = df_pred_sorted.head(100)  # limita a top 50 per ruolo
+        #df_pred_50 = df_pred_sorted.head(100)  # limita a top 50 per ruolo
         
         # evidenzia i top N
         def add_emoji(idx):
@@ -848,15 +848,15 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
             else:
                 return ""
         
-        df_pred_50['Top'] = [add_emoji(i) for i in df_pred_50.index]
+        df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
         
         # stampa la tabella
-        if "Porta Squadra" in df_pred_50.columns:
+        if "Porta Squadra" in df_pred_sorted.columns:
             display_cols = ['Top', 'Porta Squadra', 'Avversario', 'Campo', 'Index']
         else:
             display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
-        print(df_pred_50[display_cols].to_string(index=False))
-        risultati[ruolo] = df_pred_50
+        print(df_pred_sorted[display_cols].to_string(index=False))
+        risultati[ruolo] = df_pred_sorted
 
     return risultati
 
