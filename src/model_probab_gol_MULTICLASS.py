@@ -519,18 +519,55 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         num_giornate = utils.count_matchdays(df_teams_curr)
 
         #se ho un numero sufficiente di giornate, applico discriminante home/away
-        if num_giornate >= 10: 
-            h_a = utils.get_h_a_opponent(h_a_player)
-            #OPPONENT TEAM DATA home/away 
-            opponent_xGA_90min_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
-            xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+        if num_giornate >= 15: 
 
-            #PLAYER TEAM DATA home/away
-            team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
-            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+            h_a = utils.get_h_a_opponent(h_a_player)
+
+            # ==========================
+            # 🔹 OPPONENT
+            # ==========================
+
+            # Split casa/trasferta
+            opponent_xGA_split = utils.get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+            xGA_split_opp, GA_split_opp = utils.get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+            # Overall (forma pura)
+            opponent_xGA_overall = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+            xGA_overall_opp, GA_overall_opp = utils.get_def_data_last5_team_h_a(opponent, "", df_teams_curr)
+
+            # Media pesata 70 / 30
+            opponent_xGA_last5_per90 = (
+                0.7 * opponent_xGA_overall +
+                0.3 * opponent_xGA_split
+            )
+
+            xGA_last5_opp = 0.7 * xGA_overall_opp + 0.3 * xGA_split_opp
+            GA_last5_opp  = 0.7 * GA_overall_opp  + 0.3 * GA_split_opp
+
+            # ==========================
+            # 🔹 PLAYER TEAM
+            # ==========================
+
+            # Split casa/trasferta
+            team_xG_split = utils.get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+            xG_split_team, Goal_split_team = utils.get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+
+            # Overall
+            team_xG_overall = utils.get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+            xG_overall_team, Goal_overall_team = utils.get_att_data_last5_team_h_a(team, "", df_teams_curr)
+
+            # Media pesata 70 / 30
+            team_xG_90_min_last5 = (
+                0.7 * team_xG_overall +
+                0.3 * team_xG_split
+            )
+
+            xG_last5_team     = 0.7 * xG_overall_team   + 0.3 * xG_split_team
+            Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
+
         else:
             #OPPONENT TEAM DATA
-            opponent_xGA_90min_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+            opponent_xGA_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
             xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent,"", df_teams)
 
             #PLAYER TEAM DATA
@@ -539,7 +576,7 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         
         # predizione xg futuro
         sum_xG_new = utils.predict_xg_next_match(model_xg, player_df, main_role)
-        sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+        sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
         sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
@@ -583,9 +620,7 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         target="goal"
         )
 
-
-        print(f"✅ Probabilità che {player} ({main_role}) segni contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_90min_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
-
+        print(f"✅ Probabilità che {player} ({main_role}) segni contro {opponent}: {probs['p_any']:.2f}. XGA avversaria last5:{opponent_xGA_last5_per90:.2f}, GA avversaria last5:{GA_last5_opp:.2f}")
 
         results.append({
             "player": player,
@@ -593,13 +628,6 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
             "opponent": opponent,
             **probs
         })  
-
-        #results_df = pd.DataFrame(results) 
-
-        #aggiungo a result anche il df x new conl suo contenuto
-        #df_records = pd.concat([results_df, X_new_df], axis=0)
-
-        #df_records.to_csv("records_temp.csv")
 
     return pd.DataFrame(results), model, lin, numeric_features, categorical_features
 

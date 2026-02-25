@@ -161,7 +161,7 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
             Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
             #OPPONENT TEAM DATA
-            opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+            opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
             xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
 
             #PLAYER TEAM DATA
@@ -173,7 +173,7 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
 
     sum_xA_weighted = progressive_weighted_mean(sum_xA, alpha=0.2)
 
-    sum_xA_weighted = weighted_xg_vs_opponent_mixed(sum_xA_weighted, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+    sum_xA_weighted = weighted_xg_vs_opponent_mixed(sum_xA_weighted, df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
     sum_xA_weighted = weighted_xg_team_mixed(sum_xA_weighted,df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
 
@@ -305,12 +305,12 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
         Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
         #OPPONENT TEAM DATA
-        opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
+        opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
         xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
 
         #PLAYER TEAM DATA
         team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
-        G_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
+        xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
     
     if player == "nico paz" or player == "odgaard":
         main_role = "FM"
@@ -320,7 +320,7 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     sum_xG_new = predict_xg_next_match(model_xg, df, main_role)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
-    sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_90min_last5_per90, xGA_last5_opp, GA_last5_opp)
+    sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
     sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team) 
 

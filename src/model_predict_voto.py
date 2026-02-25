@@ -278,16 +278,27 @@ def pred_voto_prod(
             if num_giornate >= 15:
 
                 #PLAYER TEAM DATA home/away
-                xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
-                xGA_last5 = xGA_last5/5    
+                xGA_last5_split, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
+                xGA_last5_split = xGA_last5_split/5
+
+                #PLAYER TEAM DATA overall
+                xGA_last5_overall, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
+                xGA_last5_overall = xGA_last5_overall/5
+
+                # Media pesata 70 / 30
+                xGA_last5_weighted = (
+                    0.7 * xGA_last5_overall +
+                    0.3 * xGA_last5_split
+                )
+                xGA_last5_final = xGA_last5_weighted
             else:
                 #PLAYER TEAM DATA
-                xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
+                xGA_last5_final, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
                 xGA_last5 = xGA_last5/5
 
             bonus_defensive_adj = utils.compute_defensive_xga_bonus(
                 fanta_role,
-                team_xga_last5=xGA_last5,
+                team_xga_last5=xGA_last5_final,
                 team_goal_against_last5=None,
                 matchday=num_giornate,
                 df_teams_curr_season=df_teams_curr_season
@@ -458,26 +469,63 @@ def pred_voto_prod_gk(
 
             h_a_opp = utils.get_h_a_opponent(h_a)
 
-            #PLAYER TEAM DATA home/away
-            xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, h_a, df_teams_curr_season)
-            GA_last5_per90= GA_last5/num_giornate
+            # ==========================
+            # 🔹 PLAYER TEAM DEF DATA
+            # ==========================
 
-            #OPPONENT TEAM DATA
-            xG_last5_team, Goal_last5_opponent = utils.get_att_data_last5_team_h_a(opponent, h_a_opp, df_teams_curr_season)
-            Goal_last5_opponent_per90 = Goal_last5_opponent/5             
+            # Split H/A
+            xGA_split, GA_split = utils.get_def_data_last5_team_h_a(
+                team, h_a, df_teams_curr_season
+            )
+
+            # Overall
+            xGA_overall, GA_overall = utils.get_def_data_last5_team_h_a(
+                team, "", df_teams_curr_season
+            )
+
+            # Media pesata 70/30
+            xGA_last5 = 0.7 * xGA_overall + 0.3 * xGA_split
+            GA_last5  = 0.7 * GA_overall  + 0.3 * GA_split
+
+            GA_last5_per90 = GA_last5 / 5
+
+            GA_last5_per90_final = GA_last5_per90
+
+            # ==========================
+            # 🔹 OPPONENT ATT DATA
+            # ==========================
+
+            # Split H/A
+            xG_split_team, Goal_split_opp = utils.get_att_data_last5_team_h_a(
+                opponent, h_a_opp, df_teams_curr_season
+            )
+
+            # Overall
+            xG_overall_team, Goal_overall_opp = utils.get_att_data_last5_team_h_a(
+                opponent, "", df_teams_curr_season
+            )
+
+            # Media pesata 70/30
+            xG_last5_team        = 0.7 * xG_overall_team + 0.3 * xG_split_team
+            Goal_last5_opponent  = 0.7 * Goal_overall_opp + 0.3 * Goal_split_opp
+
+            Goal_last5_opponent_per90 = Goal_last5_opponent / 5
+
+            Goal_last5_team_per90_final = Goal_last5_opponent_per90
+                    
         else:
             #PLAYER TEAM DATA home/away
             xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
-            GA_last5_per90= GA_last5/num_giornate
+            GA_last5_per90_final= GA_last5/num_giornate
 
             #OPPONENT TEAM DATA
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(opponent, "", df_teams_curr_season)
-            Goal_last5_team_per90 = Goal_last5_team/5
+            Goal_last5_team_per90_final = Goal_last5_team/5
 
         bonus_defensive_adj = utils.compute_defensive_xga_bonus(
             fanta_role,
             team_xga_last5=None,
-            team_goal_against_last5=GA_last5_per90,
+            team_goal_against_last5=GA_last5_per90_final,
             matchday=num_giornate,
             df_teams_curr_season=df_teams_curr_season,      
         )
@@ -485,7 +533,7 @@ def pred_voto_prod_gk(
         bonus_opponent_off_adj = utils.compute_opponent_offense_bonus(
             fanta_role,
             opponent_xg_last5=None,
-            opponent_goal_last5=Goal_last5_opponent_per90,
+            opponent_goal_last5=Goal_last5_team_per90_final,
             matchday=num_giornate,
             df_teams_curr_season=df_teams_curr_season,        
         )
@@ -776,9 +824,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
         #Costruizione giocatore-squadra avversaria prossima giornata
         for player in players_role:
             team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0]
-            if "maldini" in player:
-                print("debug") 
-                
+
             if team is None or pd.isna(team): #prendendo l'ultima squadra, se il giocatore va all'estero a gennaio non trova più team
                 print(f"Player {player} è andato all'estero, squadra non trovata")
                 team = "squadra sconosciuta"
