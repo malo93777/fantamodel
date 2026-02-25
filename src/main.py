@@ -163,11 +163,11 @@ def main():
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     parser.add_argument("--infortunati", action="store_true", help="Scraping dei giocatori infortunati")
     args = parser.parse_args()
-    args.gol = False
-    args.assist = False
+    args.gol = True
+    args.assist = True
     args.voti = True
-    args.nextgames = False
-    args.infortunati = False
+    args.nextgames = True
+    args.infortunati = True
     # ==========================
     # ESECUZIONE
     # ==========================
