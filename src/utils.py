@@ -115,15 +115,50 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
     num_giornate = count_matchdays(df_teams_curr)
 
         #se ho un numero sufficiente di giornate, applico discriminante home/away
-    if num_giornate >= 10: 
+    if num_giornate >= 15: 
             h_a = get_h_a_opponent(h_a_player)
-            #OPPONENT TEAM DATA home/away 
-            opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
-            xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
 
-            #PLAYER TEAM DATA home/away
-            team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
-            xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+            # ==========================
+            # 🔹 OPPONENT
+            # ==========================
+
+            # Split casa/trasferta
+            opponent_xGA_split = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+            xGA_split_opp, GA_split_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+            # Overall (forma pura)
+            opponent_xGA_overall = get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+            xGA_overall_opp, GA_overall_opp = get_def_data_last5_team_h_a(opponent, "", df_teams_curr)
+
+            # Media pesata 70 / 30
+            opponent_xGA_last5_per90 = (
+                0.7 * opponent_xGA_overall +
+                0.3 * opponent_xGA_split
+            )
+
+            xGA_last5_opp = 0.7 * xGA_overall_opp + 0.3 * xGA_split_opp
+            GA_last5_opp  = 0.7 * GA_overall_opp  + 0.3 * GA_split_opp
+
+            # ==========================
+            # 🔹 PLAYER TEAM
+            # ==========================
+
+            # Split casa/trasferta
+            team_xG_split = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+            xG_split_team, Goal_split_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+
+            # Overall
+            team_xG_overall = get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+            xG_overall_team, Goal_overall_team = get_att_data_last5_team_h_a(team, "", df_teams_curr)
+
+            # Media pesata 70 / 30
+            team_xG_90_min_last5 = (
+                0.7 * team_xG_overall +
+                0.3 * team_xG_split
+            )
+
+            xG_last5_team     = 0.7 * xG_overall_team   + 0.3 * xG_split_team
+            Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
             #OPPONENT TEAM DATA
             opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
@@ -224,15 +259,50 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     num_giornate = count_matchdays(df_teams_curr)
 
     #se ho un numero sufficiente di giornate, applico discriminante home/away
-    if num_giornate >= 10: 
+    if num_giornate >= 15: 
         h_a = get_h_a_opponent(h_a_player)
-        #OPPONENT TEAM DATA home/away 
-        opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
-        xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
 
-        #PLAYER TEAM DATA home/away
-        team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
-        xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+        # ==========================
+        # 🔹 OPPONENT
+        # ==========================
+
+        # Split casa/trasferta
+        opponent_xGA_split = get_xGA_last5_team_h_a_mean(opponent, h_a, df_teams_curr)
+        xGA_split_opp, GA_split_opp = get_def_data_last5_team_h_a(opponent, h_a, df_teams_curr)
+
+        # Overall (forma pura)
+        opponent_xGA_overall = get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+        xGA_overall_opp, GA_overall_opp = get_def_data_last5_team_h_a(opponent, "", df_teams_curr)
+
+        # Media pesata 70 / 30
+        opponent_xGA_last5_per90 = (
+            0.7 * opponent_xGA_overall +
+            0.3 * opponent_xGA_split
+        )
+
+        xGA_last5_opp = 0.7 * xGA_overall_opp + 0.3 * xGA_split_opp
+        GA_last5_opp  = 0.7 * GA_overall_opp  + 0.3 * GA_split_opp
+
+        # ==========================
+        # 🔹 PLAYER TEAM
+        # ==========================
+
+        # Split casa/trasferta
+        team_xG_split = get_xG_last5_team_h_a_mean(team, h_a_player, df_teams_curr)
+        xG_split_team, Goal_split_team = get_att_data_last5_team_h_a(team, h_a_player, df_teams_curr)
+
+        # Overall
+        team_xG_overall = get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+        xG_overall_team, Goal_overall_team = get_att_data_last5_team_h_a(team, "", df_teams_curr)
+
+        # Media pesata 70 / 30
+        team_xG_90_min_last5 = (
+            0.7 * team_xG_overall +
+            0.3 * team_xG_split
+        )
+
+        xG_last5_team     = 0.7 * xG_overall_team   + 0.3 * xG_split_team
+        Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
         #OPPONENT TEAM DATA
         opponent_xGA_90min_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
@@ -771,13 +841,17 @@ def get_att_data_last5_team_h_a(team: str, h_a: str, teams_df: pd.DataFrame) -> 
     if team_rows.empty:
         return np.nan, np.nan
 
-    # filtro casa/trasferta
-    side_rows = team_rows[team_rows["h_a"] == h_a].sort_values("date")
+    # ───────────────────────────────────────────────
+    # Se h_a è 'h' o 'a', filtra. Altrimenti usa tutto.
+    # ───────────────────────────────────────────────
+    if h_a in ["h", "a"]:
+        # filtro casa/trasferta
+        team_rows = team_rows[team_rows["h_a"] == h_a].sort_values("date")
 
-    if side_rows.empty:
+    if team_rows.empty:
         return np.nan, np.nan
 
-    recent = side_rows.tail(5)
+    recent = team_rows.tail(5)
 
     xG_last5 = recent["xG"].sum()
     Goal_last5  = recent["scored"].sum()
@@ -1979,7 +2053,7 @@ def adjust_prob_final(
     return float(np.clip(prob_final, 0, 1))
 
 
-def reduce_penalty_xg(df, penalty_weight=0.5):
+def reduce_penalty_xg(df, penalty_weight=0.7):
     """
     Riduce il peso degli xG su rigore mantenendo consistenza metrica.
     penalty_weight:
