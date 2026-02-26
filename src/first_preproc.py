@@ -1008,7 +1008,7 @@ class Preprocessor:
 
         #**** PRIMO TENTATIVO DI ACCORPAMENTO ****
         for (player, season), group in df1.groupby(['player_norm', 'season']):
-            if player == "benjamin pavard":
+            if player == "alisson santos":
                 print("debug")
 
             group_sorted = group.sort_values('date')
