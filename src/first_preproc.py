@@ -1320,7 +1320,7 @@ class Preprocessor:
 
         def assign_manual_roles(df, manual_roles):
             """
-            Assegna ruoli manuali a giocatori specifici mantenendo gli indici originali.
+            Assegna ruoli manuali a giocatori specifici.
             """
             if 'fanta_role' not in df.columns:
                 df['fanta_role'] = None
@@ -1333,31 +1333,27 @@ class Preprocessor:
 
             return df
 
-        # -----------------------
+        # =======================
         # Copie difensive
-        # -----------------------
+        # =======================
         df = df_main.copy()
         df_roles = df_fanta_roles.copy()
 
-        # -----------------------
+        # =======================
         # Normalizzazione
-        # -----------------------
+        # =======================
         df['team_norm'] = df['player_team'].apply(utils.normalize_fn)
         df_roles['player_norm'] = df_roles['Nome'].apply(utils.normalize_fn)
         df_roles['team_norm'] = df_roles['Squadra'].apply(utils.normalize_fn)
 
-        # -----------------------
-        # Inizializza fanta_role
-        # -----------------------
+        # =======================
+        # Inizializza colonna
+        # =======================
         df['fanta_role'] = None
 
-        # Mantieni SUB invariato
-        if 'position' in df.columns:
-            df.loc[df['position'].str.upper() == 'SUB', 'fanta_role'] = 'SUB'
-
-        # -----------------------
+        # =======================
         # Costruzione mappa ruoli
-        # -----------------------
+        # =======================
         name_counts = df_roles['player_norm'].value_counts().to_dict()
 
         role_map = {}
@@ -1368,27 +1364,35 @@ class Preprocessor:
             else:
                 role_map[name] = (row['R'], None)
 
-        # -----------------------
-        # Match player_norm ⊂ player_norm
-        # -----------------------
-        mask_base = df['fanta_role'].isna()
-
+        # =======================
+        # Matching ruoli
+        # =======================
         for name, (role, team) in role_map.items():
 
-            # protezione da match troppo generici
             if len(name) < 4:
                 continue
 
-            mask = mask_base & df['player_norm'].str.contains(name, regex=False, na=False)
+            mask = df['player_norm'].str.contains(name, regex=False, na=False)
 
             if team:
                 mask = mask & (df['team_norm'] == team)
 
             df.loc[mask, 'fanta_role'] = role
 
-        # -----------------------
+        # =======================
+        # SUB come fallback finale
+        # =======================
+        if 'position' in df.columns:
+            df['fanta_role'] = df.apply(
+                lambda row: 'SUB'
+                if str(row['position']).upper() == 'SUB' and pd.isna(row['fanta_role'])
+                else row['fanta_role'],
+                axis=1
+            )
+
+        # =======================
         # Debug
-        # -----------------------
+        # =======================
         if debug:
             df['debug_reason'] = None
             df.loc[df['fanta_role'].notna(), 'debug_reason'] = 'MATCH_OK'
@@ -1402,16 +1406,13 @@ class Preprocessor:
 
             problems = df[df['debug_reason'] == 'NO_MATCH']
             if not problems.empty:
-                #print("\n⚠️ Esempi senza match:")
-                #print(problems[['player', 'player_team', 'player_norm']].head(100))
-
                 print("\n⚠️ player_norm senza match:")
                 for p in problems['player_norm'].unique():
                     print(f" - {p}")
 
-        # -----------------------
-        # Pulizia + manual override
-        # -----------------------
+        # =======================
+        # Pulizia + override manuali
+        # =======================
         df.drop(columns=['team_norm', 'debug_reason'], inplace=True, errors='ignore')
         df = assign_manual_roles(df, config.manual_roles)
 
