@@ -1,11 +1,28 @@
-new
+ver 270226
+=== TRAIN vs TEST ===
+TRAIN -> MAE: 0.1845 | MSE: 0.2428
+TEST  -> MAE: 0.1780 | MSE: 0.1846
+
+=== FEATURE IMPORTANCE (RIDGE) ===
+                   feature  coefficient  abs_coefficient
+6   cat__position_clean_GK    -0.842459         0.842459
+0            num__voto_gds     0.820468         0.820468
+1               num__goals     0.803158         0.803158
+2             num__assists     0.217610         0.217610
+3         num__ammonizioni    -0.155388         0.155388
+8  cat__position_clean_SUB     0.038634         0.038634
+5   cat__position_clean_FW     0.028355         0.028355
+7    cat__position_clean_M     0.025437         0.025437
+4    cat__position_clean_D     0.014524         0.014524
+
+ver 290126
 === TRAIN vs TEST ===
 TRAIN -> MAE: 0.2460 | MSE: 0.3208
 TEST  -> MAE: 0.2286 | MSE: 0.2542
 
 === FEATURE IMPORTANCE (RIDGE) ===
                    feature  coefficient  abs_coefficient
-0            num__voto_gds     0.886251         0.886251
+0            num__voto     0.886251         0.886251
 6   cat__position_clean_GK    -0.845580         0.845580
 1               num__goals     0.733820         0.733820
 2             num__assists     0.204823         0.204823

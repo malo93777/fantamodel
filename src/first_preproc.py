@@ -995,7 +995,7 @@ class Preprocessor:
         df1,df2,df3 = self.fix_eccezioni(df1,df2, df3)
 
         columns_to_add = [
-            'voto_gds','fantavoto','rig_segnati','rig_sbagliati',
+            'voto_gds','fantavoto','gol','rig_segnati','rig_sbagliati',
             'ammonizioni','espulsioni','autogol'
         ]
 

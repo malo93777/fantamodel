@@ -48,7 +48,7 @@ CURRENT_SEASON = 2025
 
 #
 
-NEXT_GIORNATA = 27
+NEXT_GIORNATA = 28
 
 BOOST_FACTORS = {
     "sum_xG": 1.0,
@@ -65,7 +65,7 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
+    "players": ["gutierrez","pavlovic","nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
         "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
@@ -74,7 +74,7 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
+        "milan","napoli","milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
         "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
@@ -82,14 +82,14 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "cremonese","verona","como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
         "fiorentina", "pisa", "ac milan", "pisa","roma","pisa", "napoli", "roma","roma"
     ],
     "h_a": [
-        "h","a","h","h","a","a","a","h","a","h","a","h","a","a",
+        "a","a","h","a","h","h","a","a","a","h","a","h","a","h","a","a",
         "h","a","h","a","h","h",
         "a","h","a","a","h","h","a",
         "a","h","a","h","a","h",

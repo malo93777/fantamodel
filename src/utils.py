@@ -3193,8 +3193,8 @@ def compute_base_voto(
     season_n=15,
     recent_weight=0.75,
     feature_col='voto_gds',
-    ewma_span_recent=7,
-    ewma_span_season=7
+    ewma_span_recent=10,
+    ewma_span_season=10
 ):
     """
     Calcola il fantavoto base come media ponderata
@@ -3423,12 +3423,12 @@ def compute_consistency_adjustment(
     recent_n=5,
     season_n=10,
     weight_recent=0.7,
-    max_adjustment=0.15,
+    max_adjustment=0.1,
     neutral_value=0.0
 ):
     """
     Calcola un adjustment che premia la costanza di rendimento del giocatore.
-    Usa la variabilità del fantavoto, dando più peso alle ultime partite.
+    Usa la variabilità del avoto, dando più peso alle ultime partite.
     Premia SOLO se la media delle ultime 10 almeno è >= 6.
     """
 
@@ -3470,7 +3470,7 @@ def compute_consistency_adjustment(
     )
 
     # ---- baseline neutra ----
-    baseline = 0.65
+    baseline = 0.6
 
     raw_adj = consistency_score - baseline
 
@@ -3747,7 +3747,7 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
     Applica un boost percentuale all'indice finale
     in base al fantarole e clippa il risultato.
 
-    P : +20%
+    P : +10%
     D : +4%
     A,C : +5,4%
     """
@@ -3756,7 +3756,7 @@ def apply_fantarole_boost(index, fantarole, cap_max=99.9):
         return None
 
     boost_map = {
-        "P": 0.20,
+        "P": 0.10,
         "D": 0.04,
         "A": 0.05,
         "C": 0.04,

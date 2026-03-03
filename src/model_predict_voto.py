@@ -140,13 +140,15 @@ def preprocess_data(df: pd.DataFrame):
 
     features = [
         'voto_gds',
-        'goals',
+        'gol',
         'assists',
         'ammonizioni',
         'position_clean'
     ]
 
     target = 'fantavoto'
+
+    df = df[df['fanta_role'] != 'P']
 
     #rimuovo tutti i Senza voto
     df = df[df['voto_gds'].notna()]
@@ -182,7 +184,7 @@ def preprocess_data_GK(df: pd.DataFrame, df_curr_teams: pd.DataFrame):
 
     features = [
         'voto_gds',
-        'goals',
+        'gol',
         'ammonizioni',
         'player_team_strength'
     ]
@@ -247,6 +249,9 @@ def pred_voto_prod(
         
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
+
+        if "gutierrez" in player or "pavlovic" in player:
+            print("a")
         
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
@@ -285,10 +290,10 @@ def pred_voto_prod(
                 xGA_last5_overall, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
                 xGA_last5_overall = xGA_last5_overall/5
 
-                # Media pesata 70 / 30
+                # Media pesata 60 / 40
                 xGA_last5_weighted = (
-                    0.7 * xGA_last5_overall +
-                    0.3 * xGA_last5_split
+                    0.6 * xGA_last5_overall +
+                    0.4 * xGA_last5_split
                 )
                 xGA_last5_final = xGA_last5_weighted
             else:
@@ -337,8 +342,8 @@ def pred_voto_prod(
         )
 
         if goal_proba is None:
-            print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.1")
-            goal_proba = 0.1
+            print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.05")
+            goal_proba = 0.05
 
         goal_impact = utils.compute_feature_role_impact(
             player_df,
@@ -357,8 +362,8 @@ def pred_voto_prod(
                 df_teams_curr_season, h_a
         )
         if assist_proba is None:
-            print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.1")
-            assist_proba = 0.1
+            print(f"⚠️ Impossibile calcolare la probabilità di assist per {player_full_name}. Impostata a 0.05")
+            assist_proba = 0.05
 
         assist_impact = utils.compute_feature_role_impact(
             player_df,
@@ -373,7 +378,7 @@ def pred_voto_prod(
         # ---- costruzione features pre-match ----
         X_pred = pd.DataFrame([{
             'voto_gds': voto_base,
-            'goals': goal_feature,
+            'gol': goal_feature,
             'assists': assist_feature,
             'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
             'position_clean': fanta_role
@@ -483,9 +488,9 @@ def pred_voto_prod_gk(
                 team, "", df_teams_curr_season
             )
 
-            # Media pesata 70/30
-            xGA_last5 = 0.7 * xGA_overall + 0.3 * xGA_split
-            GA_last5  = 0.7 * GA_overall  + 0.3 * GA_split
+            # Media pesata 60/40
+            xGA_last5 = 0.6 * xGA_overall + 0.4 * xGA_split
+            GA_last5  = 0.6 * GA_overall  + 0.4 * GA_split
 
             GA_last5_per90 = GA_last5 / 5
 
@@ -506,8 +511,8 @@ def pred_voto_prod_gk(
             )
 
             # Media pesata 70/30
-            xG_last5_team        = 0.7 * xG_overall_team + 0.3 * xG_split_team
-            Goal_last5_opponent  = 0.7 * Goal_overall_opp + 0.3 * Goal_split_opp
+            xG_last5_team        = 0.6 * xG_overall_team + 0.4 * xG_split_team
+            Goal_last5_opponent  = 0.6 * Goal_overall_opp + 0.4 * Goal_split_opp
 
             Goal_last5_opponent_per90 = Goal_last5_opponent / 5
 
@@ -564,7 +569,7 @@ def pred_voto_prod_gk(
         # ---- costruzione features pre-match ----
         X_pred = pd.DataFrame([{
             'voto_gds': voto_base,
-            'goals': gol_subiti_feature,
+            'gol': gol_subiti_feature,
             'ammonizioni': rolling_15['ammonizioni'].mean() if 'ammonizioni' in rolling_15.columns else 0.0,
             'player_team_strength': team_strength
         }])
@@ -625,7 +630,7 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     # Identifica feature numeriche e categoriche
     NUM_FEATURES = [
         'voto_gds',
-        'goals',
+        'gol',
         'assists',
         'ammonizioni'
     ]
@@ -705,7 +710,7 @@ def train_log_regression_GK(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     # Identifica feature numeriche e categoriche
     NUM_FEATURES = [
         'voto_gds',
-        'goals',
+        'gol',
         'ammonizioni'
     ]
     CAT_FEATURES = ['player_team_strength']
@@ -802,7 +807,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     model_xg = utils.load_xg_model()
     #ruoli = ['P','D', 'C', 'A']
     if pipeline_gk is None:
-        ruoli = ['D', 'C', 'A']
+        ruoli = ['D']
     if pipeline is None and  pipeline_gk is not None:
          ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:
