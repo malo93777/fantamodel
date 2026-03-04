@@ -242,6 +242,7 @@ def pred_voto_prod(
 
         player_df = player_df.sort_values('date')
 
+        #DA METTERE NEL PREPROCESSING!!!!!
         player_df = utils.add_home_away_column(player_df)     
 
         fanta_role = utils.get_main_position_weighted(player_df["fanta_role"], window=10, decay=0.8)

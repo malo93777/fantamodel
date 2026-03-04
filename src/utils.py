@@ -2854,7 +2854,7 @@ def compute_player_vs_strength_adjustment(
     min_matches=5,
     neutral_value=0.0,
     ema_span=10,
-    max_adjustment=0.25
+    max_adjustment=0.2
 ):
     """
     Calcola un adjustment basato sulle performance del giocatore
@@ -2926,7 +2926,7 @@ def compute_player_home_away_adjustment(
     min_matches=5,
     neutral_value=0.0,
     halflife=10,
-    max_adjustment=0.25
+    max_adjustment=0.2
 ):
     """
     Adjustment home/away usando media esponenziale (EWM)
