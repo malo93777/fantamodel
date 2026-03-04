@@ -250,7 +250,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "gutierrez" in player or "pavlovic" in player:
+        if "zapata" in player or "pavlovic" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -807,7 +807,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     model_xg = utils.load_xg_model()
     #ruoli = ['P','D', 'C', 'A']
     if pipeline_gk is None:
-        ruoli = ['D']
+        ruoli = ['P','D', 'C', 'A']
     if pipeline is None and  pipeline_gk is not None:
          ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:

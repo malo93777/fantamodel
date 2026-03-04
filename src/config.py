@@ -170,8 +170,8 @@ ROLE_WEIGHTS_INDEX = {
 
 #quantitativiper peso forma recente (last 5)
 ROLE_WEIGHTS_VOTO = {
-    'A': 0.9,
-    'C': 0.75,
+    'A': 0.8,
+    'C': 0.7,
     'D': 0.7,
     'P': 0.7,
     'SUB': 0.7
