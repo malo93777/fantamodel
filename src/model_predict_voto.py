@@ -250,7 +250,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "zapata" in player or "pavlovic" in player:
+        if "bernasconi" in player or "pavlovic" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(

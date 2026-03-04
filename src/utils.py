@@ -2942,6 +2942,7 @@ def compute_player_home_away_adjustment(
     subset = player_df[player_df['home_away'] == target_ha]
 
     if len(subset) < min_matches:
+        print("col home_away missing")
         return neutral_value
 
     # Media esponenziale globale
@@ -2982,7 +2983,7 @@ def add_home_away_column(df):
             return 'a'
         else:
             return pd.NA
-
+    df["player_team"] = df["player_team"].apply(normalize_team_name)
     df['home_away'] = df.apply(compute_ha, axis=1)
 
     return df
