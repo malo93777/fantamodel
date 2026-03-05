@@ -223,7 +223,8 @@ def pred_voto_prod(
         model_goal,
         model_assist,
         model_xg,
-        pipeline
+        pipeline,
+        debug=True
     ):
 
     predictions = []
@@ -371,8 +372,8 @@ def pred_voto_prod(
             feature_col='assists'
         )
         assist_feature = assist_proba * assist_impact
-
-        print(f"Voto base pesato: {voto_base:.2f}")
+        if debug:
+            print(f"Voto base pesato: {voto_base:.2f}")
 
         # ---- costruzione features pre-match ----
         X_pred = pd.DataFrame([{
@@ -391,17 +392,17 @@ def pred_voto_prod(
         if pipeline is not None:
             # Se il model è una pipeline, NON applicare preprocessor.transform!
             fantavoto_pred = pipeline.predict(X_pred)[0]
-
-        print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
+        if debug:
+            print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
 
         if fanta_role == "C":
             print("debug")
         index_boost = utils.apply_fantarole_boost(index, fanta_role)
-
-        print(f"Schierability REAl index: {index:.2f}")
-        print(f"Schierability index BOOST: {index_boost:.2f}")
+        if debug:
+            print(f"Schierability REAl index: {index:.2f}")
+            print(f"Schierability index BOOST: {index_boost:.2f}")
 
         ha_to_print = "casa" if h_a == "h" else "trasf."
 
@@ -423,7 +424,8 @@ def pred_voto_prod_gk(
         df_voti,                
         df_teams,
         df_teams_curr_season,
-        pipeline
+        pipeline,
+        debug=True
     ):
 
     predictions = []
@@ -560,7 +562,8 @@ def pred_voto_prod_gk(
 
         voto_base += yellowcard_adj 
 
-        print(f"Voto base pesato: {voto_base:.2f}")
+        if debug:
+            print(f"Voto base pesato: {voto_base:.2f}")
 
         #CALCOLO GOALS SUBITI PROSSIMA PARTITA
         gol_subiti_feature = def_stats["mean_ga_last5"] * def_stats["clean_sheet_prob"]
@@ -578,13 +581,15 @@ def pred_voto_prod_gk(
             # Se il model è una pipeline, NON applicare preprocessor.transform!
             fantavoto_pred = pipeline.predict(X_pred)[0]
 
-        print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
+        if debug:
+            print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
 
         index_boost = utils.apply_fantarole_boost(index, fanta_role)
-
-        print(f"Schierability index: {index_boost:.2f}")
+        
+        if debug:
+            print(f"Schierability index: {index_boost:.2f}")
 
         ha_to_print = "casa" if h_a == "h" else "trasf."
 
@@ -774,7 +779,7 @@ def train_log_regression_GK(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
     
     return model
 
-def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=None, top_n=10):
+def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=None, top_n=10, debug=True):
     """
     Per ogni ruolo (D, C, A) calcola le predizioni di schierabilità
     e stampa una tabella ordinata per index con evidenziazione dei top_n.
@@ -863,13 +868,13 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
             # calcola le predizioni
             df_pred = pred_voto_prod_gk(players_role, teams_role, opponents_role, ha_role,
                                     df_voti, df_teams, df_teams_curr_season,                                 
-                                    pipeline_gk)    
+                                    pipeline_gk,debug=debug)    
         elif pipeline is not None:
             # calcola le predizioni
             df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
                                     df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
                                     model_goal, model_assist, model_xg, 
-                                    pipeline)
+                                    pipeline, debug=debug)
         
         is_porta = False
 

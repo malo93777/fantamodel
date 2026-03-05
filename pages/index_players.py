@@ -156,7 +156,7 @@ def main():
                 df_pred = model_predict_voto.pred_voto_prod(
                     players, teams, opponents, h_a, 
                     df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
-                    model_goal, model_assist, model_xg,model['fantavoto_model']
+                    model_goal, model_assist, model_xg,model['fantavoto_model'], False
                 )
                 df_pred = df_pred.reset_index(drop=True)
                 df_pred = utils.prepare_df_for_display(df_pred).copy()
@@ -245,7 +245,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    #top_ruolo = True 
+    top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
@@ -264,7 +264,8 @@ def main():
                     df_infortunati,
                     pipeline=model['fantavoto_model'],
                     pipeline_gk=model_gk['fantavoto_model_gk'],
-                    top_n=10
+                    top_n=10,
+                    debug=False
                 )
 
             if results:
