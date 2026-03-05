@@ -127,7 +127,7 @@ def main():
         
         # Calcola avversario e ha automaticamente
         squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
-        st.write(f"DEBUG: player={player}, team={squadra}, avversario={avversario}, ha={ha}")
+        #st.write(f"DEBUG: player={player}, team={squadra}, avversario={avversario}, ha={ha}")
         input_data.append((player, squadra, avversario, ha))
 
     # =====================================================
@@ -243,8 +243,12 @@ def main():
             ]).to_html(escape=False)
 
             st.write("## Risultati Predizione")
+            # Crystal ball before
             st.markdown('<div style="text-align:center;"><img src="https://em-content.zobj.net/source/microsoft-teams/363/crystal-ball_1f52e.png" alt="Crystal Ball" width="60"/></div>', unsafe_allow_html=True)
+            st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
+            # Crystal ball after
+            st.markdown('<div style="text-align:center;"><img src="https://em-content.zobj.net/source/microsoft-teams/363/crystal-ball_1f52e.png" alt="Crystal Ball" width="60"/></div>', unsafe_allow_html=True)
 
     # =====================================================
     # 🔹 Logica Top Indici per Ruolo
