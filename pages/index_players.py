@@ -112,7 +112,7 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    #giocatori_display = ["Aaron Martin"] #DEBUG
+    giocatori_display = ["angeyoan bonny"] #DEBUG
     for player in giocatori_display:
         
         # Calcola avversario e ha automaticamente
@@ -133,7 +133,7 @@ def main():
     # 🔹 Logica Calcola Indice
     # =====================================================
     #submitted=True
-    #giocatori = "domenico berardi"
+    #giocatori = "angeyoan bonny"
     #input_data.append((giocatori, "sassuolo","inter","h"))
     if submitted:
         if not giocatori:
@@ -153,27 +153,54 @@ def main():
                 #preprocesso df voti
                 df_voti = utils.prepare_voto_dataframe(df_voti)
 
-                role = df_voti[df_voti['player'] == player]['fanta_role'].iloc[-1] if not df_voti[df_voti['player'] == player].empty else None
-                if role not in ['P', 'D', 'C', 'A']:
-                    st.warning(f"Ruolo non riconosciuto per {player}. Assicurati che il giocatore abbia un ruolo valido (P, D, C, A)")                  
-                    return
-                
-                if role != 'P':
-                    df_pred = model_predict_voto.pred_voto_prod(
-                        players, teams, opponents, h_a, 
-                        df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
-                        model_goal, model_assist, model_xg,model['fantavoto_model'], False
-                    )
-                    df_pred = df_pred.reset_index(drop=True)
-                    df_pred = utils.prepare_df_for_display(df_pred).copy()
-                else:
-                    df_pred = model_predict_voto.pred_voto_prod_gk(
-                        players, teams, opponents, h_a, 
+                # Determina ruolo per ogni giocatore
+                roles = {}
+                for player in players:
+                    player_voti = df_voti[df_voti['player_norm'] == player]
+                    if not player_voti.empty:
+                        role = utils.get_main_position_weighted(player_voti["fanta_role"], window=10, decay=0.8)
+                    else:
+                        role = None
+                    roles[player] = role
+
+                # Separa i giocatori per ruolo
+                players_gk = [p for p in players if roles.get(p) == 'P']
+                players_other = [p for p in players if roles.get(p) != 'P']
+
+                results = []
+                # Per portieri
+                if players_gk:
+                    idxs = [i for i, p in enumerate(players) if p in players_gk]
+                    teams_gk = [teams[i] for i in idxs]
+                    opponents_gk = [opponents[i] for i in idxs]
+                    h_a_gk = [h_a[i] for i in idxs]
+                    df_pred_gk = model_predict_voto.pred_voto_prod_gk(
+                        players_gk, teams_gk, opponents_gk, h_a_gk,
                         df_voti, df_teams, df_teams_curr_season,
                         model_gk['fantavoto_model_gk'], False
                     )
-                    df_pred = df_pred.reset_index(drop=True)
-                    df_pred = utils.prepare_df_for_display(df_pred).copy()
+                    results.append(df_pred_gk)
+
+                # Per altri ruoli
+                if players_other:
+                    idxs = [i for i, p in enumerate(players) if p in players_other]
+                    teams_other = [teams[i] for i in idxs]
+                    opponents_other = [opponents[i] for i in idxs]
+                    h_a_other = [h_a[i] for i in idxs]
+                    df_pred_other = model_predict_voto.pred_voto_prod(
+                        players_other, teams_other, opponents_other, h_a_other,
+                        df_voti, df_orig_goal, df_orig_assist, df_teams, df_teams_curr_season,
+                        model_goal, model_assist, model_xg, model['fantavoto_model'], False
+                    )
+                    results.append(df_pred_other)
+
+                # Unisci i risultati
+                if results:
+                    df_pred = pd.concat(results, ignore_index=True)
+                else:
+                    df_pred = pd.DataFrame()
+                df_pred = df_pred.reset_index(drop=True)
+                df_pred = utils.prepare_df_for_display(df_pred).copy()
 
                 #st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
 
