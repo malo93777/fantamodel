@@ -140,7 +140,7 @@ def main():
             st.warning("Seleziona almeno un giocatore.")
         else:         
             
-            with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
+            with st.spinner("⏳ Calcolo Indici in corso..."):
 
                 # --- Carica dataset e modelli 
                 model_goal = utils.load_models() 
