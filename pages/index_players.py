@@ -112,7 +112,7 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    #giocatori_display = ["domenico berardi", "francesco esposito"]
+    giocatori_display = ["domenico berardi"]
     for player in giocatori_display:
         #col1, _, _ = st.columns([3,3,2])
         
@@ -142,8 +142,8 @@ def main():
     # =====================================================
     # 🔹 Logica Calcola Indice
     # =====================================================
-    #submitted=True
-    #giocatori = "francesco esposito"
+    submitted=True
+    giocatori = "domenico berardi"
     #input_data.append((giocatori, "sassuolo","inter","h"))
     if submitted:
         if not giocatori:

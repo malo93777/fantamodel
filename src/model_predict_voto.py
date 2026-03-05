@@ -167,8 +167,6 @@ def preprocess_data(df: pd.DataFrame):
         # Tieni solo le colonne necessarie
     df_model = df[features + [target]].dropna()
 
-      # Aggiungi il DataFrame delle squadre se disponibile
-
     X = df_model[features]
     y = df_model[target]
 
@@ -635,6 +633,7 @@ def train_log_regression(X: pd.DataFrame, y: pd.Series) -> LinearRegression:
         'assists',
         'ammonizioni'
     ]
+
     CAT_FEATURES = ['position_clean']
     # ---- preprocessors ----
     numeric_transformer = Pipeline(
@@ -789,9 +788,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     df_voti = utils.prepare_voto_dataframe(df_voti)
     
     #preprocesso df prossima giornata
-    next_games_df = next_games_df.copy()
-    next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
-    next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
+    #next_games_df = next_games_df.copy()
+    #next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
+    #next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
 
     #normalizzo nomi inofrtuni
     df_infortunati["Giocatore"] = df_infortunati["Giocatore"].apply(utils.normalize_fn)
@@ -919,7 +918,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
 
 def main():
 
-    train = False
+    train = True
     train_gk = False
 
     test = True
