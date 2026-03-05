@@ -462,10 +462,12 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         # Conta le occorrenze
         counts = player_df["position"].value_counts(dropna=False)
 
-        # Rimuovo i "None"
+        # Sostituisco "None" con il valore più frequente (escluso None) nella colonna position
         if others_leagues_data == False:
-            
-            player_df = player_df[player_df["position"] != "None"]
+            most_freq = player_df.loc[player_df["position"] != "None", "position"].mode()
+            if not most_freq.empty:
+                most_freq_value = most_freq.iloc[0]
+                player_df.loc[player_df["position"] == "None", "position"] = most_freq_value
 
         main_role = utils.get_main_position_weighted( player_df["position"], window=10, decay=0.8)
 

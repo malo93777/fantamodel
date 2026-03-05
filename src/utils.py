@@ -101,6 +101,12 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
 
     df["position"] = df["position"].apply(clean_position)
 
+    #sostituisco none con position piu frequente
+    most_freq = df.loc[df["position"] != "None", "position"].mode()
+    if not most_freq.empty:
+        most_freq_value = most_freq.iloc[0]
+        df.loc[df["position"] == "None", "position"] = most_freq_value
+
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
     df = fill_missing_values_player_df(df, numeric_features, season_ref=season)
@@ -235,8 +241,11 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     df_teams_curr = compute_defensive_overperf_stats(df_teams_curr_season, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
     
     df["position"] = df["position"].apply(clean_position)
-    # Rimuovo i "None"
-    df = df[df["position"] != "None"]
+    # Sostituisco "None" con il valore più frequente (escluso None) nella colonna position
+    most_freq = df.loc[df["position"] != "None", "position"].mode()
+    if not most_freq.empty:
+        most_freq_value = most_freq.iloc[0]
+        df.loc[df["position"] == "None", "position"] = most_freq_value
 
     df = fill_missing_values_player_df(df, numeric_features, season_ref=config.CURRENT_SEASON)
 
