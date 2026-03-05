@@ -169,7 +169,7 @@ def main():
             df_pred = df_pred.reset_index(drop=True)
             df_pred = utils.prepare_df_for_display(df_pred).copy()
 
-            st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
+            #st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
 
             # 🔢 Assicuriamoci che siano numerici e arrotondiamo
             if 'fantavoto_pred' in df_pred.columns:
@@ -242,14 +242,12 @@ def main():
                 {'selector': 'table', 'props': [('border-radius', '12px'), ('overflow', 'hidden'), ('border', '1px solid #1e40af')]},
             ]).to_html(escape=False)
 
-            st.write("## Risultati Predizione")
             # Crystal ball before
             st.markdown('<div style="text-align:center;"><img src="https://em-content.zobj.net/source/microsoft-teams/363/crystal-ball_1f52e.png" alt="Crystal Ball" width="60"/></div>', unsafe_allow_html=True)
             st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
             # Crystal ball after
             st.markdown('<div style="text-align:center;"><img src="https://em-content.zobj.net/source/microsoft-teams/363/crystal-ball_1f52e.png" alt="Crystal Ball" width="60"/></div>', unsafe_allow_html=True)
-
     # =====================================================
     # 🔹 Logica Top Indici per Ruolo
     # =====================================================
