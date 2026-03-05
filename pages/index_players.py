@@ -112,18 +112,8 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    giocatori_display = ["Aaron Martin"] #DEBUG
+    #giocatori_display = ["Aaron Martin"] #DEBUG
     for player in giocatori_display:
-        #col1, _, _ = st.columns([3,3,2])
-        
-        #with col1:
-            #default_team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
-            #squadra = st.selectbox(
-                #f"Squadra di {player}",
-                #teams_list,
-                #index=teams_list.index(default_team) if default_team in teams_list else 0,
-                #key=f"team_{player}"
-            #)
         
         # Calcola avversario e ha automaticamente
         squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
