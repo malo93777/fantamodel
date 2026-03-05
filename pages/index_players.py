@@ -127,7 +127,7 @@ def main():
         
         # Calcola avversario e ha automaticamente
         squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
-        
+        st.write(f"DEBUG: player={player}, team={squadra}, avversario={avversario}, ha={ha}")
         input_data.append((player, squadra, avversario, ha))
 
     # =====================================================
@@ -168,6 +168,8 @@ def main():
             )
             df_pred = df_pred.reset_index(drop=True)
             df_pred = utils.prepare_df_for_display(df_pred).copy()
+
+            st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
 
             # 🔢 Assicuriamoci che siano numerici e arrotondiamo
             if 'fantavoto_pred' in df_pred.columns:
