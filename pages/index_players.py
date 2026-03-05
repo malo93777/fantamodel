@@ -195,18 +195,41 @@ def main():
                 'player': format_player,
                 'fantavoto_pred': format_number,
             }
-
             if 'Index' in df_pred.columns:
                 format_dict['Index'] = format_number
+
+            # Highlight max/min
+            highlight_cols = []
+            if 'Index' in df_pred.columns:
+                highlight_cols.append('Index')
+            elif 'fantavoto_pred' in df_pred.columns:
+                highlight_cols.append('fantavoto_pred')
+
+            def highlight_max_min(s):
+                max_val = s.max()
+                min_val = s.min()
+                return [
+                    'background-color: #22c55e; color: white; font-weight: bold;' if v == max_val else
+                    'background-color: #ef4444; color: white; font-weight: bold;' if v == min_val else
+                    '' for v in s
+                ]
 
             styled = (
                 df_pred.style
                 .format(format_dict)
                 .hide(axis='index')
             )
+            for col in highlight_cols:
+                styled = styled.apply(highlight_max_min, subset=[col])
 
-            html = styled.to_html(escape=False)
-            html = html.replace('<th ', '<th style="font-weight:bold;" ')
+            # Elegant table style
+            html = styled.set_table_styles([
+                {'selector': 'th', 'props': [('background-color', '#1e40af'), ('color', 'white'), ('font-weight', 'bold'), ('font-size', '16px')]},
+                {'selector': 'td', 'props': [('font-size', '15px'), ('padding', '8px')]},
+                {'selector': 'tr:nth-child(even)', 'props': [('background-color', '#f3f4f6')]},
+                {'selector': 'tr:nth-child(odd)', 'props': [('background-color', '#e0e7ff')]},
+                {'selector': 'table', 'props': [('border-radius', '12px'), ('overflow', 'hidden'), ('border', '1px solid #1e40af')]},
+            ]).to_html(escape=False)
 
             st.write("## Risultati Predizione")
             st.write(html, unsafe_allow_html=True)
