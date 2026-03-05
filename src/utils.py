@@ -3986,9 +3986,9 @@ def get_team_opponent_ha(player, df_voti, next_games_df):
     
     next_games_df['home'] = next_games_df['home'].apply(normalize_team_name)
     next_games_df['away'] = next_games_df['away'].apply(normalize_team_name)
-    player = player.lower().strip()
+    player = normalize_fn(player)
 
-    team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0] if not df_voti[df_voti['player_norm'] == player].empty else None
+    team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[-1] if not df_voti[df_voti['player_norm'] == player].empty else None
     
     if team is None or pd.isna(team):
         team = "squadra sconosciuta"

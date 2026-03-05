@@ -112,7 +112,7 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    #giocatori_display = ["domenico berardi"]
+    giocatori_display = ["Aaron Martin"] #DEBUG
     for player in giocatori_display:
         #col1, _, _ = st.columns([3,3,2])
         
