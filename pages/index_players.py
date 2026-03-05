@@ -114,7 +114,8 @@ def main():
     input_data = []
 
     for player in giocatori_display:
-        col1, col2, col3 = st.columns([3,3,2])
+        col1, _, _ = st.columns([3,3,2])
+        
         with col1:
             default_team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
             squadra = st.selectbox(
@@ -123,15 +124,10 @@ def main():
                 index=teams_list.index(default_team) if default_team in teams_list else 0,
                 key=f"team_{player}"
             )
-        with col2:
-            avversario = st.selectbox(f"Avversario di {player}", opponents_list, key=f"opp_{player}")
-        if num_giornate > 15:
-            with col3:
-                ha_label = st.selectbox(f"Casa/Trasferta {player}", ["Casa", "Trasferta"], key=f"ha_{player}")
-                ha = "h" if ha_label == "Casa" else "a"
-        else:
-            ha = None
-
+        
+        # Calcola avversario e ha automaticamente
+        squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df, utils)
+        
         input_data.append((player, squadra, avversario, ha))
 
     # =====================================================
