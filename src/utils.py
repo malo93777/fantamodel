@@ -3982,7 +3982,7 @@ def get_suspended_players(
 
     return suspended
 
-def get_team_opponent_ha(player, df_voti, next_games_df, utils):
+def get_team_opponent_ha(player, df_voti, next_games_df):
     team = df_voti.loc[df_voti['player_norm'] == player, 'player_team'].iloc[0] if not df_voti[df_voti['player_norm'] == player].empty else None
     
     if team is None or pd.isna(team):
@@ -3990,7 +3990,7 @@ def get_team_opponent_ha(player, df_voti, next_games_df, utils):
     if "," in str(team):
         team = team.split(",")[-1]
     
-    team = utils.normalize_team_name(team)
+    team = normalize_team_name(team)
     next_game = next_games_df[(next_games_df['home'] == team) | (next_games_df['away'] == team)]
     
     if not next_game.empty:
@@ -4004,5 +4004,5 @@ def get_team_opponent_ha(player, df_voti, next_games_df, utils):
     else:
         h_a = ""
         opponent = ""
-        
+
     return team, opponent, h_a
