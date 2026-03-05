@@ -1070,6 +1070,8 @@ class Preprocessor:
 
         df1 = filter_current_serie_a_players(df1, self.assign_league)
 
+        df1 = utils.add_home_away_column(df1) 
+
         # Rimuovi colonna temporanea
         #df1 = df1.drop(columns=['player_norm'])
 
