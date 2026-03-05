@@ -199,39 +199,51 @@ def main():
                 format_dict['Index'] = format_number
 
             # Highlight max/min
-            highlight_cols = []
-            if 'Index' in df_pred.columns:
-                highlight_cols.append('Index')
-            elif 'fantavoto_pred' in df_pred.columns:
-                highlight_cols.append('fantavoto_pred')
 
-            def highlight_max_min(s):
-                max_val = s.max()
-                min_val = s.min()
-                return [
-                    'background-color: #22c55e; color: white; font-weight: bold;' if v == max_val else
-                    'background-color: #ef4444; color: white; font-weight: bold;' if v == min_val else
-                    '' for v in s
-                ]
+            # Color only the numbers of max/min index
+            highlight_col = None
+            if 'Index' in df_pred.columns:
+                highlight_col = 'Index'
+            elif 'fantavoto_pred' in df_pred.columns:
+                highlight_col = 'fantavoto_pred'
+
+            def format_number_highlight(val, max_val, min_val):
+                if pd.isna(val):
+                    return ""
+                color = None
+                if val == max_val:
+                    color = '#22c55e'  # green
+                elif val == min_val:
+                    color = '#ef4444'  # red
+                if color:
+                    return f'<b><span style="color:{color};">{val:.1f}</span></b>'
+                return f"<b>{val:.1f}</b>"
+
+            # Prepare format dict with highlight
+            if highlight_col:
+                max_val = df_pred[highlight_col].max()
+                min_val = df_pred[highlight_col].min()
+                def format_number_custom(val):
+                    return format_number_highlight(val, max_val, min_val)
+                format_dict[highlight_col] = format_number_custom
 
             styled = (
                 df_pred.style
                 .format(format_dict)
                 .hide(axis='index')
             )
-            for col in highlight_cols:
-                styled = styled.apply(highlight_max_min, subset=[col])
 
             # Elegant table style
             html = styled.set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#1e40af'), ('color', 'white'), ('font-weight', 'bold'), ('font-size', '16px')]},
-                {'selector': 'td', 'props': [('font-size', '15px'), ('padding', '8px')]},
+                {'selector': 'td', 'props': [('font-size', '15px'), ('padding', '8px'), ('background-color', '#e0e7ff')]},
                 {'selector': 'tr:nth-child(even)', 'props': [('background-color', '#f3f4f6')]},
                 {'selector': 'tr:nth-child(odd)', 'props': [('background-color', '#e0e7ff')]},
                 {'selector': 'table', 'props': [('border-radius', '12px'), ('overflow', 'hidden'), ('border', '1px solid #1e40af')]},
             ]).to_html(escape=False)
 
             st.write("## Risultati Predizione")
+            st.markdown('<div style="text-align:center;"><img src="https://em-content.zobj.net/source/microsoft-teams/363/crystal-ball_1f52e.png" alt="Crystal Ball" width="60"/></div>', unsafe_allow_html=True)
             st.write(html, unsafe_allow_html=True)
 
     # =====================================================
