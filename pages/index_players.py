@@ -112,7 +112,7 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    giocatori_display = ["angeyoan bonny"] #DEBUG
+    #giocatori_display = ["angeyoan bonny"] #DEBUG
     for player in giocatori_display:
         
         # Calcola avversario e ha automaticamente
