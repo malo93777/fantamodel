@@ -140,37 +140,39 @@ def main():
             st.warning("Seleziona almeno un giocatore.")
         else:         
             
-            # --- Carica dataset e modelli 
-            model_goal = utils.load_models() 
-            model_assist = utils.load_models_assist() 
-            model_xg = utils.load_xg_model()
-            model = model_predict_voto.utils.load_fv_model()
-            model_gk = model_predict_voto.utils.load_fv_model_gk()
+            with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
 
-            players, teams, opponents, h_a = zip(*input_data)
-            #preprocesso df voti
-            df_voti = utils.prepare_voto_dataframe(df_voti)
+                # --- Carica dataset e modelli 
+                model_goal = utils.load_models() 
+                model_assist = utils.load_models_assist() 
+                model_xg = utils.load_xg_model()
+                model = model_predict_voto.utils.load_fv_model()
+                model_gk = model_predict_voto.utils.load_fv_model_gk()
 
-            df_pred = model_predict_voto.pred_voto_prod(
-                players, teams, opponents, h_a, 
-                df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
-                model_goal, model_assist, model_xg,model['fantavoto_model']
-            )
-            df_pred = df_pred.reset_index(drop=True)
-            df_pred = utils.prepare_df_for_display(df_pred).copy()
+                players, teams, opponents, h_a = zip(*input_data)
+                #preprocesso df voti
+                df_voti = utils.prepare_voto_dataframe(df_voti)
 
-            #st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
+                df_pred = model_predict_voto.pred_voto_prod(
+                    players, teams, opponents, h_a, 
+                    df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
+                    model_goal, model_assist, model_xg,model['fantavoto_model']
+                )
+                df_pred = df_pred.reset_index(drop=True)
+                df_pred = utils.prepare_df_for_display(df_pred).copy()
 
-            # 🔢 Assicuriamoci che siano numerici e arrotondiamo
-            if 'fantavoto_pred' in df_pred.columns:
-                df_pred['fantavoto_pred'] = pd.to_numeric(
-                    df_pred['fantavoto_pred'], errors='coerce'
-                ).round(1)
+                #st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
 
-            if 'Index' in df_pred.columns:
-                df_pred['Index'] = pd.to_numeric(
-                    df_pred['Index'], errors='coerce'
-                ).round(1)
+                # 🔢 Assicuriamoci che siano numerici e arrotondiamo
+                if 'fantavoto_pred' in df_pred.columns:
+                    df_pred['fantavoto_pred'] = pd.to_numeric(
+                        df_pred['fantavoto_pred'], errors='coerce'
+                    ).round(1)
+
+                if 'Index' in df_pred.columns:
+                    df_pred['Index'] = pd.to_numeric(
+                        df_pred['Index'], errors='coerce'
+                    ).round(1)
 
             # 🎨 Formattazione
             def format_player(val):
