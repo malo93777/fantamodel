@@ -249,7 +249,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "bernasconi" in player or "pavlovic" in player:
+        if "malen" in player or "pavlovic" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -788,9 +788,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     df_voti = utils.prepare_voto_dataframe(df_voti)
     
     #preprocesso df prossima giornata
-    #next_games_df = next_games_df.copy()
-    #next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
-    #next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
+    next_games_df = next_games_df.copy()
+    next_games_df['home'] = next_games_df['home'].apply(utils.normalize_team_name)
+    next_games_df['away'] = next_games_df['away'].apply(utils.normalize_team_name)
 
     #normalizzo nomi inofrtuni
     df_infortunati["Giocatore"] = df_infortunati["Giocatore"].apply(utils.normalize_fn)
@@ -807,7 +807,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     model_xg = utils.load_xg_model()
     #ruoli = ['P','D', 'C', 'A']
     if pipeline_gk is None:
-        ruoli = ['P','D', 'C', 'A']
+        ruoli = ['A']
     if pipeline is None and  pipeline_gk is not None:
          ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:
@@ -918,7 +918,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
 
 def main():
 
-    train = True
+    train = False
     train_gk = False
 
     test = True
