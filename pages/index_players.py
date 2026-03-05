@@ -153,13 +153,27 @@ def main():
                 #preprocesso df voti
                 df_voti = utils.prepare_voto_dataframe(df_voti)
 
-                df_pred = model_predict_voto.pred_voto_prod(
-                    players, teams, opponents, h_a, 
-                    df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
-                    model_goal, model_assist, model_xg,model['fantavoto_model'], False
-                )
-                df_pred = df_pred.reset_index(drop=True)
-                df_pred = utils.prepare_df_for_display(df_pred).copy()
+                role = df_voti[df_voti['player'] == player]['fanta_role'].iloc[-1] if not df_voti[df_voti['player'] == player].empty else None
+                if role not in ['P', 'D', 'C', 'A']:
+                    st.warning(f"Ruolo non riconosciuto per {player}. Assicurati che il giocatore abbia un ruolo valido (P, D, C, A)")                  
+                    return
+                
+                if role != 'P':
+                    df_pred = model_predict_voto.pred_voto_prod(
+                        players, teams, opponents, h_a, 
+                        df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
+                        model_goal, model_assist, model_xg,model['fantavoto_model'], False
+                    )
+                    df_pred = df_pred.reset_index(drop=True)
+                    df_pred = utils.prepare_df_for_display(df_pred).copy()
+                else:
+                    df_pred = model_predict_voto.pred_voto_prod_gk(
+                        players, teams, opponents, h_a, 
+                        df_voti, df_teams, df_teams_curr_season,
+                        model_gk['fantavoto_model_gk'], False
+                    )
+                    df_pred = df_pred.reset_index(drop=True)
+                    df_pred = utils.prepare_df_for_display(df_pred).copy()
 
                 #st.write(f"DEBUG 2 : player={df_pred['Avversario'].iloc[0]}")
 
@@ -245,7 +259,7 @@ def main():
     # =====================================================
     # =====================================================
     #DEBUG
-    top_ruolo = True 
+    #top_ruolo = True 
     if top_ruolo:
         if df_voti.empty or next_games_df.empty:
             st.warning("Dati insufficienti per calcolare i top indici.")
