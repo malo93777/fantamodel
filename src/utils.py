@@ -700,11 +700,13 @@ def normalize_team_name(name: str) -> str:
     """Normalizza il nome della squadra per confronti più robusti."""
     if name is None or pd.isna(name) or name.strip() == "":
         return ""
+    
     name = name.lower()
     # Rimuovi prefissi e parole comuni
     name = re.sub(r'\b(fc|ac|ss|us|as|cf|sc|calcio|club|sporting|hellas)\b', '', name)
-    # Rimuovi spazi e punteggiatura
-    name = re.sub(r'[^a-z]', '', name)
+                
+    # Rimuovi spazi e punteggiatura NON virgola, che serve quando i giocatori cambiano squadra
+    name = re.sub(r'[^a-z,]', '', name)
     return name.strip()
 
 def get_Xg_90min_team(team: str, season: str, teams_df: pd.DataFrame) -> float:
@@ -2911,6 +2913,7 @@ def compute_player_vs_strength_adjustment(
     ].tail(15)
 
     if len(subset) < min_matches:
+        print("meno di 5 partite contro avversari di forza, ritorno 0", target_opponent_strength)
         return neutral_value
 
     # Media esponenziale vs quella forza

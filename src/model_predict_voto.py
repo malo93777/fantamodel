@@ -250,7 +250,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "malen" in player or "pavlovic" in player:
+        if "ricci" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -397,8 +397,6 @@ def pred_voto_prod(
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
 
-        if fanta_role == "C":
-            print("debug")
         index_boost = utils.apply_fantarole_boost(index, fanta_role)
         if debug:
             print(f"Schierability REAl index: {index:.2f}")
@@ -812,7 +810,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     model_xg = utils.load_xg_model()
     #ruoli = ['P','D', 'C', 'A']
     if pipeline_gk is None:
-        ruoli = ['A']
+        ruoli = ['C']
     if pipeline is None and  pipeline_gk is not None:
          ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:

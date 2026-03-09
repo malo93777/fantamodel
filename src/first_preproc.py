@@ -1670,9 +1670,6 @@ def add_virtual_postponed_matches(
 
     base_row = df_player.iloc[-1]
 
-    if "leao" in player:
-        print("debug")
-
     for giornata, config in postponed_config.items():
 
         teams = config["teams"]

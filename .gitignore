@@ -1,0 +1,11 @@
+src/__pycache__/fbref_nextgames_scraper.cpython-311.pyc
+src/__pycache__/first_preproc.cpython-311.pyc
+src/__pycache__/model_predict_voto.cpython-311.pyc
+src/__pycache__/utils.cpython-311.pyc
+src/catboost_info/catboost_training.json
+src/catboost_info/learn/events.out.tfevents
+src/catboost_info/learn_error.tsv
+src/catboost_info/test/events.out.tfevents
+src/catboost_info/test_error.tsv
+src/catboost_info/time_left.tsv
+src/__pycache__/config.cpython-311.pyc
