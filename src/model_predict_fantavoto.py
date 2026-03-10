@@ -250,7 +250,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "ricci" in player:
+        if "volpato" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -323,7 +323,15 @@ def pred_voto_prod(
         yellowcard_adj = utils.compute_ammonizioni_adjustment(player_df, fanta_role)
 
         voto_base += yellowcard_adj
- 
+
+         # ************  MALUS GIOCATORI INATTIVI DA TEMPO  **********
+        malus_tempo = utils.malus = utils.calculate_inactivity_malus(
+                            player_df['date'],
+                            reference_date=None
+                    )
+
+        voto_base = voto_base * (1 - malus_tempo)
+
         # === PREDIZIONE GOAL ===
         features_names_goal = list(model_goal["poiss_reg"].feature_names_)
         if "finishing_form_resid" in features_names_goal:
@@ -395,7 +403,7 @@ def pred_voto_prod(
         if debug:
             print(f"Predicted fantavoto for {player_full_name}, role: {fanta_role}, ({team} vs {opponent}, {h_a}): {fantavoto_pred:.2f}")
 
-        index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)  
+        index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)        
 
         index_boost = utils.apply_fantarole_boost(index, fanta_role)
         if debug:
@@ -439,7 +447,7 @@ def pred_voto_prod_gk(
         player_df = utils.add_home_away_column(player_df)     
 
         fanta_role = utils.get_main_position_weighted(player_df["fanta_role"], window=10, decay=0.8)
-        
+
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
         

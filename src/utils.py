@@ -4023,3 +4023,36 @@ def get_team_opponent_ha(player, df_voti, next_games_df):
         opponent = ""
 
     return team, opponent, h_a
+
+def calculate_inactivity_malus(date_col, reference_date=None,
+                               start_weeks=2,
+                               base_malus=0.05,
+                               weekly_increment=0.02,
+                               max_malus=0.20):
+    """
+    Calcola un malus basato sull'inattività del giocatore.
+
+    - start_weeks: settimane di tolleranza senza penalità
+    - base_malus: malus iniziale dopo start_weeks
+    - weekly_increment: incremento settimanale del malus
+    - max_malus: malus massimo
+    """
+
+    if reference_date is None:
+        reference_date = datetime.now()
+    else:
+        reference_date = pd.to_datetime(reference_date)
+
+    last_played = pd.to_datetime(date_col).max()
+
+    days_since = (reference_date - last_played).days
+    weeks_since = days_since // 7
+
+    if weeks_since <= start_weeks:
+        return 0.0
+
+    extra_weeks = weeks_since - start_weeks
+
+    malus = base_malus + (extra_weeks - 1) * weekly_increment
+
+    return min(malus, max_malus)
