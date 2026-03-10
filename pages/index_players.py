@@ -3,7 +3,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 
 import streamlit as st
 import pandas as pd
-import model_predict_voto
+import model_predict_fantavoto
 import config
 import utils
 
@@ -146,8 +146,8 @@ def main():
                 model_goal = utils.load_models() 
                 model_assist = utils.load_models_assist() 
                 model_xg = utils.load_xg_model()
-                model = model_predict_voto.utils.load_fv_model()
-                model_gk = model_predict_voto.utils.load_fv_model_gk()
+                model = model_predict_fantavoto.utils.load_fv_model()
+                model_gk = model_predict_fantavoto.utils.load_fv_model_gk()
 
                 players, teams, opponents, h_a = zip(*input_data)
                 #preprocesso df voti
@@ -174,7 +174,7 @@ def main():
                     teams_gk = [teams[i] for i in idxs]
                     opponents_gk = [opponents[i] for i in idxs]
                     h_a_gk = [h_a[i] for i in idxs]
-                    df_pred_gk = model_predict_voto.pred_voto_prod_gk(
+                    df_pred_gk = model_predict_fantavoto.pred_voto_prod_gk(
                         players_gk, teams_gk, opponents_gk, h_a_gk,
                         df_voti, df_teams, df_teams_curr_season,
                         model_gk['fantavoto_model_gk'], False
@@ -187,7 +187,7 @@ def main():
                     teams_other = [teams[i] for i in idxs]
                     opponents_other = [opponents[i] for i in idxs]
                     h_a_other = [h_a[i] for i in idxs]
-                    df_pred_other = model_predict_voto.pred_voto_prod(
+                    df_pred_other = model_predict_fantavoto.pred_voto_prod(
                         players_other, teams_other, opponents_other, h_a_other,
                         df_voti, df_orig_goal, df_orig_assist, df_teams, df_teams_curr_season,
                         model_goal, model_assist, model_xg, model['fantavoto_model'], False
@@ -292,14 +292,14 @@ def main():
             st.warning("Dati insufficienti per calcolare i top indici.")
         else:
             st.write("## 🔝 Top Indici per Ruolo")
-            model = model_predict_voto.utils.load_fv_model()
-            model_gk = model_predict_voto.utils.load_fv_model_gk()
+            model = model_predict_fantavoto.utils.load_fv_model()
+            model_gk = model_predict_fantavoto.utils.load_fv_model_gk()
 
             with st.spinner("⏳ Calcolo dei Top Indici in corso..."):
                     #preprocesso df voti
                     df_voti = utils.prepare_voto_dataframe(df_voti)
 
-                    results = model_predict_voto.predizioni_per_ruolo(
+                    results = model_predict_fantavoto.predizioni_per_ruolo(
                     df_voti,
                     next_games_df,
                     df_infortunati,
