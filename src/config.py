@@ -65,7 +65,7 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["lukaku","gutierrez","pavlovic","nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
+    "players": ["bowie","lukaku","gutierrez","pavlovic","nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
         "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
@@ -74,7 +74,7 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "napoli","milan","napoli","milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
+        "verona","napoli","milan","napoli","milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
         "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
@@ -82,7 +82,7 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "torino","cremonese","verona","como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "torino","torino","cremonese","verona","como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
@@ -289,7 +289,8 @@ manual_roles = {
     "alberto moreno": "D",
     "davide zappacosta": "D",
     "davide frattesi":"C",
-    "alisson santos":"C"
+    "alisson santos":"C",
+    "kieron bowie": "A"
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
