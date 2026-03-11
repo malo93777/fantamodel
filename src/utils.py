@@ -4028,7 +4028,7 @@ def calculate_inactivity_malus(date_col, reference_date=None,
                                start_weeks=2,
                                base_malus=0.05,
                                weekly_increment=0.02,
-                               max_malus=0.20):
+                               max_malus=0.15):
     """
     Calcola un malus basato sull'inattività del giocatore.
 

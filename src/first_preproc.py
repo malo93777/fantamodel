@@ -1063,7 +1063,7 @@ class Preprocessor:
         df3['date'] = pd.to_datetime(df3['date'])
 
         df1 = df1.merge(
-            df3[['player_norm', 'date', 'player_team', 'opponent_team']],
+            df3[['player_norm', 'date', 'player_team', 'opponent_team','finishing_form', 'shot_quality_index']],
             on=['player_norm', 'date'],
             how='left'
         )
