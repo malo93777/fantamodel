@@ -55,7 +55,10 @@ def load_fv_model_gk():
     return {
         "fantavoto_model_gk": joblib.load(config.MODEL_DIR_FV / config.FV_MODEL_GK)
     }
-
+def load_voto_model(ruolo):
+    return {
+        "voto_model": joblib.load(config.MODEL_DIR_FV / (ruolo + "_" + config.VOTO_MODEL))
+    }
 def get_latest_team(df_orig, player_name, team_col):
     """ Fun per prendere squadra per cui un giocatore ha giocato utima partita"""
 
@@ -4056,3 +4059,168 @@ def calculate_inactivity_malus(date_col, reference_date=None,
     malus = base_malus + (extra_weeks - 1) * weekly_increment
 
     return min(malus, max_malus)
+
+def build_player_features_weighted(df: pd.DataFrame, stats, short_window=5, long_window=15, short_weight=0.7, long_weight=0.3, prod=False) -> pd.DataFrame:
+    """
+    Costruisce feature sintetiche per il modello di voto.
+
+    Combina le statistiche recenti (short_window) e quelle più lunghe (long_window)
+    pesandole (short_weight, long_weight) e normalizzando per 90 minuti.
+    
+    Richiede colonne base:
+    player, giornata, shots, key_passes, xGBuildup, xGChain, time,
+    team_strength, opponent_strength
+    """
+
+    df = df.sort_values(["player", "date"]).copy()
+
+    #postprocessing categoriche team_strength e opponent_strength
+    #INSERISCO mid e wak in una sola casisistica "not top"
+    #top : 1, not top (mid+weak) : 0
+      # default fallback
+    if not prod:
+        df["player_team_strength"] = df["player_team_strength"].apply(set_top_notop)
+        df["opponent_team_strength"] = df["opponent_team_strength"].apply(set_top_notop)
+        df["player_team_strength"] = df["player_team_strength"].map({"top": 1, "no_top": 0})  
+        df["opponent_team_strength"] = df["opponent_team_strength"].map({"top": 1, "no_top": 0})  
+
+        # contesto partita
+        df["strength_diff"] = df["player_team_strength"] - df["opponent_team_strength"]
+
+    for stat in stats:
+        # media rolling short e long
+        roll_short = (
+            df.groupby("player")[stat]
+            .rolling(short_window, min_periods=1)
+            .mean()
+            .shift(1)
+            .reset_index(level=0, drop=True)
+        )
+        roll_long = (
+            df.groupby("player")[stat]
+            .rolling(long_window, min_periods=1)
+            .mean()
+            .shift(1)
+            .reset_index(level=0, drop=True)
+        )
+
+        # rolling time medio per calcolo per90
+        time_short = (
+            df.groupby("player")["time"]
+            .rolling(short_window, min_periods=1)
+            .mean()
+            .shift(1)
+            .reset_index(level=0, drop=True)
+        )
+        time_long = (
+            df.groupby("player")["time"]
+            .rolling(long_window, min_periods=1)
+            .mean()
+            .shift(1)
+            .reset_index(level=0, drop=True)
+        )
+
+        # combinazione pesata + per90
+        df[f"{stat}_per90_weighted"] = (
+            short_weight * (roll_short / time_short * 90)
+            + long_weight * (roll_long / time_long * 90)
+        )
+
+        # trend sintetico: breve - lungo
+        df[f"{stat}_trend_per90"] = (roll_short / time_short * 90) - (roll_long / time_long * 90)
+
+    # minuti medi ultimi short_window per90
+    df["minutes_per90_last5"] = (
+        df.groupby("player")["time"]
+        .rolling(short_window)
+        .mean()
+        .shift(1)
+        .reset_index(level=0, drop=True)
+    ) / 90
+
+
+
+    # features finali: shots_per90_weighted, key_passes_per90_weighted, xGBuildup_per90_weighted, xGChain_per90_weighted,
+    # trend per90, minutes_per90_last5, strength_diff
+    new_features = []
+    for stat in stats:
+        new_features.append(f"{stat}_per90_weighted")
+        new_features.append(f"{stat}_trend_per90")
+    # aggiungi strength diff
+    new_features.append("strength_diff")
+    return df, new_features
+
+def set_top_notop(strength):
+    if strength in ["mid", "weak"]:
+        return "no_top"
+    elif strength == "top":
+        return "top"
+    else:
+        return "no_top"
+
+def compute_impact_feature(df, weights=None):
+    """
+    Crea una feature sintetica di impatto offensivo sulla partita per90.
+    
+    Parametri:
+    - df: pd.DataFrame con colonne per90 come xGBuildup_per90_weighted, xGChain_per90_weighted, key_passes_per90_weighted
+    - weights: dizionario con pesi delle singole componenti, default [0.5,0.3,0.2]
+    
+    Restituisce:
+    - pd.Series con la feature 'impact_per90'
+    """
+    if weights is None:
+        weights = {
+            'xGBuildup_per90_weighted': 0.5,
+            'xGChain_per90_weighted': 0.3,
+            'key_passes_per90_weighted': 0.2
+        }
+    
+    # Controllo colonne
+    missing_cols = [col for col in weights.keys() if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Colonne mancanti nel dataframe: {missing_cols}")
+    
+    # Calcolo feature
+    impact = sum(df[col] * w for col, w in weights.items())
+    
+    return impact
+
+def compute_prod_features(player_df, stats,
+                          short_window=5,
+                          long_window=15,
+                          short_weight=0.7,
+                          long_weight=0.3):
+    
+    #funzione per calcolare le feature di produzione recenti e stagionali pesate, 
+    # da usare nel modello di voto
+
+    features = {}
+
+    for stat in stats:
+
+        roll_short = player_df[stat].rolling(short_window, min_periods=1).mean()
+        roll_long = player_df[stat].rolling(long_window, min_periods=1).mean()
+
+        time_short = player_df["time"].rolling(short_window, min_periods=1).mean()
+        time_long = player_df["time"].rolling(long_window, min_periods=1).mean()
+
+        short_per90 = roll_short / time_short * 90
+        long_per90 = roll_long / time_long * 90
+
+        features[f"{stat}_per90_weighted"] = (
+            short_weight * short_per90.iloc[-1]
+            + long_weight * long_per90.iloc[-1]
+        )
+
+        features[f"{stat}_trend_per90"] = (
+            short_per90.iloc[-1] - long_per90.iloc[-1]
+        )
+
+    # minutes form (feature molto utile per il voto)
+    features["time"] = (
+        short_weight * player_df["time"].tail(short_window).mean()
+        + long_weight * player_df["time"].tail(long_window).mean()
+    )
+
+    return features
