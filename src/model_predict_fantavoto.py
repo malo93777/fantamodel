@@ -978,10 +978,13 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
         # stampa la tabella
         if "Porta Squadra" in df_pred_sorted.columns:
             display_cols = ['Porta Squadra', 'Avversario', 'Campo', 'Index', 'Top', 'Worst']
+            if debug:
+                print(df_pred_sorted[display_cols].to_string(index=False))
         else:
             df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
-            display_cols = ['Giocatore', 'Avversario', 'Campo', 'Index', 'Top', 'Worst']
-        print(df_pred_sorted[display_cols].to_string(index=False))
+            display_cols = ['Giocatore', 'Avversario', 'Campo', 'Index']
+            if debug:
+                print(df_pred_sorted[display_cols].to_string(index=False))
 
         #salva in csv df se siamo in locale
         if debug:
@@ -1003,8 +1006,8 @@ def main():
     train = False
     train_gk = False
 
-    test = False
-    test_gk = True
+    test = True
+    test_gk = False
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
