@@ -15,7 +15,7 @@ from sklearn.metrics import (
 from sklearn.linear_model import LinearRegression
 from catboost import CatBoostRegressor
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from config import POISS_MODEL_XG,SERIE_A_TEAMS, MODEL_DIR_XG, CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
+from config import CAT_MODEL_XG,SERIE_A_TEAMS, MODEL_DIR_XG, CURRENT_SEASON_TEAMS_FILE, GOALS_DATA_FILE_ALL_LEAGUES, DATASET_DATA_DIR, PROD_DATA_FILE_GOALS, TEAMS_DATA_FILE, CURRENT_SEASON, INPUT, SERIE_A_TEAMS
 from first_preproc import Preprocessor
 from unidecode import unidecode
 from scipy.stats import poisson
@@ -39,7 +39,7 @@ def add_opponent_strength_feature(df, opponent_col="opponent_team"):
 # ============================================================
 # 1️⃣ FEATURE ENGINEERING PULITO
 # ============================================================
-def load_xg_model(model_path= MODEL_DIR_XG / POISS_MODEL_XG):
+def load_xg_model(model_path= MODEL_DIR_XG / CAT_MODEL_XG):
     model = CatBoostRegressor()
     model.load_model(model_path)
     return model
@@ -84,6 +84,7 @@ def prepare_features(df_orig):
 
     stats = utils.compute_role_overperf_stats(df)
     df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
+    df = utils.add_goal_scoring_features(df, player_col="player", prod=False)
 
     #df = df[df["position"] != "GK"]
     #df = df[df["position"] != "GKS"]
@@ -104,7 +105,8 @@ def prepare_features(df_orig):
         "sum_xG", 
         "finishing_form",
         "overperf_role_resid",
-        "shot_quality_index"
+        "shot_quality_index",
+        "goal_signal"
     ]
 
     #df = df.dropna(subset=cols_to_check)
@@ -491,10 +493,7 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
                          "finishing_form", #viene tolta e sostituita dal residuo  
                          "overperf_role_resid",
                          "shot_quality_index", 
-                         #"position_weighted"       
-                         #"cold_penalty",                       
-                         #"opponent_xGA_90min",  
-                         #"team_xG_90min"
+                         "goal_signal"
                          ]
         
         
@@ -513,9 +512,9 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
         cols_to_check.append("finishing_form_resid")
        
         #sum_xG_new = (player_df["sum_xG"].tail(12).mean())
-        last_xG = player_df["sum_xG"].tail(12).tolist()
+        #last_xG = player_df["sum_xG"].tail(12).tolist()
 
-        sum_xG_new = utils.progressive_weighted_mean(last_xG, alpha=0.1)
+        #sum_xG_new = utils.progressive_weighted_mean(last_xG, alpha=0.1)
 
         # 4️⃣ Ottieni info squadre. se le partite del giocatore della corrente stagione sono superiori a 5 uso quelle
         num_giornate = utils.count_matchdays(df_teams_curr)
@@ -577,7 +576,8 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
         
         # predizione xg futuro
-        sum_xG_new = utils.predict_xg_next_match(model_xg, player_df, main_role)
+        opponent_strength = utils.map_strength(opponent) 
+        sum_xG_new = utils.predict_xg_next_match(model_xg, player_df, main_role, opponent_strength)
         sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
         sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
@@ -596,9 +596,10 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
 
         # 7️⃣ Costruisci feature row
         X_new = [[sum_xG_new,                                                                                                                
-                  player_df["overperf_combined"].iloc[-1],
+                  player_df["overperf_role_resid"].iloc[-1],
                   player_df["shot_quality_index"].iloc[-1],
-                  player_df["finishing_form_resid"].iloc[-1]                                    
+                  player_df["finishing_form_resid"].iloc[-1]   ,
+                  player_df["goal_signal"].iloc[-1]                                 
                   ]]
 
         feature_names = cols_to_check
@@ -638,7 +639,7 @@ def main():
     parser = argparse.ArgumentParser(description="FantaModel")
     parser.add_argument("--fit", action="store_true", help="Vuoi riaddestrare il modello?")
     args = parser.parse_args()
-    args.fit = False
+    args.fit = True
 
     players = INPUT["players"]
     teams = INPUT["teams"]
@@ -673,10 +674,10 @@ def main():
 
     xg_model = utils.load_xg_model()
 
-    pred_df = predict_goal_probabilities(xg_model["poisson_regressor_xg"], players, teams, opponents,
-                                     df_mod, df_teams, df_teams_curr_season,
-                                     model, lin_reg,
-                                     numeric_features, categorical_features, stats, h_a)
+    #pred_df = predict_goal_probabilities(xg_model["catboost_regressor_xg"], players, teams, opponents,
+                                     #df_mod, df_teams, df_teams_curr_season,
+                                     #model, lin_reg,
+                                     #numeric_features, categorical_features, stats, h_a)
     
     utils.save_models(model=model, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
 

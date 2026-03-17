@@ -239,6 +239,7 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
 
     df = add_overperformance_features(df, ROLE_STATS, player_col="player", prod=True)
     df = compute_shot_quality_index_per_shot(df,prod=True)
+    df = add_goal_scoring_features(df, player_col="player", prod=True)
     df = reduce_penalty_xg(df)
 
     df_teams_curr = compute_defensive_overperf_stats(df_teams_curr_season, team_col="team_name", ga_col="missed", xga_col="xGA", window=5)
@@ -353,13 +354,15 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     finishing_form_resid = df["finishing_form_resid"].iloc[-1]
     overperf_value = df["overperf_role_resid"].iloc[-1]
     shot_quality_index = df["shot_quality_index"].iloc[-1]
+    goal_signal = df["goal_signal"].iloc[-1]
 
     # 7️⃣ Crea dataframe con le feature finali
     X_new_df = pd.DataFrame([{
         "sum_xG": sum_xG_new,
         "overperf_role_resid": overperf_value,  
         "shot_quality_index": shot_quality_index,
-        "finishing_form_resid": finishing_form_resid
+        "finishing_form_resid": finishing_form_resid,
+        "goal_signal": goal_signal
     }])
 
      # 8️⃣ Applica boost
@@ -1849,7 +1852,202 @@ def add_overperformance_features_old(
     df.drop(columns=["gmedian_role"], inplace=True)
     return df
 
+def add_goal_scoring_features(
+    df: pd.DataFrame,
+    player_col: str = "player",
+    prod: bool = False
+):
+    df = df.copy()
+    df = df.sort_values([player_col, "date"]).reset_index(drop=True)
+
+    # ============================================================
+    # 1️⃣ xG LEVEL (BASELINE PRINCIPALE)
+    # ============================================================
+    xg_ewm = (
+        df.groupby(player_col)["npxG_perMatch"]
+        .transform(lambda x: x.shift(1).ewm(span=5, adjust=False).mean())
+    )
+
+    df["xg_level"] = xg_ewm.fillna(0)
+
+    # ============================================================
+    # 2️⃣ GOAL RATE (tendenza al gol reale)
+    # ============================================================
+    goal_rate = df["npgoals_perMatch"]
+
+    goal_rate_ewm = (
+        df.groupby(player_col)[goal_rate.name]
+        .transform(lambda x: x.shift(1).ewm(span=5, adjust=False).mean())
+    )
+
+    df["goal_rate_level"] = goal_rate_ewm.fillna(0)
+
+    # ============================================================
+    # 3️⃣ VOLUME (stabilità → evita 1 gol random)
+    # ============================================================
+    shots_ewm = (
+        df.groupby(player_col)["shots_perMatch"]
+        .transform(lambda x: x.shift(1).ewm(span=5, adjust=False).mean())
+    )
+
+    df["shots_level"] = shots_ewm.fillna(0)
+
+    # confidence → penalizza low sample
+    df["confidence"] = (
+        1 - np.exp(-df["shots_level"] / 2)
+    ).clip(0.0, 1.0)
+
+    # ============================================================
+    # 4️⃣ ROLE ADJUSTMENT (QUI STA IL FIX PER DIMARCO)
+    # ============================================================
+    # goal rate medio per ruolo (baseline)
+    role_goal_rate = (
+        df.groupby("position")["npgoals_perMatch"]
+        .transform("median")
+    )
+
+    df["goal_vs_role"] = (
+        df["goal_rate_level"] - role_goal_rate
+    )
+
+    # ============================================================
+    # 5️⃣ FINISHING SKILL (soft, NON dominante)
+    # ============================================================
+    df["finishing"] = (
+        df["goal_rate_level"] - df["xg_level"]
+    ).clip(-0.5, 0.5)
+
+    # ridimensionato da confidence
+    df["finishing"] *= df["confidence"]
+
+    # ============================================================
+    # 6️⃣ FINAL SIGNAL (OTTIMIZZATO PER GOAL PROB)
+    # ============================================================
+    df["goal_signal"] = (
+        0.55 * df["xg_level"] +          # baseline forte
+        0.25 * df["goal_rate_level"] +  # chi segna davvero
+        0.15 * df["goal_vs_role"] +     # bonus ruolo (CRUCIALE)
+        0.05 * df["finishing"]          # piccolo extra
+    )
+
+    return df
+
 def add_overperformance_features(
+    df: pd.DataFrame,
+    stats: dict,
+    player_col: str = "player",
+    prod: bool = False
+):
+    df = df.copy()
+    df = df.sort_values([player_col, "date"]).reset_index(drop=True)
+
+    # ============================================================
+    # 1️⃣ OVERPERFORMANCE LOG BASE
+    # ============================================================
+    df["overperf_log"] = (
+        np.log1p(df["npgoals_perMatch"]) -
+        np.log1p(df["npxG_perMatch"].clip(lower=0) + 1e-6)
+    ).clip(-1.2, 1.2)
+
+    # ============================================================
+    # 2️⃣ FORMA RECENTE (ULTIME 5) — SAFE
+    # ============================================================
+    goals5 = (
+        df.groupby(player_col)["npgoals_perMatch"]
+        .transform(lambda s: s.rolling(5, min_periods=1).sum())
+    )
+
+    xg5 = (
+        df.groupby(player_col)["npxG_perMatch"]
+        .transform(lambda s: s.rolling(5, min_periods=1).sum())
+    )
+
+    if not prod:
+        goals5 = goals5.groupby(df[player_col]).shift()
+        xg5 = xg5.groupby(df[player_col]).shift()
+
+    df["overperf_last5"] = (
+        np.log1p(goals5.fillna(0)) -
+        np.log1p(xg5.fillna(0) + 1e-6)
+    ).clip(-1.0, 1.0)
+
+    # ============================================================
+    # 3️⃣ VOLUME + CONFIDENCE (FIX PRINCIPALE)
+    # ============================================================
+    shots20 = (
+        df.groupby(player_col)["shots_perMatch"]
+        .transform(lambda s: s.rolling(20, min_periods=1).sum())
+    )
+
+    if not prod:
+        shots20 = shots20.groupby(df[player_col]).shift()
+
+    shots20 = shots20.fillna(0)
+
+    div = stats["shots_divisor"]
+
+    # 🔥 peso più conservativo
+    df["weight"] = (
+        0.1 + 0.75 * (1 - np.exp(-shots20 / div))
+    ).clip(0.1, 1.0)
+
+    # 🔥 confidence → penalizza low sample
+    df["confidence"] = (
+        1 - np.exp(-shots20 / (div * 1.5))
+    ).clip(0.0, 1.0)
+
+    # ============================================================
+    # 4️⃣ MEDIANA DI RUOLO
+    # ============================================================
+    role_medians = stats["role_overperf_medians"]
+    default_median = stats["default_role_median"]
+
+    df["position"] = df["position"].apply(clean_position)
+    df["gmedian_role"] = (
+        df["position"].map(role_medians).fillna(default_median)
+    )
+
+    df["overperf_blend"] = (
+        df["weight"] * df["overperf_log"] +
+        (1 - df["weight"]) * df["gmedian_role"]
+    ).clip(-1.0, 1.0)
+
+    # ============================================================
+    # 5️⃣ COMBINAZIONE FINALE
+    # ============================================================
+    df["overperf_combined"] = (
+        0.35 * df["overperf_blend"] +
+        0.65 * df["overperf_last5"]
+    ).clip(-1.5, 1.5)
+
+    # 🔥 applico confidence (FIX CRUCIALE)
+    df["overperf_combined"] *= df["confidence"]
+
+    df["overperf_role_resid"] = (
+        df["overperf_combined"] - df["gmedian_role"]
+    ).clip(-1.5, 1.5)
+
+    # ============================================================
+    # 6️⃣ LIVELLO ASSOLUTO xG (FONDAMENTALE)
+    # ============================================================
+    xg_ewm = (
+        df.groupby(player_col)["npxG_perMatch"]
+        .transform(lambda x: x.shift(1).ewm(span=5, adjust=False).mean())
+    )
+
+    df["xg_level"] = xg_ewm.fillna(0)
+
+    # 👉 feature finale per modello (IMPORTANTISSIMA)
+    df["goal_signal"] = (
+        0.7 * df["xg_level"] +
+        0.3 * df["overperf_role_resid"]
+    )
+
+    df.drop(columns=["gmedian_role"], inplace=True)
+
+    return df
+
+def add_overperformance_features_old(
     df: pd.DataFrame,
     stats: dict,
     player_col: str = "player",
