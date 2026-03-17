@@ -115,11 +115,15 @@ if __name__ == "__main__":
 
     roles = ["dif", "cc", "att"]
 
+    is_model = True
+
     for role in roles:
         print(f"Processing role: {role}")
-
-        index_df = pd.read_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"))
-
+        if not is_model:
+            index_df = pd.read_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"))
+        else:
+            index_df = pd.read_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-03-16.csv")
+        
         if "Fantavoto preso" not in index_df.columns:
             # append ultimo fantavoto al dataset di input per il modello
             df_fv_last_giornata = append_last_fantavoto(df_voti, index_df)
@@ -127,12 +131,18 @@ if __name__ == "__main__":
             df_fv_last_giornata = index_df
 
         # salva dataset aggiornato
-        df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"), index=False)
-    
+        if not is_model:
+            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"), index=False)
+        else:
+            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-03-16.csv", index=False)
         # valutazione index
         print(f"Evaluating index for role: {role}")
         results=evaluate_index(df_fv_last_giornata, index_col="Index", vote_col="Fantavoto preso", plot=False)
         print(results)
-        #salva risultati valutazione in un file per giornata e ruolo
-        with open(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + "_evaluation.txt"), "w") as f:
-            f.write(str(results))
+        
+        #salvare risultati in un file csv se is_model è True aggiungo _model al nome del file
+        results_df = pd.DataFrame([results])
+        if is_model:
+            results_df.to_csv(config.DATASET_DATA_DIR /"dataset_index"/ "metriche" / (role + "_" + last_giornata + "_model_evaluation.csv"), index=False)
+        else:
+            results_df.to_csv(config.DATASET_DATA_DIR /"dataset_index"/ "metriche" / (role + "_" + last_giornata + "_evaluation.csv"), index=False)

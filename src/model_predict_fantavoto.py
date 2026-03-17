@@ -1,6 +1,8 @@
+from datetime import date
 from statistics import LinearRegression
 import joblib
 import pandas as pd
+import model_predict_voto
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -235,6 +237,10 @@ def pred_voto_prod(
         if player_df.empty:
             continue
         
+        #MOD TEMPORANEA PER TEST 
+        stats = ['xG','xA',"shots", "key_passes", "xGBuildup", "xGChain"]
+        player_df, new_features_per90 = utils.build_player_features_weighted(player_df, stats, prod=True)
+        
         #caso in cui giocatore ha cambiato squadra durante la stagione
         if isinstance(team, str) and "," in team:
             team = team.split(",")[-1].strip()
@@ -245,19 +251,49 @@ def pred_voto_prod(
         #player_df = utils.add_home_away_column(player_df)     
 
         fanta_role = utils.get_main_position_weighted(player_df["fanta_role"], window=10, decay=0.8)
-        real_role = utils.get_main_position_weighted(player_df["position_clean"], window=10, decay=0.8)
         
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "volpato" in player:
+        if "bowie" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
             role=fanta_role
         )
+        '''
+        #**** START TEST PER CONFRONTO VOTO PREDETTO CON VOTO BASE (SENZA AGGIUSTAMENTI) *****
+        pipeline_dif = utils.load_voto_model("dif")
+        pipeline_cc = utils.load_voto_model("cc")
+        pipeline_att = utils.load_voto_model("att")
 
+        pipeline_voto = {
+            "dif": pipeline_dif["voto_model"],
+            "cc": pipeline_cc["voto_model"],
+            "att": pipeline_att["voto_model"]
+        }  
+
+        voto_predicted_df = model_predict_voto.pred_voto_prod(
+            players=[player],
+            teams=[team],
+            opponents=[opponent],
+            h_a_players=[h_a],
+            player_df=player_df, #passo direttamente le ultime 15 del player
+            df_orig_goal=df_orig_goal,
+            df_orig_assist=df_orig_assist,
+            df_teams=df_teams,
+            df_teams_curr_season=df_teams_curr_season,
+            model_goal=model_goal,
+            model_assist=model_assist,
+            model_xg=model_xg,
+            pipeline=pipeline_voto,
+            debug=True
+        )
+        print(f"Voto base CON MEDIA per {player_full_name}: {voto_base:.2f} | Voto base PREDETTO: {voto_predicted_df['Voto'].iloc[0]:.2f}")
+        voto_base = voto_predicted_df["Voto"].iloc[0] 
+        #**** END TEST PER CONFRONTO VOTO PREDETTO CON VOTO BASE (SENZA AGGIUSTAMENTI) *****
+        '''
         # aggiustamento in base alla forza dell'avversario
         opponent = utils.normalize_team_name(opponent)
         opponent_strength = map_strength(opponent) 
@@ -265,13 +301,13 @@ def pred_voto_prod(
 
         adj_opp_team = utils.compute_player_vs_strength_adjustment(
                 player_df=player_df,
-                target_opponent_strength=opponent_strength
+                target_opponent_strength=opponent_strength,max_adjustment=0.25
         )
 
         #correzione in base a come il giocatore performa in casa o trasferta
         adj_home_away = utils.compute_player_home_away_adjustment(
                 player_df=player_df,
-                target_ha=h_a
+                target_ha=h_a,max_adjustment=0.25
         ) 
 
         # *************  BONUS DIFENSORI  SE LORO SQUADRE concedono poco e MALUS se affrontano squadra che crea molto**************  
@@ -341,7 +377,7 @@ def pred_voto_prod(
         norm_name = player_df['player_norm'].iloc[0]
 
         goal_proba = utils.get_goal_prob(
-                model_xg["poisson_regressor_xg"],
+                model_xg["catboost_regressor_xg"],
                 model_goal["poiss_reg"],
                 features_names_goal,
                 norm_name, team, opponent, df_orig_goal, df_teams,
@@ -353,6 +389,7 @@ def pred_voto_prod(
             print(f"⚠️ Impossibile calcolare la probabilità di goal per {player_full_name}. Impostata a 0.05")
             goal_proba = 0.05
 
+        #ANZICHE USARE GOALS, PROVARE CON XGPER90 O SHOTSPER90
         goal_impact = utils.compute_feature_role_impact(
             player_df,
             fanta_role,
@@ -609,6 +646,21 @@ def pred_voto_prod_gk(
 
     df_players = pd.DataFrame(predictions).reset_index(drop=True)
 
+    # Top player per squadra
+    top_players = (
+        df_players.loc[df_players.groupby("Squadra")["Index"].idxmax()]
+        .assign(Top=lambda x: x["Giocatore"] + " (" + x["Index"].round(2).astype(str) + ")")
+        [["Squadra", "Top"]]
+    )
+
+    # Worst player per squadra
+    worst_players = (
+        df_players.loc[df_players.groupby("Squadra")["Index"].idxmin()]
+        .assign(Worst=lambda x: x["Giocatore"] + " (" + x["Index"].round(2).astype(str) + ")")
+        [["Squadra", "Worst"]]
+    )
+
+    # Aggregazione team base
     df_teams = (
         df_players
         .groupby("Squadra", as_index=False)
@@ -618,6 +670,14 @@ def pred_voto_prod_gk(
             "Campo": "first"
         })
         .rename(columns={"Squadra": "Porta Squadra"})
+    )
+
+    # Merge con Top e Worst
+    df_teams = (
+        df_teams
+        .merge(top_players, left_on="Porta Squadra", right_on="Squadra", how="left")
+        .merge(worst_players, left_on="Porta Squadra", right_on="Squadra", how="left")
+        .drop(columns=["Squadra_x", "Squadra_y"])
     )
 
     # arrotonda index
@@ -816,9 +876,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
     model_goal = utils.load_models() 
     model_assist = utils.load_models_assist() 
     model_xg = utils.load_xg_model()
-    #ruoli = ['P','D', 'C', 'A']
+    ruoli = ['P','D', 'C', 'A']
     if pipeline_gk is None:
-        ruoli = ['C']
+        ruoli = ['A']
     if pipeline is None and  pipeline_gk is not None:
          ruoli = ['P']
     if pipeline is not None and pipeline_gk is not None:
@@ -880,7 +940,7 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
             df_pred = pred_voto_prod(players_role, teams_role, opponents_role, ha_role,
                                     df_voti, df_orig_goal,df_orig_assist, df_teams, df_teams_curr_season,
                                     model_goal, model_assist, model_xg, 
-                                    pipeline, debug=debug)
+                                    pipeline, debug=True)
         
         is_porta = False
 
@@ -913,16 +973,27 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
             if idx < top_n:
                 return "🔥"
             else:
-                return ""
-        
-        df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
+                return "" 
         
         # stampa la tabella
         if "Porta Squadra" in df_pred_sorted.columns:
-            display_cols = ['Top', 'Porta Squadra', 'Avversario', 'Campo', 'Index']
+            display_cols = ['Porta Squadra', 'Avversario', 'Campo', 'Index', 'Top', 'Worst']
         else:
-            display_cols = ['Top', 'Giocatore', 'Avversario', 'Campo', 'Index']
+            df_pred_sorted['Top'] = [add_emoji(i) for i in df_pred_sorted.index]
+            display_cols = ['Giocatore', 'Avversario', 'Campo', 'Index', 'Top', 'Worst']
         print(df_pred_sorted[display_cols].to_string(index=False))
+
+        #salva in csv df se siamo in locale
+        if debug:
+            if ruolo == 'D':
+                output_path = config.DATASET_DATA_DIR / "dataset_index" / f"DIF_{date.today().strftime('%Y-%m-%d')}.csv"
+                df_pred_sorted.to_csv(output_path, index=False)
+            elif ruolo == 'C':
+                output_path = config.DATASET_DATA_DIR / "dataset_index" / f"CC_{date.today().strftime('%Y-%m-%d')}.csv"
+                df_pred_sorted.to_csv(output_path, index=False)
+            elif ruolo == 'A':
+                output_path = config.DATASET_DATA_DIR / "dataset_index" / f"ATT_{date.today().strftime('%Y-%m-%d')}.csv"
+                df_pred_sorted.to_csv(output_path, index=False)
         risultati[ruolo] = df_pred_sorted
 
     return risultati
@@ -932,7 +1003,7 @@ def main():
     train = False
     train_gk = False
 
-    test = True
+    test = False
     test_gk = True
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI

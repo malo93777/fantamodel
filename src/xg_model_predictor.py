@@ -32,17 +32,14 @@ SEED = 42
 TARGET = "sum_xG"
 
 numeric_features = [
-    "xG_last5",
-    "shots_last5",
-    #"overperf_combined",
-     "minutes_played_last5",
-    #"opponent_xGA_90min"
-    # "cold_penalty"
+    "sum_xG_ewm_7",
+    "shots_perMatch_ewm_7",
+    "minutes_played_ewm_7",
 ]
 
 cat_features = [
     "position",
-    # "opponent_strength"
+    "opponent_team_strength",
 ]
 
 preprocessor = preproc.Preprocessor(
@@ -51,13 +48,13 @@ preprocessor = preproc.Preprocessor(
 
 # ===================== LOAD & PREPROCESS =====================
 df = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_GOALS)
+df = df[~df["position"].isin(["GK", "GKS"])]
 
-#df = add_opponent_strength_feature(df)
 stats = utils.compute_role_overperf_stats(df)
 df = utils.add_overperformance_features(df, stats, player_col="player", prod=False)
+df = utils.add_ewma_features(df, span=7, prod=False)
 
 df = df.sort_values(["player", "date"])
-df = df[~df["position"].isin(["GK", "GKS"])]
 df["position"] = df["position"].apply(utils.clean_position)
 
 df = df.dropna(subset=["position"])
@@ -79,10 +76,12 @@ model = CatBoostRegressor(
     iterations=600,
     learning_rate=0.01,
     depth=8,
-    loss_function="Poisson",
+    min_data_in_leaf=10,
+    #loss_function="Poisson",
     random_seed=SEED,
     cat_features=cat_features,
-    early_stopping_rounds=50,
+    early_stopping_rounds=100,
+
     verbose=100
 )
 
@@ -128,7 +127,7 @@ for role, g in compare_df.groupby("position"):
 
 
 
-MODEL_PATH = config.MODEL_DIR_XG / "poisson_regressor_xg.pkl"
+MODEL_PATH = config.MODEL_DIR_XG / "catboost_regressor_xg.pkl"
 #chiedi all'utente se vuole salvare il modello
 if MODEL_PATH.exists():
         overwrite = input(f"⚠️ Il file '{MODEL_PATH.name}' esiste già. Vuoi sovrascriverlo? (y/n): ").strip().lower()

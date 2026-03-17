@@ -231,9 +231,7 @@ def get_features(df: pd.DataFrame, features: list, split_by_role: bool = True):
     df = df[df['voto_gds'].notna()]
 
     #per ora teniamo solo le colonne con season 2025
-    df = df[df['season'] == config.CURRENT_SEASON]
-
-    
+    #df = df[df['season'] == config.CURRENT_SEASON] 
 
     if split_by_role:
 
@@ -269,13 +267,30 @@ def train_catboost_regression(X: pd.DataFrame, y: pd.Series) -> CatBoostRegresso
     )
 
     model = CatBoostRegressor(
-        iterations=600,
-        learning_rate=0.05,
-        depth=6,
+        iterations=1200,
+        learning_rate=0.02,
+        depth=10,
         eval_metric='MAE',
         random_seed=42,
-        verbose=False
+        l2_leaf_reg=10,
+        verbose=False ,
+        loss_function="RMSE"
     )
+
+    summary = model.select_features(
+        X_train,
+        y_train,
+        features_for_select=X_train.columns.tolist(),
+        num_features_to_select=8,
+        algorithm="RecursiveByPredictionValuesChange",
+        train_final_model=True
+    )
+
+    selected_features = summary["selected_features_names"]
+    print(selected_features)
+
+    X_train = X_train[selected_features]
+    X_test = X_test[selected_features]
 
     model.fit(X_train, y_train, eval_set=(X_test, y_test))
 
@@ -288,11 +303,15 @@ def train_catboost_regression(X: pd.DataFrame, y: pd.Series) -> CatBoostRegresso
     print(f"TEST  -> MAE: {mean_absolute_error(y_test, y_test_pred):.4f} | "
           f"MSE: {mean_squared_error(y_test, y_test_pred):.4f}")
     
-    model.get_feature_importance()
+    print("REAL")
+    print(y_test.describe())
+
+    print("PRED")
+    print(pd.Series(y_test_pred).describe())
 
     print("\n=== FEATURE IMPORTANCE (CATBOOST) ===")
     feature_importance = model.get_feature_importance()
-    for name, importance in zip(X.columns, feature_importance):
+    for name, importance in zip(X_test.columns, feature_importance):
         print(f"{name}: {importance:.4f}")
 
     return model
@@ -338,6 +357,11 @@ def preproc_and_train_log_regression(X: pd.DataFrame, y: pd.Series, numeric_feat
     print(f"TEST  -> MAE: {mean_absolute_error(y_test, y_test_pred):.4f} | "
           f"MSE: {mean_squared_error(y_test, y_test_pred):.4f}")
     
+    print("REAL")
+    print(y_test.describe())
+
+    print("PRED")
+    print(pd.Series(y_test_pred).describe())
     # recupera nomi delle feature dopo il preprocessing
     feature_names = model.named_steps["preprocessor"].get_feature_names_out()
 
@@ -373,7 +397,7 @@ def pred_voto_prod(
         model_assist,
         model_xg,
         pipeline,
-        ROLE_FEATURES,
+        #ROLE_FEATURES,
         debug=True
     ):
 
@@ -407,11 +431,11 @@ def pred_voto_prod(
         elif fanta_role == "A":
             features = ROLE_FEATURES["att"]
             model = pipeline["att"]
-
+            
         X_pred = build_X_pred(
             player_df=rolling_15, fanta_role=fanta_role, team=team, opponent=opponent,
             model_xg=model_xg, model_goal=model_goal, model_assist=model_assist,
-            selected_features=features,
+            selected_features=features, #model.feature_names_ = features prendo le feature usate nel modello, che sono quelle selezionate per ruolo
             df_orig_goal=df_orig_goal,
             df_orig_assist=df_orig_assist,
             df_teams=df_teams,
@@ -515,7 +539,7 @@ def main():
                 features_role = ROLE_FEATURES["att"]
 
             pipeline = preproc_and_train_log_regression(X_role, y_role,features_role)
-            #pipeline = train_catboost_regression(X_role, y_role) SERVONO PIU DATI
+            #pipeline = train_catboost_regression(X_role, y_role)
 
             MODEL_PATH = config.MODEL_DIR_FV / f"{ruolo}_{config.VOTO_MODEL}"
 

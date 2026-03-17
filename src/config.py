@@ -13,7 +13,6 @@ SCALER_DIR_ASSIST = BASE_DIR / "scaler/assist"
 MODEL_DIR_XG = BASE_DIR / "models/xg"
 MODEL_DIR_FV = BASE_DIR / "models/fantavoto"
 
-
 # File
 MATCH_DATA_FILE = "matches_df.csv"
 PROD_DATA_FILE_GOALS = "PROD_goals_2025_preproc_Serie_A.csv"
@@ -31,6 +30,7 @@ FANTA_RUOLI_FILE = "ruoli_fanta_25.csv"
 NEXT_GAMES_FILE = "next_games.csv"
 INFORTUNATI_FILE = "infortunati.csv"
 SQUALIFICATI_FILE = "squalificati.csv"
+STORICO_VOTI_PER_TRAINING = "PROD_voti_LAST10_SEASONS_preproc_Serie_A.csv"
 
 # Modelli
 SCALER = "scaler.pkl"
@@ -39,7 +39,7 @@ LIN_POLY = "lin_poly.pkl"
 LIN = "lin.pkl"
 POISS_MODEL = "poisson_regressor.pkl"
 POISS_MODEL_ASSIST = "poisson_regressor_assist.pkl"
-POISS_MODEL_XG = "poisson_regressor_xg.pkl"
+CAT_MODEL_XG = "catboost_regressor_xg.pkl"
 FV_MODEL = "fantavoto_model.pkl"
 FV_MODEL_GK = "fantavoto_model_gk.pkl"
 VOTO_MODEL = "voto_model.pkl"
@@ -49,7 +49,7 @@ CURRENT_SEASON = 2025
 
 #
 
-NEXT_GIORNATA = 29
+NEXT_GIORNATA = 30
 
 BOOST_FACTORS = {
     "sum_xG": 1.0,

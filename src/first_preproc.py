@@ -626,7 +626,7 @@ class Preprocessor:
         merged_df = utils.compute_shot_quality_index_per_shot(merged_df, prod=False)
 
         # Calcolo cold_penalty
-        merged_df = self.compute_cold_penalty(merged_df)
+        #merged_df = self.compute_cold_penalty(merged_df)
 
         if is_SerieA:
             # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
@@ -735,6 +735,8 @@ class Preprocessor:
 
         #minuti per partita last5
         df = self.add_minutes_played_last5(df)
+        
+        df = add_ewma_features(df, span=7)
 
         return df
     
@@ -969,12 +971,18 @@ class Preprocessor:
         return df
 
     def merge_voti_player(self, csv1_path, csv2_path, csv3_path):
-        df1 = pd.read_csv(csv1_path) #df_prod_gol
-        df2 = pd.read_csv(csv2_path) #df_voti_gds
-        df3 = pd.read_csv(csv3_path)
+        df1 = pd.read_csv(csv1_path) #gol_raw.csv
+        df2 = pd.read_csv(csv2_path) #voti_fantagiaveno_raw.csv
+        df3 = pd.read_csv(csv3_path) #df_prod_gol
 
-        # Rimuovo i senza voto_gds
-        #df2 = df2[df2['voto_gds'].notna()]
+        #tengo solo lastseason per fare calcoli su partite rinviate e per non ricaricare tutto ogni volta
+        df1 = df1[df1['season'] == config.CURRENT_SEASON]
+        
+        #DEVO COSTRUIRE stagione di df2 perchè è scritta diversamente (es. 2023-2024 invece di 2023)
+        stagione_df2 = str(config.CURRENT_SEASON) + "-" + str(config.CURRENT_SEASON + 1) 
+        df2 = df2[df2['stagione'] == stagione_df2]
+
+        df3 = df3[df3['season'] == config.CURRENT_SEASON]
 
         # Assegna lega e filtra SOLO Serie A
         #df1["league"] = df1["h_team"].apply(self.assign_league)
@@ -1071,9 +1079,6 @@ class Preprocessor:
         df1 = filter_current_serie_a_players(df1, self.assign_league)
 
         df1 = utils.add_home_away_column(df1) 
-
-        # Rimuovi colonna temporanea
-        #df1 = df1.drop(columns=['player_norm'])
 
         return df1
 
@@ -1346,7 +1351,7 @@ class Preprocessor:
         # =======================
         df['team_norm'] = df['player_team'].apply(utils.normalize_fn)
         df_roles['player_norm'] = df_roles['Nome'].apply(utils.normalize_fn)
-        df_roles['team_norm'] = df_roles['Squadra'].apply(utils.normalize_fn)
+        df_roles['team_norm'] = df_roles['Squadra'].apply(utils.normalize_team_name)
 
         # =======================
         # Inizializza colonna

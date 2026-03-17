@@ -45,7 +45,7 @@ def load_models_assist():
 
 def load_xg_model():
     return {
-        "poisson_regressor_xg": joblib.load(config.MODEL_DIR_XG / config.POISS_MODEL_XG)
+        "catboost_regressor_xg": joblib.load(config.MODEL_DIR_XG / config.CAT_MODEL_XG)
     }
 def load_fv_model():
     return {
@@ -328,8 +328,9 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
         main_role = "FM"
         
     main_role = get_main_position_weighted(df["position"], window=10, decay=0.8)
+    opponent_strength = map_strength(opponent)
     #prendo xg base player
-    sum_xG_new = predict_xg_next_match(model_xg, df, main_role)
+    sum_xG_new = predict_xg_next_match(model_xg, df, main_role, opponent_strength)
 
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
@@ -2817,10 +2818,40 @@ def progressive_weighted_rolling(df, alpha=0.3):
         
     return pd.Series(result, index=df.index)
 
+def add_ewma_features(df, span=10, prod = False):
+
+    #calcola xG cumulativo, shots per partita e minuti giocati cumulativi
+    #se prod = true non uso shift(1) per evitare di perdere l'ultimo dato disponibile,
+    #SE ho solo una riga per giocatore, faccio fillna(0) per evitare NaN iniziali
+
+    cols = ["sum_xG", "shots_perMatch", "minutes_played"]
+
+    if prod == False:
+        df = df.sort_values(["player", "date"]).copy()
+            
+        for col in cols:
+            df[f"{col}_ewm_{span}"] = (
+                df.groupby("player")[col]
+                .transform(lambda x: x.shift(1).ewm(span=span, adjust=False).mean())
+            )
+    else:
+        df = df.sort_values(["player", "date"]).copy()
+        
+        for col in cols:
+            df[f"{col}_ewm_{span}"] = (
+                df.groupby("player")[col]
+                .transform(lambda x: x.ewm(span=span, adjust=False).mean())
+            )
+    #fillna SOLO alla fine
+    ewm_cols = [f"{col}_ewm_{span}" for col in cols]
+    df[ewm_cols] = df[ewm_cols].fillna(0)
+    return df
+
 def predict_xg_next_match(
     model,
     df: pd.DataFrame,
-    main_role: str
+    main_role: str,
+    opponent_strength: str
 ):
     """
     Predice l'xG per la prossima partita di un giocatore usando il modello CatBoost.
@@ -2833,17 +2864,21 @@ def predict_xg_next_match(
     Ritorna:
         float: xG predetto per la prossima partita
     """
-    xg_last5 = df["sum_xG"].iloc[-5:].mean()
-    shots_last5 = df["shots_perMatch"].iloc[-5:].mean()
-    minutes_played_last5 = df["minutes_played"].iloc[-5:].mean()
 
-    X_modelxg = [[xg_last5,                                                                                                                
-                  shots_last5,
-                  minutes_played_last5,
-                  main_role                                       
+    df = add_ewma_features(df, span=7, prod=True)
+
+    xg_last = df["sum_xG_ewm_7"].iloc[-1]
+    shots_last = df["shots_perMatch_ewm_7"].iloc[-1]
+    minutes_played_last = df["minutes_played_ewm_7"].iloc[-1]
+
+    X_modelxg = [[xg_last,                                                                                                                
+                  shots_last,
+                  minutes_played_last,
+                  main_role,
+                  opponent_strength                                               
                   ]]
     
-    xg_forecast_df = pd.DataFrame(X_modelxg, columns=["xG_last5", "shots_last5", "minutes_played_last5", "position"])
+    xg_forecast_df = pd.DataFrame(X_modelxg, columns=["sum_xG_ewm_7", "shots_perMatch_ewm_7", "minutes_played_ewm_7", "position", "opponent_team_strength"])
     xg_forecast = model.predict(xg_forecast_df)
 
     return float(xg_forecast[0])
@@ -3505,8 +3540,8 @@ def compute_opponent_offense_bonus(
     league_baseline_xg=1.4,
     league_baseline_goal=1.17,
     multiplier=0.3,
-    clamp_min=-0.25,
-    clamp_max=0.25,
+    clamp_min=-0.35,
+    clamp_max=0.35,
 ):
     """
     Calcola BONUS/MALUS offensivo se la squadra avversaria
@@ -3577,8 +3612,8 @@ def compute_defensive_xga_bonus(
     league_baseline_xga=1.4,
     league_baseline_ga=1.17,
     multiplier=0.3,
-    clamp_min=-0.25,
-    clamp_max=0.25
+    clamp_min=-0.35,
+    clamp_max=0.35
 ):
     """
     Calcola bonus/malus difensivo per difensori (e GK)

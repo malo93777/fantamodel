@@ -102,7 +102,7 @@ def get_voti_data():
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    scraper.run()
+    #scraper.run(debug=False) #scrape e salva solo se debug è False, altrimenti usa il csv già esistente
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(
@@ -118,8 +118,31 @@ def get_voti_data():
     print("Preprocessed voti dataset:")
     print(voti_df.head())
 
-    #to csv
-    voti_df.to_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI, index=False)
+    file_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
+
+    if file_path.exists():
+        df_existing = pd.read_csv(file_path)
+
+        # prendi roster_id già presenti
+        existing_ids = set(df_existing["roster_id"])
+
+        # filtra solo le righe nuove
+        df_new = voti_df[~voti_df["roster_id"].isin(existing_ids)]
+
+        # append se ci sono righe nuove
+        if not df_new.empty:
+            df_new.to_csv(file_path, mode="a", header=False, index=False)
+
+            #riordina
+            df_updated = pd.read_csv(file_path)
+            df_updated = df_updated.sort_values(by=['player_norm', 'date']).reset_index(drop=True)
+
+            print(f"💾 Aggiunti {len(df_new)} nuovi record in PROD_DATA_FILE_VOTI.csv")
+        else:
+            print("Nessun nuovo record da aggiungere in PROD_DATA_FILE_VOTI.csv")
+
+    else:
+        voti_df.to_csv(file_path, index=False)
 
 def get_next_games_data():
 
