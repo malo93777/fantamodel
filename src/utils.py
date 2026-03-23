@@ -3016,18 +3016,19 @@ def progressive_weighted_rolling(df, alpha=0.3):
         
     return pd.Series(result, index=df.index)
 
-def add_ewma_features(df, span=10, prod = False):
+def add_ewma_features(df, span=10, numeric_features=None, prod = False):
 
     #calcola xG cumulativo, shots per partita e minuti giocati cumulativi
     #se prod = true non uso shift(1) per evitare di perdere l'ultimo dato disponibile,
     #SE ho solo una riga per giocatore, faccio fillna(0) per evitare NaN iniziali
 
-    cols = ["sum_xG", "shots_perMatch", "minutes_played"]
+    if numeric_features is None:
+        numeric_features = [ "sum_xG", "shots_perMatch", "minutes_played", "goals", "npgoals_perMatch", "xGChain_perMatch"]
 
     if prod == False:
         df = df.sort_values(["player", "date"]).copy()
             
-        for col in cols:
+        for col in numeric_features:
             df[f"{col}_ewm_{span}"] = (
                 df.groupby("player")[col]
                 .transform(lambda x: x.shift(1).ewm(span=span, adjust=False).mean())
@@ -3035,15 +3036,16 @@ def add_ewma_features(df, span=10, prod = False):
     else:
         df = df.sort_values(["player", "date"]).copy()
         
-        for col in cols:
+        for col in numeric_features:
             df[f"{col}_ewm_{span}"] = (
                 df.groupby("player")[col]
                 .transform(lambda x: x.ewm(span=span, adjust=False).mean())
             )
     #fillna SOLO alla fine
-    ewm_cols = [f"{col}_ewm_{span}" for col in cols]
+    ewm_cols = [f"{col}_ewm_{span}" for col in numeric_features]
     df[ewm_cols] = df[ewm_cols].fillna(0)
-    return df
+
+    return df, ewm_cols
 
 def predict_xg_next_match(
     model,
@@ -3063,20 +3065,30 @@ def predict_xg_next_match(
         float: xG predetto per la prossima partita
     """
 
-    df = add_ewma_features(df, span=7, prod=True)
-
-    xg_last = df["sum_xG_ewm_7"].iloc[-1]
+    df, ewm_cols = add_ewma_features(df, span=7, prod=True)
+    
+    sum_xG_last = df["sum_xG_ewm_7"].iloc[-1]
     shots_last = df["shots_perMatch_ewm_7"].iloc[-1]
     minutes_played_last = df["minutes_played_ewm_7"].iloc[-1]
+    #xg_per_shot_last = df["xg_per_shot_ewm_7"].iloc[-1]
+    goals_last = df["goals_ewm_7"].iloc[-1]
+    finishing_form_last = df["finishing_form_ewm_7"].iloc[-1]
+    npgoals_perMatch_last = df["npgoals_perMatch_ewm_7"].iloc[-1]
+    xGChain_perMatch_last = df["xGChain_perMatch_ewm_7"].iloc[-1]
 
-    X_modelxg = [[xg_last,                                                                                                                
+    X_modelxg = [[sum_xG_last,                                                                                                           
                   shots_last,
                   minutes_played_last,
+                  #xg_per_shot_last,
+                  goals_last,
+                  finishing_form_last,
+                  npgoals_perMatch_last,
+                  xGChain_perMatch_last,
                   main_role,
                   opponent_strength                                               
                   ]]
     
-    xg_forecast_df = pd.DataFrame(X_modelxg, columns=["sum_xG_ewm_7", "shots_perMatch_ewm_7", "minutes_played_ewm_7", "position", "opponent_team_strength"])
+    xg_forecast_df = pd.DataFrame(X_modelxg, columns=["sum_xG_ewm_7","shots_perMatch_ewm_7", "minutes_played_ewm_7", "goals_ewm_7", "finishing_form_ewm_7", "npgoals_perMatch_ewm_7", "xGChain_perMatch_ewm_7", "position", "opponent_team_strength"])
     xg_forecast = model.predict(xg_forecast_df)
 
     return float(xg_forecast[0])

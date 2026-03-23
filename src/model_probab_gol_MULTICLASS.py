@@ -575,9 +575,11 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
             team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
         
-        # predizione xg futuro
+        # ************  PREDIZIONE XG futuro  ************
         opponent_strength = utils.map_strength(opponent) 
+
         sum_xG_new = utils.predict_xg_next_match(model_xg, player_df, main_role, opponent_strength)
+        
         sum_xG_new = utils.weighted_xg_vs_opponent_mixed(sum_xG_new, player_df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
         sum_xG_new = utils.weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team)
@@ -639,7 +641,7 @@ def main():
     parser = argparse.ArgumentParser(description="FantaModel")
     parser.add_argument("--fit", action="store_true", help="Vuoi riaddestrare il modello?")
     args = parser.parse_args()
-    args.fit = True
+    args.fit = False
 
     players = INPUT["players"]
     teams = INPUT["teams"]
@@ -674,10 +676,10 @@ def main():
 
     xg_model = utils.load_xg_model()
 
-    #pred_df = predict_goal_probabilities(xg_model["catboost_regressor_xg"], players, teams, opponents,
-                                     #df_mod, df_teams, df_teams_curr_season,
-                                     #model, lin_reg,
-                                     #numeric_features, categorical_features, stats, h_a)
+    pred_df = predict_goal_probabilities(xg_model["catboost_regressor_xg"], players, teams, opponents,
+                                     df_mod, df_teams, df_teams_curr_season,
+                                     model, lin_reg,
+                                     numeric_features, categorical_features, stats, h_a)
     
     utils.save_models(model=model, scaler_xg=None,scaler=None,poly=None, lin_poly=None, lin=lin_reg, is_baseline=False) 
 

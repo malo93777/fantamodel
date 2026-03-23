@@ -616,17 +616,14 @@ class Preprocessor:
         # Drop colonne inutili
         merged_df = merged_df.drop(columns={"player_name", "player_id", "yellow_cards", "red_cards", "h_team", "a_team"})
 
-        #  Calcolo rolling features (XG, shots, gol mean, time for match)
-        merged_df = self.calculate_roll_features(merged_df)
-
         # Calcolo finishing_form
         merged_df = utils.compute_finishing_form(merged_df, window=12, use_rank=True, prod=False)
 
         # Calcolo shot quality
         merged_df = utils.compute_shot_quality_index_per_shot(merged_df, prod=False)
 
-        # Calcolo cold_penalty
-        #merged_df = self.compute_cold_penalty(merged_df)
+        #  Calcolo rolling features (XG, shots, gol mean, time for match)
+        merged_df = self.calculate_roll_features(merged_df)
 
         if is_SerieA:
             # salva su file dedicato ai goals (creare config.GOALS_DATA_FILE nel caso non esista)
@@ -736,7 +733,7 @@ class Preprocessor:
         #minuti per partita last5
         df = self.add_minutes_played_last5(df)
         
-        df = add_ewma_features(df, span=7)
+        df, ew_cols = utils.add_ewma_features(df, span=7)
 
         return df
     
