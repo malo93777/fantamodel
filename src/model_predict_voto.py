@@ -93,7 +93,7 @@ def build_X_pred(
         
 
     goal_proba = utils.get_goal_prob(
-                model_xg["poisson_regressor_xg"],
+                model_xg["catboost_regressor_xg"],
                 model_goal["poiss_reg"],
                 features_names_goal,
                 norm_name, team, opponent, df_orig_goal, df_teams,

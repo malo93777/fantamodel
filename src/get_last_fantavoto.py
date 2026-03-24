@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     roles = ["dif", "cc", "att"]
 
-    is_model = False
+    is_model = True
 
     for role in roles:
         print(f"Processing role: {role}")

@@ -140,6 +140,7 @@ def get_voti_data():
             print(f"💾 Aggiunti {len(df_new)} nuovi record in PROD_DATA_FILE_VOTI.csv")
         else:
             print("Nessun nuovo record da aggiungere in PROD_DATA_FILE_VOTI.csv")
+            #voti_df.to_csv(file_path, index=False)
 
     else:
         voti_df.to_csv(file_path, index=False)
@@ -186,11 +187,11 @@ def main():
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     parser.add_argument("--infortunati", action="store_true", help="Scraping dei giocatori infortunati")
     args = parser.parse_args()
-    args.gol = True
-    args.assist = True
+    args.gol = False
+    args.assist = False
     args.voti = True
-    args.nextgames = True
-    args.infortunati = True
+    args.nextgames = False
+    args.infortunati = False
     # ==========================
     # ESECUZIONE
     # ==========================

@@ -3023,7 +3023,7 @@ def add_ewma_features(df, span=10, numeric_features=None, prod = False):
     #SE ho solo una riga per giocatore, faccio fillna(0) per evitare NaN iniziali
 
     if numeric_features is None:
-        numeric_features = [ "sum_xG", "shots_perMatch", "minutes_played", "goals", "npgoals_perMatch", "xGChain_perMatch"]
+        numeric_features = [ "sum_xG", "shots_perMatch", "minutes_played", "goals", "finishing_form", "npgoals_perMatch", "xGChain_perMatch"]
 
     if prod == False:
         df = df.sort_values(["player", "date"]).copy()

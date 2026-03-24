@@ -1,2 +1,2 @@
 hit_rate_top10,hit_rate_top20,hit_rate_top50,avg_vote_top10,avg_vote_top20,avg_vote_top50,avg_vote_top150,spearman_corr
-0.4,0.45,0.24,6.9,7.4,6.36,6.138059701492537,0.29104553032224156
+0.1,0.15,0.16,5.95,6.0,5.91,5.884615384615385,0.13674926182823408

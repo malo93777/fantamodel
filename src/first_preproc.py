@@ -972,6 +972,7 @@ class Preprocessor:
         df2 = pd.read_csv(csv2_path) #voti_fantagiaveno_raw.csv
         df3 = pd.read_csv(csv3_path) #df_prod_gol
 
+        #**** START DA COMMENTARE SE DEVI RICOSTRUIRE IL DATASET INTERO ****
         #tengo solo lastseason per fare calcoli su partite rinviate e per non ricaricare tutto ogni volta
         df1 = df1[df1['season'] == config.CURRENT_SEASON]
         
@@ -980,6 +981,7 @@ class Preprocessor:
         df2 = df2[df2['stagione'] == stagione_df2]
 
         df3 = df3[df3['season'] == config.CURRENT_SEASON]
+         #**** END DA COMMENTARE SE DEVI RICOSTRUIRE IL DATASET INTERO ****
 
         # Assegna lega e filtra SOLO Serie A
         #df1["league"] = df1["h_team"].apply(self.assign_league)
