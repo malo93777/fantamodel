@@ -1584,42 +1584,42 @@ def get_main_position_weighted(pos_series: pd.Series, window: int = 10, decay: f
     main_pos = max(pos_weights, key=pos_weights.get)
     return main_pos
 
+from pandas.api.types import (
+    is_numeric_dtype,
+    is_bool_dtype,
+    is_categorical_dtype,
+    is_string_dtype
+)
+
 def split_features_by_type(df: pd.DataFrame, feature_names: list):
     """
     Divide una lista di feature in numeriche e categoriche in base ai tipi del DataFrame.
-
-    Parametri
-    ----------
-    df : pd.DataFrame
-        Il DataFrame che contiene i dati.
-    feature_names : list
-        Lista delle colonne da analizzare.
-
-    Ritorna
-    -------
-    numeric_features : list
-        Colonne numeriche.
-    categorical_features : list
-        Colonne categoriche (object, string, category o bool).
     """
+
     numeric_features = []
     categorical_features = []
 
     for col in feature_names:
         if col not in df.columns:
-            #print(f"⚠️ Attenzione: '{col}' non trovato nel DataFrame, salto.")
             continue
 
-        dtype = df[col].dtype
+        series = df[col]
 
-        # Numeric: int, float, np.number
-        if np.issubdtype(dtype, np.number):
+        # ✅ Numeric
+        if is_numeric_dtype(series):
             numeric_features.append(col)
-        # Categorical: string, object, category, boolean
-        elif dtype == "object" or dtype.name == "category" or np.issubdtype(dtype, np.bool_):
+
+        # ✅ Categorical (robusto per pandas moderno)
+        elif (
+            is_string_dtype(series) or
+            is_categorical_dtype(series) or
+            is_bool_dtype(series) or
+            series.dtype == "object"
+        ):
             categorical_features.append(col)
+
+        # ✅ Fallback sicuro
         else:
-            # fallback: se non riconosciuto, consideriamo categorico
             categorical_features.append(col)
 
     return numeric_features, categorical_features
