@@ -63,8 +63,10 @@ def main():
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
     df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
+    
+    #dataset per calcolare automaticamente avversario prossima partita
+    df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
     next_games_df = pd.read_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE)
-    df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI) #solo per caricare i nomi normalizzati
 
     # --- Dropdown dinamici
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
@@ -72,31 +74,13 @@ def main():
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
     num_giornate = utils.count_matchdays(df_teams_curr_season)
 
-   # =====================================================
-    # 🔹 Selezione giocatori e input
-    # =====================================================
-    players_list_display = [p.lower().title() for p in players]
-    player_display_to_raw = dict(zip(players_list_display, players))
-
-    giocatori_display = st.multiselect(
-        "Seleziona giocatori",
-        players_list_display
-    )
-
-    giocatori = [player_display_to_raw[p] for p in giocatori_display]
-    input_data = []
-
-    for player in giocatori_display:
-        
-        # Calcola avversario e ha automaticamente
-        squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
-        #st.write(f"DEBUG: player={player}, team={squadra}, avversario={avversario}, ha={ha}")
-        input_data.append((player, squadra, avversario, ha))
+    #metto le maiuscole nelle iniziali dei nomi dei giocatori 
+    players = [p.title() for p in players]
 
     col1, col2 = st.columns(2)
 
     with col1:
-        player = st.selectbox("👤 Giocatore", options=[""] + giocatori)
+        player = st.selectbox("👤 Giocatore", options=[""] + players)
 
         # Calcolo del team **fuori dal with**
     team = utils.get_latest_team(df_orig_goal, player, "player_team") if player else ""
@@ -104,8 +88,7 @@ def main():
     with col2:
             st.text_input("🏟️ Squadra", value=team, disabled=False)
 
-
-    opponent = st.selectbox("⚔️ Avversario", options=[""] + opponents)
+    opponent = utils.get_team_opponent_ha(player, df_voti, next_games_df)
 
     if num_giornate >= 10:
         is_home = False
