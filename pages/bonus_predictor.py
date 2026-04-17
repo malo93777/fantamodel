@@ -63,10 +63,10 @@ def main():
     df_orig_assist = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_ASSIST)
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
     df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
-    
-    #dataset per calcolare automaticamente avversario prossima partita
-    df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
+
+    #carico dataset per le prossime partite
     next_games_df = pd.read_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE)
+    df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI)
 
     # --- Dropdown dinamici
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
@@ -74,7 +74,7 @@ def main():
     opponents = sorted(df_orig_goal[df_orig_goal['season'] == config.CURRENT_SEASON]["opponent_team"].dropna().unique().tolist())
     num_giornate = utils.count_matchdays(df_teams_curr_season)
 
-    #metto le maiuscole nelle iniziali dei nomi dei giocatori 
+    #mett0 le maiuscole nelle iniziali dei nomi dei giocatori 
     players = [p.title() for p in players]
 
     col1, col2 = st.columns(2)
@@ -88,19 +88,19 @@ def main():
     with col2:
             st.text_input("🏟️ Squadra", value=team, disabled=False)
 
-    opponent = utils.get_team_opponent_ha(player, df_voti, next_games_df)
+            squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
+            opponent = st.selectbox("⚔️ Avversario", value=avversario, disabled=False)
 
     if num_giornate >= 10:
-        is_home = False
-        is_away = False
-        st.markdown("### ⚑ Il giocatore gioca in:")
-        place = st.radio("", ["🏠 Casa", "✈️ Trasferta"], horizontal=True)
-        if place == "🏠 Casa":
-            is_home = True
-            is_away = False
-        elif place == "✈️ Trasferta":
-            is_home = False
-            is_away = True
+        # Imposta is_home e is_away direttamente in base a 'ha'
+        is_home = ha == 'h'
+        is_away = ha == 'a'
+        if ha == 'h':
+            st.markdown("### ⚑ Il giocatore gioca in: 🏠 Casa")
+        elif ha == 'a':
+            st.markdown("### ⚑ Il giocatore gioca in: ✈️ Trasferta")
+        else:
+            st.markdown("### ⚑ Il giocatore: luogo non determinato")
 
     submitted = st.button("Prevedi Bonus")
 
