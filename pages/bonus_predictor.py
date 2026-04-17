@@ -185,9 +185,11 @@ def main():
                     st.metric("🎯 Assist forniti", f"{int(curr_season_df_assist['assists'].sum())}")
                 with colB:
                     st.metric("📊 xG medio stagione", f"{curr_season_df['sum_xG'].mean():.2f}")
-                    st.metric("🔥 xG medio ultime 5", f"{curr_season_df['xG_last5'].mean():.2f}")
+                    st.metric("🔥 xG medio ultime 5", f"{curr_season_df['sum_xG'].tail(5).mean():.2f}")
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
-                    st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['xA_last5'].mean():.2f}")
+                    st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['sum_xA'].tail(5).mean():.2f}")
+                    st.metric("👟  Media tiri a partita", f"{curr_season_df['shots'].mean():.2f}")
+                    st.metric("📉  Media tiri ultime 5", f"{curr_season_df['shots'].tail(5).mean():.2f}")
 
             with col2:
                 # GRAFICI xG e xA
