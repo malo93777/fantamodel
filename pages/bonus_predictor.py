@@ -64,6 +64,7 @@ def main():
     df_teams = pd.read_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE)
     df_teams_curr_season = pd.read_csv(config.DATASET_DATA_DIR / config.CURRENT_SEASON_TEAMS_FILE)
     next_games_df = pd.read_csv(config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE)
+    df_voti = pd.read_csv(config.DATASET_DATA_DIR / config.VOTI_FILE) #solo per caricare i nomi normalizzati
 
     # --- Dropdown dinamici
     players = sorted(df_orig_goal["player"].dropna().unique().tolist())
@@ -88,7 +89,7 @@ def main():
     for player in giocatori_display:
         
         # Calcola avversario e ha automaticamente
-        squadra, avversario, ha = utils.get_team_opponent_ha(player, df_orig_goal, next_games_df)
+        squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
         #st.write(f"DEBUG: player={player}, team={squadra}, avversario={avversario}, ha={ha}")
         input_data.append((player, squadra, avversario, ha))
 
