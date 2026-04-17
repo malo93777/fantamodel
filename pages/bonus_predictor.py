@@ -89,7 +89,7 @@ def main():
             st.text_input("🏟️ Squadra", value=team, disabled=False)
 
             squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
-            opponent = st.selectbox("⚔️ Avversario", value=avversario, disabled=False)
+            opponent = st.text_input("⚔️ Avversario", value=avversario, disabled=False)
 
     if num_giornate >= 10:
         # Imposta is_home e is_away direttamente in base a 'ha'
