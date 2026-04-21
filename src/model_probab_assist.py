@@ -118,7 +118,12 @@ def prepare_features(df_orig):
 
     numeric_features = [
         "sum_xA", 
-        "xA_last5"
+        "xA_last5",
+        #'key_passes',
+        #'xGBuildup',
+        #'ammonizioni',
+        #'finishing_form',
+        #'time'
     ]
 
     #df = df.dropna(subset=cols_to_check)

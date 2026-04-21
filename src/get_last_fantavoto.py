@@ -44,7 +44,24 @@ def evaluate_index(
     results["avg_vote_top50"] = avg_vote(df, 50)
     results["avg_vote_top150"] = avg_vote(df, min(150, len(df)))
 
-    # spearman correlation
+    # spearman correlation top 50
+    top50 = df.sort_values(index_col, ascending=False).head(50)
+    corr50, _ = spearmanr(
+        top50[index_col].values,
+        top50[vote_col].values
+    )
+    results["spearman_corr_50"] = corr50
+
+    # spearman correlation top 100
+    top100 = df.sort_values(index_col, ascending=False).head(100)
+
+    corr100, _ = spearmanr(
+        top100[index_col].values,
+        top100[vote_col].values
+    )
+    results["spearman_corr_100"] = corr100
+
+    # spearman correlation all dataset
     corr, _ = spearmanr(df[index_col], df[vote_col])
     results["spearman_corr"] = corr
 
@@ -62,7 +79,9 @@ def evaluate_index(
     print(f"Top50  : {results['avg_vote_top50']:.2f}")
     print(f"Top150 : {results['avg_vote_top150']:.2f}")
 
-    print(f"\nSpearman correlation: {results['spearman_corr']:.3f}")
+    print(f"\nSpearman correlation all: {results['spearman_corr']:.3f}")
+    print(f"Spearman correlation top 50: {results['spearman_corr_50']:.3f}")
+    print(f"Spearman correlation top 100: {results['spearman_corr_100']:.3f}")
 
     # plot
     if plot:
@@ -115,14 +134,14 @@ if __name__ == "__main__":
 
     roles = ["dif", "cc", "att"]
 
-    is_model = True
+    is_model = False
 
     for role in roles:
         print(f"Processing role: {role}")
         if not is_model:
             index_df = pd.read_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"))
         else:
-            index_df = pd.read_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-03-16.csv")
+            index_df = pd.read_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-04-14.csv")
         
         if "Fantavoto preso" not in index_df.columns:
             # append ultimo fantavoto al dataset di input per il modello
@@ -134,7 +153,7 @@ if __name__ == "__main__":
         if not is_model:
             df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"), index=False)
         else:
-            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-03-16.csv", index=False)
+            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-04-08.csv", index=False)
         # valutazione index
         print(f"Evaluating index for role: {role}")
         results=evaluate_index(df_fv_last_giornata, index_col="Index", vote_col="Fantavoto preso", plot=False)

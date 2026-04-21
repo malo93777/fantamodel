@@ -102,7 +102,7 @@ def get_voti_data():
 
     # 1. Scraping  TOLTO PER DEBUG
     scraper = VotiScraper()
-    #scraper.run(debug=False) #scrape e salva solo se debug è False, altrimenti usa il csv già esistente
+    scraper.run(debug=False) #scrape e salva solo se debug è False, altrimenti usa il csv già esistente
 
     # 2. Preprocessa dataset voti
     voti_df = preproc.merge_voti_player(
@@ -136,6 +136,9 @@ def get_voti_data():
             #riordina
             df_updated = pd.read_csv(file_path)
             df_updated = df_updated.sort_values(by=['player_norm', 'date']).reset_index(drop=True)
+
+            #salva ordinato
+            df_updated.to_csv(file_path, index=False)
 
             print(f"💾 Aggiunti {len(df_new)} nuovi record in PROD_DATA_FILE_VOTI.csv")
         else:
@@ -187,11 +190,11 @@ def main():
     parser.add_argument("--nextgames", action="store_true", help="Scraping delle partite della prossima giornata")
     parser.add_argument("--infortunati", action="store_true", help="Scraping dei giocatori infortunati")
     args = parser.parse_args()
-    args.gol = False
-    args.assist = False
+    args.gol = True
+    args.assist = True
     args.voti = True
-    args.nextgames = False
-    args.infortunati = False
+    args.nextgames = True
+    args.infortunati = True
     # ==========================
     # ESECUZIONE
     # ==========================
