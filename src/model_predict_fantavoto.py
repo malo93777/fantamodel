@@ -294,7 +294,6 @@ def pred_voto_prod(
                 )
             print(f"Voto base CON MEDIA per {player_full_name}: {voto_base:.2f} | Voto base PREDETTO: {voto_predicted_df['Voto'].iloc[0]:.2f}")
             voto_predetto = voto_predicted_df["Voto"].iloc[0] 
-            voto_base = voto_predetto
             voto_base  = 0.6 * voto_predetto + 0.4 * voto_base
             #**** END TEST PER CONFRONTO VOTO PREDETTO CON VOTO BASE (SENZA AGGIUSTAMENTI) *****
 
