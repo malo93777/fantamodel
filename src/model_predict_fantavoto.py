@@ -271,31 +271,31 @@ def pred_voto_prod(
             pipeline_att = utils.load_voto_model("att")
 
             pipeline_voto = {
-                "dif": pipeline_dif["voto_model"],
-                "cc": pipeline_cc["voto_model"],
-                "att": pipeline_att["voto_model"]
-            }  
+                    "dif": pipeline_dif["voto_model"],
+                    "cc": pipeline_cc["voto_model"],
+                    "att": pipeline_att["voto_model"]
+                }  
 
             voto_predicted_df = model_predict_voto.pred_voto_prod(
-                players=[player],
-                teams=[team],
-                opponents=[opponent],
-                h_a_players=[h_a],
-                player_df=player_df, #passo direttamente le ultime 15 del player
-                df_orig_goal=df_orig_goal,
-                df_orig_assist=df_orig_assist,
-                df_teams=df_teams,
-                df_teams_curr_season=df_teams_curr_season,
-                model_goal=model_goal,
-                model_assist=model_assist,
-                model_xg=model_xg,
-                pipeline=pipeline_voto,
-                debug=True
-            )
+                    players=[player],
+                    teams=[team],
+                    opponents=[opponent],
+                    h_a_players=[h_a],
+                    player_df=player_df, #passo direttamente le ultime 15 del player
+                    df_orig_goal=df_orig_goal,
+                    df_orig_assist=df_orig_assist,
+                    df_teams=df_teams,
+                    df_teams_curr_season=df_teams_curr_season,
+                    model_goal=model_goal,
+                    model_assist=model_assist,
+                    model_xg=model_xg,
+                    pipeline=pipeline_voto,
+                    debug=True
+                )
             print(f"Voto base CON MEDIA per {player_full_name}: {voto_base:.2f} | Voto base PREDETTO: {voto_predicted_df['Voto'].iloc[0]:.2f}")
             voto_predetto = voto_predicted_df["Voto"].iloc[0] 
-
-            voto_base  = 0.7 * voto_predetto + 0.3 * voto_base
+            voto_base = voto_predetto
+            voto_base  = 0.6 * voto_predetto + 0.4 * voto_base
             #**** END TEST PER CONFRONTO VOTO PREDETTO CON VOTO BASE (SENZA AGGIUSTAMENTI) *****
 
         #se il ruolo è A, media 70 / 30 tra
