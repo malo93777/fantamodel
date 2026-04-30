@@ -1,0 +1,44 @@
+{
+  "summary": "Backend: 14/15 tests pass. Auth (register/login/me/logout), /api/players, /teams, /opponents, /player-info, /predict/bonus, /predict/compare, /predict/index all OK with correct shapes and no NaN/Infinity. /api/predict/top-by-role exceeds 5-min ingress timeout (502) in cloud env - works locally per backend logs but is too slow for production. Frontend: login page renders, but submit click did not redirect (likely tab vs submit ambiguity). Bonus/Compare/Index pages stuck on 'Caricamento…' indefinitely when not authenticated instead of redirecting to /login.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/predict/top-by-role", "issue": "Hits 502 ingress timeout (>~300s). Iterates many players; needs caching or async/limit. Backend logs show it does compute results, just too slowly for the proxy timeout."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Bonus/Compare/Index pages", "issue": "Stuck on 'Caricamento…' forever when user is not authenticated — no redirect to /login on 401 from /api/players. UX: either gate route by auth state or handle 401 by redirecting.", "selector": "text=Caricamento…", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Login submit", "issue": "Both the 'Accedi' tab and the 'Accedi' submit button share identical visible text. data-testid attributes are missing on tab/submit/email/password/form inputs, making automated testing fragile and possibly user-confusing for screen readers.", "affected_selectors": ["button:has-text('Accedi')"]},
+      {"flow": "Auth-protected page navigation", "issue": "When axios call to /api/players returns 401 (no cookie), pages do not catch the error / redirect; spinner remains. Add interceptor or per-page error handling."}
+    ],
+    "design_issues": [
+      {"screen": "Login", "issues": ["Active tab and submit button use the same label 'Accedi' / 'Registrati' — slight visual differentiation only; consider renaming submit to a verb (e.g. 'Entra') and tabs to 'Login' / 'Registrazione'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_fantamodel.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Add data-testid attributes on login/register inputs, tab buttons, submit buttons, navbar logout, page links, player select, predict buttons, and result cards.",
+    "Fix unauthenticated UX: in App.js intercept 401 (axios.interceptors.response) and redirect to /login or guard /bonus, /compare, /index with auth check before rendering.",
+    "Optimize /api/predict/top-by-role: precompute on startup, cache result with TTL, or move to a background job; current latency exceeds ingress proxy timeout (502).",
+    "Disambiguate login form: rename submit button label or add explicit data-testid to differentiate from tab control."
+  ],
+  "critical_code_review_comments": [
+    "server.py: ML cache lazy-loaded on first request — first user pays heavy cost; consider warming in lifespan.",
+    "server.py: get_current_user catches jwt.InvalidTokenError, but ObjectId(payload['sub']) can raise InvalidId for malformed sub — wrap in try/except to return 401 instead of 500.",
+    "server.py: no rate limiting / login_attempts collection is created but never used — brute-force lockout (per playbook) is missing.",
+    "server.py: CORS allow_origins falls back to '*' when FRONTEND_URL unset; with allow_credentials=True browsers will reject. Ensure FRONTEND_URL is always set in env.",
+    "server.py exceeds ~470 lines — acceptable for now but split into routers/auth.py, routers/ml.py if it grows.",
+    "Frontend: missing data-testid coverage across all interactive elements (per requirement)."
+  ],
+  "updated_files": ["/app/backend/tests/test_fantamodel.py", "/app/test_reports/pytest/pytest_results.xml", "/app/test_reports/iteration_1.json"],
+  "success_rate": {"backend": "93% (14/15)", "frontend": "30% (login renders, but auth flow + 3 main pages not verifiable end-to-end due to 'Caricamento…' bug and tab/submit ambiguity)"},
+  "test_credentials": "admin@fantamodel.com / admin123 (verified working via API). Registered ephemeral users like test_<uuid>@example.com.",
+  "seed_data_creation": "None beyond ephemeral test_*@example.com users created by register tests.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pytest suite at /app/backend/tests/test_fantamodel.py covers all backend endpoints; rerun after main agent adds rate limiting / fixes top-by-role perf. For frontend, after main agent adds data-testid attributes and a 401 redirect interceptor, retest: (1) login -> redirect /, (2) /bonus auto-fills team/opponent and returns metrics, (3) /compare radar, (4) /index multi-select & top-by-role tables, (5) logout. Note the login form has TWO buttons with text 'Accedi' (tab + submit) — must use data-testid to disambiguate.",
+  "rca of the issue": "Frontend pages /bonus /compare /index display 'Caricamento…' indefinitely when unauthenticated because (a) routes are not wrapped in an auth guard and (b) the 401 from /api/players is not handled (no axios interceptor / no try-catch redirect). Reproduction: open /bonus in incognito -> spinner forever. Mitigation: add a <ProtectedRoute> wrapper that checks /api/auth/me and redirects to /login on 401, plus an axios response interceptor that redirects on any 401."
+}

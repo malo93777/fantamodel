@@ -1,0 +1,32 @@
+Valutazione Index Fantacalcio
+
+Questo file riassume le principali metriche statistiche del modello di
+ranking per i tre ruoli analizzati: difensori, centrocampisti e
+attaccanti.
+
+Difensori
+
+Hit rate (>=7): - Top10: 0.30 - Top20: 0.30 - Top50: 0.26
+
+Fantavoto medio: - Top10: 6.15 - Top20: 6.45 - Top50: 6.23 - Top150:
+5.99
+
+Spearman correlation: - 0.228
+
+Centrocampisti
+
+Hit rate (>=7): - Top10: 0.40 - Top20: 0.30 - Top50: 0.32
+
+Fantavoto medio: - Top10: 7.00 - Top20: 6.55 - Top50: 6.65 - Top150:
+6.12
+
+Spearman correlation: - 0.273
+
+Attaccanti
+
+Hit rate (>=7): - Top10: 0.30 - Top20: 0.30 - Top50: 0.22
+
+Fantavoto medio: - Top10: 7.00 - Top20: 6.75 - Top50: 6.51 - Top150:
+6.22
+
+Spearman correlation: - 0.184

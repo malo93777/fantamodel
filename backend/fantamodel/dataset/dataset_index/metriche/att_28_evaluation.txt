@@ -1,0 +1,1 @@
+{'hit_rate_top10': np.float64(0.3), 'hit_rate_top20': np.float64(0.3), 'hit_rate_top50': np.float64(0.22), 'avg_vote_top10': np.float64(7.0), 'avg_vote_top20': np.float64(6.75), 'avg_vote_top50': np.float64(6.51), 'avg_vote_top150': np.float64(6.22), 'spearman_corr': np.float64(0.1842836918625759)}
