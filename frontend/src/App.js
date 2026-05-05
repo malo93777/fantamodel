@@ -100,7 +100,7 @@ function LoginPage() {
         <input className="input" type="password" placeholder="Password (min 6)" value={password} onChange={e => setPassword(e.target.value)} data-testid="input-password" />
         {err && <div className="err" data-testid="auth-error">{err}</div>}
         <button className="btn-primary" onClick={submit} disabled={loading} data-testid="auth-submit">
-          {loading ? "Attendere…" : tab === "login" ? "Accedi" : "Crea account"}
+          {loading ? "Attendere…" : tab === "login" ? "🔓 Entra" : "✨ Crea account"}
         </button>
         <p className="auth-hint">Demo admin: admin@fantamodel.com / admin123</p>
       </div>
@@ -412,7 +412,7 @@ function IndexPage() {
   const top = async () => {
     setLoadingT(true); setTopResult(null);
     try {
-      const r = await axios.get(`${API}/predict/top-by-role`);
+      const r = await axios.get(`${API}/predict/top-by-role`, { timeout: 360000 });
       setTopResult(r.data);
     } catch (e) {
       toast.error(fmtErr(e.response?.data?.detail) || e.message);
@@ -469,9 +469,10 @@ function IndexPage() {
           {loadingI ? "Calcolo…" : "🔮 Calcola Indice"}
         </button>
         <button className="btn-secondary" onClick={top} disabled={loadingT} data-testid="top-by-role-btn">
-          {loadingT ? "Calcolo…" : "🏆 Top per Ruolo"}
+          {loadingT ? "Calcolo… (può richiedere 1-2 min)" : "🏆 Top per Ruolo"}
         </button>
       </div>
+      <small className="hint">⚠️ Top per Ruolo è un calcolo intensivo su tutti i giocatori — può richiedere 1-2 minuti.</small>
 
       {indexResult && (
         <div className="result">
