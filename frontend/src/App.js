@@ -24,6 +24,98 @@ function AuthProvider({ children }) {
   return <AuthCtx.Provider value={{ user, setUser, logout }}>{children}</AuthCtx.Provider>;
 }
 
+// =============== SEARCHABLE COMBOBOX ===============
+function SearchableSelect({ options, value, onChange, placeholder = "Cerca...", testId, getLabel = (o) => o.display, getValue = (o) => o.raw }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const ref = React.useRef(null);
+
+  useEffect(() => {
+    if (value && options) {
+      const cur = options.find(o => getValue(o) === value);
+      if (cur) setQ(getLabel(cur));
+    } else if (!value) setQ("");
+    // eslint-disable-next-line
+  }, [value, options]);
+
+  useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const filtered = (options || []).filter(o => getLabel(o).toLowerCase().includes(q.toLowerCase())).slice(0, 100);
+
+  const pick = (o) => { onChange(getValue(o)); setQ(getLabel(o)); setOpen(false); };
+  const onKey = (e) => {
+    if (!open) setOpen(true);
+    if (e.key === "ArrowDown") { e.preventDefault(); setHi(h => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter" && filtered[hi]) { e.preventDefault(); pick(filtered[hi]); }
+    else if (e.key === "Escape") setOpen(false);
+  };
+
+  return (
+    <div className="combo" ref={ref}>
+      <input className="input" value={q} onChange={e => { setQ(e.target.value); setOpen(true); setHi(0); }}
+        onFocus={() => setOpen(true)} onKeyDown={onKey} placeholder={placeholder} data-testid={testId} autoComplete="off" />
+      {open && filtered.length > 0 && (
+        <div className="combo-list" data-testid={testId ? `${testId}-list` : undefined}>
+          {filtered.map((o, i) => (
+            <div key={getValue(o)} className={"combo-item" + (i === hi ? " combo-item-hi" : "")}
+              onMouseEnter={() => setHi(i)} onMouseDown={(e) => { e.preventDefault(); pick(o); }}>
+              {getLabel(o)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchableMultiSelect({ options, values, onChange, placeholder = "Cerca e aggiungi giocatori...", testId, getLabel = (o) => o.display, getValue = (o) => o.raw }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const filtered = (options || []).filter(o => !values.includes(getValue(o)) && getLabel(o).toLowerCase().includes(q.toLowerCase())).slice(0, 100);
+
+  return (
+    <div className="combo" ref={ref}>
+      <div className="chips-input">
+        {values.map(v => {
+          const o = options?.find(x => getValue(x) === v);
+          return (
+            <span key={v} className="chip" data-testid={`chip-${v}`}>
+              {o ? getLabel(o) : v}
+              <button onClick={() => onChange(values.filter(x => x !== v))} className="chip-x" aria-label="rimuovi">×</button>
+            </span>
+          );
+        })}
+        <input className="chips-search" value={q} onChange={e => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)} placeholder={values.length ? "" : placeholder} data-testid={testId} autoComplete="off" />
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="combo-list" data-testid={testId ? `${testId}-list` : undefined}>
+          {filtered.map(o => (
+            <div key={getValue(o)} className="combo-item"
+              onMouseDown={(e) => { e.preventDefault(); onChange([...values, getValue(o)]); setQ(""); }}>
+              {getLabel(o)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function fmtErr(d) {
   if (!d) return "Errore. Riprova.";
   if (typeof d === "string") return d;
@@ -193,10 +285,7 @@ function BonusPage() {
       <div className="form-grid">
         <div>
           <label>Giocatore</label>
-          <select className="input" value={player} onChange={e => setPlayer(e.target.value)} data-testid="bonus-player-select">
-            <option value="">— seleziona —</option>
-            {players?.map(p => <option key={p.raw} value={p.raw}>{p.display}</option>)}
-          </select>
+          <SearchableSelect options={players} value={player} onChange={setPlayer} placeholder="Cerca giocatore..." testId="bonus-player-select" />
         </div>
         <div>
           <label>Squadra</label>
@@ -315,10 +404,7 @@ function ComparePage() {
   const PCard = ({ p, set, idx }) => (
     <div className="player-form">
       <h4>👤 Giocatore {idx}</h4>
-      <select className="input" value={p.player} onChange={e => fillAuto(idx, e.target.value)} data-testid={`compare-player${idx}`}>
-        <option value="">— seleziona —</option>
-        {players?.map(pp => <option key={pp.raw} value={pp.raw}>{pp.display}</option>)}
-      </select>
+      <SearchableSelect options={players} value={p.player} onChange={(v) => fillAuto(idx, v)} placeholder="Cerca giocatore..." testId={`compare-player${idx}`} />
       <input className="input" placeholder="Squadra" value={p.team} onChange={e => set({ ...p, team: e.target.value })} data-testid={`compare-team${idx}`} />
       <input className="input" placeholder="Avversario" value={p.opponent} onChange={e => set({ ...p, opponent: e.target.value })} data-testid={`compare-opp${idx}`} />
       <select className="input" value={p.ha} onChange={e => set({ ...p, ha: e.target.value })} data-testid={`compare-ha${idx}`}>
@@ -459,10 +545,8 @@ function IndexPage() {
       <p className="page-sub">Calcola l'indice per i tuoi giocatori o vedi i top per ruolo per la prossima giornata.</p>
 
       <label>Seleziona giocatori</label>
-      <select multiple className="input multi" value={selected} onChange={e => setSelected(Array.from(e.target.selectedOptions).map(o => o.value))} size={8} data-testid="index-multi">
-        {players?.map(p => <option key={p.raw} value={p.raw}>{p.display}</option>)}
-      </select>
-      <small className="hint">Tieni premuto Ctrl/⌘ per selezione multipla. Selezionati: {selected.length}</small>
+      <SearchableMultiSelect options={players} values={selected} onChange={setSelected} placeholder="Cerca e aggiungi giocatori..." testId="index-multi" />
+      <small className="hint">Digita per filtrare. Selezionati: {selected.length}</small>
 
       <div className="actions-row">
         <button className="btn-primary" onClick={calc} disabled={loadingI} data-testid="calc-index-btn">

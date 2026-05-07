@@ -206,6 +206,37 @@ select.multi { height: auto; }
 
 .loading { display: grid; place-items: center; min-height: 100vh; color: var(--ink-dim); font-family: var(--font-display); letter-spacing: 3px; font-size: 1.4rem; }
 
+/* ===== SEARCHABLE COMBOBOX ===== */
+.combo { position: relative; margin: 8px 0; }
+.combo .input { margin: 0; }
+.combo-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: #0a2618; border: 1px solid var(--card-border); border-radius: 12px;
+  max-height: 280px; overflow-y: auto; z-index: 80;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+}
+.combo-item { padding: 10px 14px; cursor: pointer; color: var(--ink); font-size: 0.92rem; transition: background .12s; }
+.combo-item:hover, .combo-item-hi { background: rgba(251,191,36,0.18); color: var(--accent); }
+.combo-list::-webkit-scrollbar { width: 8px; }
+.combo-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 8px; }
+
+.chips-input {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px 10px; min-height: 48px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: 12px;
+}
+.chips-input:focus-within { border-color: var(--accent); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.12));
+  border: 1px solid rgba(34,197,94,0.4);
+  color: var(--ink); padding: 4px 4px 4px 12px; border-radius: 999px;
+  font-size: 0.85rem; font-weight: 600;
+}
+.chip-x { background: rgba(0,0,0,0.4); color: var(--ink); border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; display: grid; place-items: center; }
+.chip-x:hover { background: var(--danger); }
+.chips-search { flex: 1; min-width: 160px; background: transparent; border: none; outline: none; color: var(--ink); font-family: inherit; font-size: 0.95rem; padding: 6px 4px; }
+
 @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 720px) {
