@@ -141,7 +141,7 @@ if __name__ == "__main__":
         if not is_model:
             index_df = pd.read_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"))
         else:
-            index_df = pd.read_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-04-14.csv")
+            index_df = pd.read_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-05-05.csv")
         
         if "Fantavoto preso" not in index_df.columns:
             # append ultimo fantavoto al dataset di input per il modello
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         if not is_model:
             df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR /"dataset_index"/  (role + "_" + last_giornata + ".csv"), index=False)
         else:
-            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-04-08.csv", index=False)
+            df_fv_last_giornata.to_csv(config.DATASET_DATA_DIR / "dataset_index" / f"{role.upper()}_2026-05-05.csv", index=False)
         # valutazione index
         print(f"Evaluating index for role: {role}")
         results=evaluate_index(df_fv_last_giornata, index_col="Index", vote_col="Fantavoto preso", plot=False)
