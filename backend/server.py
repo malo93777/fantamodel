@@ -85,18 +85,23 @@ _ML_CACHE = {}
 
 def get_ml():
     if not _ML_CACHE:
+        def safe_read(path, **kw):
+            try:
+                return pd.read_csv(path, **kw)
+            except (pd.errors.EmptyDataError, FileNotFoundError):
+                return pd.DataFrame()
         _ML_CACHE["models_goal"] = fm_utils.load_models()
         _ML_CACHE["models_assist"] = fm_utils.load_models_assist()
         _ML_CACHE["model_xg"] = fm_utils.load_xg_model()
         _ML_CACHE["model_fv"] = fm_utils.load_fv_model()
         _ML_CACHE["model_fv_gk"] = fm_utils.load_fv_model_gk()
-        _ML_CACHE["df_goal"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_GOALS)
-        _ML_CACHE["df_assist"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_ASSIST)
-        _ML_CACHE["df_voti"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_VOTI)
-        _ML_CACHE["df_teams"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.TEAMS_DATA_FILE)
-        _ML_CACHE["df_teams_curr"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.CURRENT_SEASON_TEAMS_FILE)
-        _ML_CACHE["df_next"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.NEXT_GAMES_FILE)
-        _ML_CACHE["df_inf"] = pd.read_csv(fm_config.DATASET_DATA_DIR / fm_config.INFORTUNATI_FILE)
+        _ML_CACHE["df_goal"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_GOALS)
+        _ML_CACHE["df_assist"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_ASSIST)
+        _ML_CACHE["df_voti"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.PROD_DATA_FILE_VOTI)
+        _ML_CACHE["df_teams"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.TEAMS_DATA_FILE)
+        _ML_CACHE["df_teams_curr"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.CURRENT_SEASON_TEAMS_FILE)
+        _ML_CACHE["df_next"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.NEXT_GAMES_FILE)
+        _ML_CACHE["df_inf"] = safe_read(fm_config.DATASET_DATA_DIR / fm_config.INFORTUNATI_FILE)
     return _ML_CACHE
 
 # ============== AUTH HELPERS ==============

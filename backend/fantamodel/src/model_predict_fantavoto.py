@@ -255,7 +255,7 @@ def pred_voto_prod(
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
 
-        if "kempf" in player:
+        if "cambiaghi" in player:
             print("a")
         
         voto_base = utils.compute_base_voto_by_role(
@@ -294,10 +294,10 @@ def pred_voto_prod(
                 )
             print(f"Voto base CON MEDIA per {player_full_name}: {voto_base:.2f} | Voto base PREDETTO: {voto_predicted_df['Voto'].iloc[0]:.2f}")
             voto_predetto = voto_predicted_df["Voto"].iloc[0] 
-            voto_base  = 0.6 * voto_predetto + 0.4 * voto_base
+            voto_base  = 0.4 * voto_predetto + 0.6 * voto_base
             #**** END TEST PER CONFRONTO VOTO PREDETTO CON VOTO BASE (SENZA AGGIUSTAMENTI) *****
 
-        #se il ruolo è A, media 70 / 30 tra
+        #se il ruolo è A, media 60 / 40 tra
         
         # aggiustamento in base alla forza dell'avversario
         opponent = utils.normalize_team_name(opponent)
