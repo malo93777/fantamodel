@@ -337,14 +337,15 @@ function BonusPage() {
               {result.stats.history_xg?.length > 0 && (
                 <div className="stat-card">
                   <h4>📉 Andamento xG / Goal (ultime 10)</h4>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={result.stats.history_xg}>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={result.stats.history_xg} margin={{ top: 10, right: 20, left: 0, bottom: 6 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis dataKey="date" hide />
                       <YAxis stroke="#94a3b8" />
                       <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
-                      <Line type="monotone" dataKey="xG" stroke="#3b82f6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="goal" stroke="#10b981" strokeWidth={2} />
+                      <Legend wrapperStyle={{ paddingTop: 8 }} iconType="line" />
+                      <Line type="monotone" dataKey="xG" name="xG atteso" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="goal" name="Goal segnati" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -352,14 +353,15 @@ function BonusPage() {
               {result.stats.history_xa?.length > 0 && (
                 <div className="stat-card">
                   <h4>📈 Andamento xA / Assist (ultime 10)</h4>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={result.stats.history_xa}>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={result.stats.history_xa} margin={{ top: 10, right: 20, left: 0, bottom: 6 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis dataKey="date" hide />
                       <YAxis stroke="#94a3b8" />
                       <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
-                      <Line type="monotone" dataKey="xA" stroke="#10b981" strokeWidth={2} />
-                      <Line type="monotone" dataKey="assist" stroke="#f59e0b" strokeWidth={2} />
+                      <Legend wrapperStyle={{ paddingTop: 8 }} iconType="line" />
+                      <Line type="monotone" dataKey="xA" name="xA atteso" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="assist" name="Assist forniti" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
