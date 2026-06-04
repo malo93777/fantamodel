@@ -415,14 +415,35 @@ function ComparePage() {
     </div>
   );
 
-  const radarData = result ? [
-    { stat: "xG medio", A: result.p1.stats?.xg_mean || 0, B: result.p2.stats?.xg_mean || 0 },
-    { stat: "xG last5", A: result.p1.stats?.xg_last5 || 0, B: result.p2.stats?.xg_last5 || 0 },
-    { stat: "xA last5", A: result.p1.stats?.xa_last5 || 0, B: result.p2.stats?.xa_last5 || 0 },
-    { stat: "P.Goal", A: result.p1.goal_proba || 0, B: result.p2.goal_proba || 0 },
-    { stat: "P.Assist", A: result.p1.assist_proba || 0, B: result.p2.assist_proba || 0 },
-    { stat: "P.Bonus", A: result.p1.bonus_proba || 0, B: result.p2.bonus_proba || 0 },
-  ] : [];
+  const radarData = result ? (() => {
+    const stats = [
+      { key: "xg_mean", label: "xG medio", path: "stats.xg_mean" },
+      { key: "xg_last5", label: "xG last5", path: "stats.xg_last5" },
+      { key: "xa_last5", label: "xA last5", path: "stats.xa_last5" },
+      { key: "goal_proba", label: "P.Goal", path: "goal_proba" },
+      { key: "assist_proba", label: "P.Assist", path: "assist_proba" },
+      { key: "bonus_proba", label: "P.Bonus", path: "bonus_proba" },
+    ];
+    const get = (obj, path) => path.split(".").reduce((o, k) => (o == null ? 0 : o[k]) ?? 0, obj) || 0;
+    return stats.map(s => {
+      const a = get(result.p1, s.path);
+      const b = get(result.p2, s.path);
+      const m = Math.max(Math.abs(a), Math.abs(b), 0.0001);
+      return { stat: s.label, A: +(a / m).toFixed(3), B: +(b / m).toFixed(3), rawA: a, rawB: b };
+    });
+  })() : [];
+
+  const radarTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0]?.payload;
+    return (
+      <div style={{ background: "#0f172a", border: "1px solid #334155", padding: "8px 12px", borderRadius: 8 }}>
+        <div style={{ color: "#cbd5e1", fontSize: 12, marginBottom: 4 }}>{item.stat}</div>
+        <div style={{ color: "#3b82f6" }}>{result.p1.player}: <b>{Number(item.rawA).toFixed(3)}</b></div>
+        <div style={{ color: "#f59e0b" }}>{result.p2.player}: <b>{Number(item.rawB).toFixed(3)}</b></div>
+      </div>
+    );
+  };
 
   return (
     <div className="page">
@@ -458,16 +479,18 @@ function ComparePage() {
             ))}
           </div>
           <div className="radar-wrap">
-            <ResponsiveContainer width="100%" height={400}>
-              <RadarChart data={radarData}>
+            <ResponsiveContainer width="100%" height={420}>
+              <RadarChart data={radarData} outerRadius="78%">
                 <PolarGrid stroke="#334155" />
-                <PolarAngleAxis dataKey="stat" stroke="#cbd5e1" />
-                <PolarRadiusAxis stroke="#475569" />
-                <Radar name={result.p1.player} dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
-                <Radar name={result.p2.player} dataKey="B" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.4} />
-                <Legend />
+                <PolarAngleAxis dataKey="stat" stroke="#cbd5e1" tick={{ fontSize: 13, fontWeight: 600 }} />
+                <PolarRadiusAxis stroke="#475569" domain={[0, 1]} tick={false} axisLine={false} />
+                <Radar name={result.p1.player} dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.45} strokeWidth={2} />
+                <Radar name={result.p2.player} dataKey="B" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.45} strokeWidth={2} />
+                <Tooltip content={radarTooltip} />
+                <Legend wrapperStyle={{ paddingTop: 12 }} />
               </RadarChart>
             </ResponsiveContainer>
+            <p className="radar-hint">📐 Valori normalizzati sul massimo tra i due giocatori per ogni metrica (per evidenziare le differenze relative).</p>
           </div>
         </div>
       )}
