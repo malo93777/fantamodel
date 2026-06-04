@@ -415,9 +415,13 @@ class IndexReq(BaseModel):
 
 @api.post("/predict/index")
 async def predict_index(req: IndexReq, _: dict = Depends(get_current_user)):
-    ml = get_ml()
     if not req.players:
         raise HTTPException(status_code=400, detail="Seleziona almeno un giocatore")
+    cache_key = "index::" + "|".join(sorted(req.players))
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return {**cached, "_cached": True}
+    ml = get_ml()
     df_voti_raw = ml["df_voti"]
     try:
         # Build input_data list as in streamlit page
