@@ -151,7 +151,8 @@ select.multi { height: auto; }
   border: 1px solid var(--line);
 }
 .metric span { color: var(--ink-dim); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-.metric strong { display: block; font-family: var(--font-display); font-size: 3rem; letter-spacing: 2px; margin: 6px 0 12px; color: var(--accent); line-height: 1; }
+.metric strong { display: block; font-family: "Manrope", system-ui, sans-serif; font-weight: 800; font-size: 4.2rem !important; letter-spacing: -1px; margin: 8px 0 14px; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+.metric strong > *, .metric strong span, .metric strong [data-ve-dynamic] { all: unset !important; font: inherit !important; color: inherit !important; }
 .metric-hot { background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.05)); border-color: rgba(245,158,11,0.4); }
 .metric-hot strong { color: #fcd34d; }
 
@@ -182,7 +183,7 @@ select.multi { height: auto; }
 }
 .compare-card h3 { font-family: var(--font-display); margin: 0 0 14px; color: var(--accent); }
 .compare-card .metric { background: rgba(255,255,255,0.04); margin-bottom: 8px; padding: 12px; }
-.compare-card .metric strong { font-size: 1.9rem; }
+.compare-card .metric strong { font-size: 3.6rem; }
 .compare-card ul { list-style: none; padding: 0; margin: 12px 0 0; color: var(--ink-dim); font-size: 0.9rem; }
 .compare-card li { padding: 4px 0; }
 .winners {
