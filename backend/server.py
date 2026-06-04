@@ -49,6 +49,37 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 
+# ============== PREDICTION CACHE (TTL) ==============
+import threading
+import asyncio
+_CACHE_LOCK = threading.Lock()
+_PRED_CACHE = {}  # key -> (value, expires_at_ts)
+
+def cache_get(key: str):
+    with _CACHE_LOCK:
+        item = _PRED_CACHE.get(key)
+        if not item:
+            return None
+        value, expires = item
+        if datetime.now(timezone.utc).timestamp() > expires:
+            _PRED_CACHE.pop(key, None)
+            return None
+        return value
+
+def cache_set(key: str, value, ttl_seconds: int):
+    with _CACHE_LOCK:
+        _PRED_CACHE[key] = (value, datetime.now(timezone.utc).timestamp() + ttl_seconds)
+
+def cache_clear():
+    with _CACHE_LOCK:
+        _PRED_CACHE.clear()
+
+def cache_stats():
+    with _CACHE_LOCK:
+        now = datetime.now(timezone.utc).timestamp()
+        active = sum(1 for _, exp in _PRED_CACHE.values() if exp > now)
+        return {"total": len(_PRED_CACHE), "active": active}
+
 # ============== ML CACHE ==============
 _ML_CACHE = {}
 
@@ -309,6 +340,10 @@ class BonusReq(BaseModel):
 
 @api.post("/predict/bonus")
 async def predict_bonus(req: BonusReq, _: dict = Depends(get_current_user)):
+    cache_key = f"bonus::{req.player}::{req.team}::{req.opponent}::{req.h_a or ''}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return {**cached, "_cached": True}
     ml = get_ml()
     try:
         goal_p, assist_p = predict_goal_assist(req.player, req.team, req.opponent, req.h_a, ml)
@@ -318,7 +353,7 @@ async def predict_bonus(req: BonusReq, _: dict = Depends(get_current_user)):
         ap = assist_p or 0.0
         bonus = gp + ap - (gp * ap)
         history = player_history_stats(req.player, ml) or {}
-        return {
+        result = {
             "player": req.player.title(),
             "team": req.team,
             "opponent": req.opponent,
@@ -327,6 +362,8 @@ async def predict_bonus(req: BonusReq, _: dict = Depends(get_current_user)):
             "bonus_proba": bonus,
             "stats": history,
         }
+        cache_set(cache_key, result, 6 * 3600)  # 6h TTL
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -346,12 +383,16 @@ class CompareReq(BaseModel):
 async def predict_compare(req: CompareReq, _: dict = Depends(get_current_user)):
     ml = get_ml()
     def one(p, t, o, ha):
+        ck = f"bonus::{p}::{t}::{o}::{ha or ''}"
+        cached = cache_get(ck)
+        if cached is not None:
+            return cached
         gp, ap = predict_goal_assist(p, t, o, ha, ml)
         gp_v = gp or 0.0
         ap_v = ap or 0.0
         bonus = gp_v + ap_v - (gp_v * ap_v)
         h = player_history_stats(p, ml) or {}
-        return {
+        out = {
             "player": p.title(),
             "team": t,
             "opponent": o,
@@ -360,6 +401,8 @@ async def predict_compare(req: CompareReq, _: dict = Depends(get_current_user)):
             "bonus_proba": bonus,
             "stats": h,
         }
+        cache_set(ck, out, 6 * 3600)
+        return out
     try:
         p1 = one(req.player1, req.team1, req.opponent1, req.h_a1)
         p2 = one(req.player2, req.team2, req.opponent2, req.h_a2)
@@ -430,12 +473,18 @@ async def predict_index(req: IndexReq, _: dict = Depends(get_current_user)):
                 else:
                     row[c] = str(v) if v is not None else ""
             rows.append(row)
-        return {"rows": rows, "columns": list(df_pred.columns)}
+        result = {"rows": rows, "columns": list(df_pred.columns)}
+        cache_set(cache_key, result, 3 * 3600)  # 3h
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore: {e}")
 
 @api.get("/predict/top-by-role")
 async def top_by_role(_: dict = Depends(get_current_user)):
+    cache_key = "top_by_role::v1"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return {**cached, "_cached": True}
     ml = get_ml()
     try:
         df_voti = fm_utils.prepare_voto_dataframe(ml["df_voti"])
@@ -462,9 +511,23 @@ async def top_by_role(_: dict = Depends(get_current_user)):
                         row[c] = str(v) if v is not None else ""
                 rows.append(row)
             out[role] = {"rows": rows, "columns": list(df.columns)}
+        cache_set(cache_key, out, 3600)  # 1h
         return out
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore: {e}")
+
+@api.get("/admin/cache")
+async def admin_cache(user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin")
+    return cache_stats()
+
+@api.post("/admin/cache/clear")
+async def admin_cache_clear(user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin")
+    cache_clear()
+    return {"ok": True}
 
 @api.get("/")
 async def root():

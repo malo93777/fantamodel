@@ -310,7 +310,7 @@ function BonusPage() {
 
       {result && (
         <div className="result" data-testid="bonus-result">
-          <h3>{result.player} ({result.team} vs {result.opponent})</h3>
+          <h3>{result.player} ({result.team} vs {result.opponent}) {result._cached && <span className="cache-badge" title="Risultato dalla cache">⚡ Cache</span>}</h3>
           <div className="metrics-row">
             <div className="metric"><span>⚽ Goal</span><strong>{((result.goal_proba || 0) * 100).toFixed(1)}%</strong>
               <ProgressBar value={result.goal_proba} color="#3b82f6" /></div>
