@@ -4285,6 +4285,8 @@ def calculate_inactivity_malus(date_col, reference_date=None,
     - weekly_increment: incremento settimanale del malus
     - max_malus: malus massimo
     """
+    if config.NEXT_GIORNATA == 39:
+        return 0.0  # Nessun malus se campionato è finito
 
     if reference_date is None:
         reference_date = datetime.now()
