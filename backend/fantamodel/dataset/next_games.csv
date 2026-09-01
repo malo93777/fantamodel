@@ -1,0 +1,11 @@
+round,date,time,home,away,match_id
+3,2026-09-04,18:45:00,Genoa,Como,5749665
+3,2026-09-05,13:00:00,Fiorentina,Torino,5749663
+3,2026-09-05,16:00:00,Inter,Napoli,5749666
+3,2026-09-05,18:45:00,Roma,Atalanta,5749660
+3,2026-09-06,13:00:00,Frosinone,Venezia,5749664
+3,2026-09-06,13:00:00,Parma,Monza,5749668
+3,2026-09-06,16:00:00,Bologna,Sassuolo,5749661
+3,2026-09-06,18:45:00,Juventus,Milan,5749667
+3,2026-09-07,16:30:00,Cagliari,Lecce,5749662
+3,2026-09-07,18:45:00,Udinese,Lazio,5749669
