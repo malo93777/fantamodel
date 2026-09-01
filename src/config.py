@@ -15,18 +15,18 @@ MODEL_DIR_FV = BASE_DIR / "models/fantavoto"
 
 # File
 MATCH_DATA_FILE = "matches_df.csv"
-PROD_DATA_FILE_GOALS = "PROD_goals_2025_preproc_Serie_A.csv"
+PROD_DATA_FILE_GOALS = "PROD_goals_2026_preproc_Serie_A.csv"
 PLAYERS_ALL_SEASON_FILE = "players_all_seasons.csv"
-GOALS_DATA_FILE = "goals_2025.csv"
-TEAMS_DATA_FILE = "teams_2014_2025.csv"
-ASSIST_DATA_FILE = "assists_2025.csv"
-PROD_DATA_FILE_ASSIST = "PROD_assists_2025_preproc_Serie_A.csv"
+GOALS_DATA_FILE = "goals_2026.csv"
+TEAMS_DATA_FILE = "teams_2014_2026.csv"
+ASSIST_DATA_FILE = "assists_2026.csv"
+PROD_DATA_FILE_ASSIST = "PROD_assists_2026_preproc_Serie_A.csv"
 RAW_DATA_FILE = "raw_data.csv"
 CURRENT_SEASON_TEAMS_FILE = "teams_current_season.csv"
 GOALS_DATA_FILE_ALL_LEAGUES = "all_leagues_goals.csv"
 VOTI_DATA_FILE = "voti_fantagiaveno_raw.csv"
-PROD_DATA_FILE_VOTI = "PROD_voti_2025_preproc_Serie_A.csv"
-FANTA_RUOLI_FILE = "ruoli_fanta_25.csv"
+PROD_DATA_FILE_VOTI = "PROD_voti_2026_preproc_Serie_A.csv"
+FANTA_RUOLI_FILE = "ruoli_fanta_26.csv"
 NEXT_GAMES_FILE = "next_games.csv"
 INFORTUNATI_FILE = "infortunati.csv"
 SQUALIFICATI_FILE = "squalificati.csv"
@@ -45,11 +45,11 @@ FV_MODEL_GK = "fantavoto_model_gk.pkl"
 VOTO_MODEL = "voto_model.pkl"
 
 # Costanti varie
-CURRENT_SEASON = 2025
+CURRENT_SEASON = 2026
 
 #
 
-NEXT_GIORNATA = 39
+NEXT_GIORNATA = 3
 
 BOOST_FACTORS = {
     "sum_xG": 1.0,
@@ -298,35 +298,12 @@ manual_roles = {
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}
 
-GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko", "matteo guendouzi","dennis johnsen", "albert gronbaek", "franco vazquez"}
+#GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko", "matteo guendouzi","dennis johnsen", "albert gronbaek", "franco vazquez"}
 
 POSTPONED_TEAMS_2025 = {
-    16: {
-        "teams": {
-            "como", "milan", "inter", "lecce",
-            "napoli", "parma", "verona", "bologna"
-        },
-        "match_order": 20.5
-    },
-    24: {
-        "teams": {"milan", "como"},
-        "match_order": 25.5
-    }
+   
 }
 
 POSTPONED_MATCHES = {
-        20.5: {
-            "como":     ("milan",   "como - milan"),
-            "milan":    ("como",    "como - milan"),
-            "inter":    ("lecce",   "inter - lecce"),
-            "lecce":    ("inter",   "inter - lecce"),
-            "napoli":   ("parma",   "napoli - parma"),
-            "parma":    ("napoli",  "napoli - parma"),
-            "verona":   ("bologna", "verona - bologna"),
-            "bologna":  ("verona",  "verona - bologna"),
-        },
-        25.5: {
-            "como":  ("milan", "milan - como"),
-            "milan": ("como",  "milan - como"),
-        }
+
 }
