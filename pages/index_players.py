@@ -112,7 +112,7 @@ def main():
     giocatori = [player_display_to_raw[p] for p in giocatori_display]
 
     input_data = []
-    #giocatori_display = ["angeyoan bonny"] #DEBUG
+    #giocatori_display = ["adam marusic"] #DEBUG
     for player in giocatori_display:
         
         # Calcola avversario e ha automaticamente
@@ -133,8 +133,8 @@ def main():
     # 🔹 Logica Calcola Indice
     # =====================================================
     #submitted=True
-    #giocatori = "angeyoan bonny"
-    #input_data.append((giocatori, "sassuolo","inter","h"))
+    #giocatori = "adam marusic"
+    #input_data.append((giocatori, "lazio","udinese","h"))
     if submitted:
         if not giocatori:
             st.warning("Seleziona almeno un giocatore.")
