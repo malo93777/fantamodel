@@ -1015,9 +1015,7 @@ class Preprocessor:
 
         #**** PRIMO TENTATIVO DI ACCORPAMENTO ****
         for (player, season), group in df1.groupby(['player_norm', 'season']):
-            if player == "alisson santos":
-                print("debug")
-
+           
             group_sorted = group.sort_values('date')
 
             self.enrich_df1_with_df2_player(
@@ -1030,7 +1028,7 @@ class Preprocessor:
                 config=config,
                 reconcile_fn=self.reconcile_df2_by_partita,
                 missing_players=missing_players,
-                debug_players={"rafael leao"         
+                debug_players={"adrien rabiot"         
                 }
             )
 

@@ -93,7 +93,7 @@ class Scraper:
                 
                 all_teams_df = preprocessor.mod_df_teams(all_teams_df)
                 all_teams_df.to_csv(config.DATASET_DATA_DIR / config.TEAMS_DATA_FILE, index=False)
-                print("Data saved to teams_2014_2025.csv")    
+                print("Data saved to teams_2014_2026.csv")    
 
 
 if __name__ == "__main__":
