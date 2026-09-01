@@ -447,16 +447,16 @@ def pred_voto_prod(
 
         index = utils.fantavoto_to_schierability_index(fantavoto_pred, fanta_role, config.ROLE_FANTAVOTO_STATS)        
 
-        index_boost = utils.apply_fantarole_boost(index, fanta_role)
+        #index_boost = utils.apply_fantarole_boost(index, fanta_role)
         if debug:
             print(f"Schierability REAl index: {index:.2f}")
-            print(f"Schierability index BOOST: {index_boost:.2f}")
+            #print(f"Schierability index BOOST: {index_boost:.2f}")
 
         ha_to_print = "casa" if h_a == "h" else "trasf."
 
         predictions.append({
         'Giocatore': player_full_name,
-        'Index': index_boost,
+        'Index': index,
         #'Squadra': team,
         'Avversario': opponent,
         'Campo': ha_to_print
