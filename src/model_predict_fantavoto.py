@@ -340,7 +340,7 @@ def pred_voto_prod(
             else:
                 #PLAYER TEAM DATA
                 xGA_last5_final, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
-                xGA_last5 = xGA_last5/5
+                xGA_last5_final = xGA_last5_final/5
 
             bonus_defensive_adj = utils.compute_defensive_xga_bonus(
                 fanta_role,

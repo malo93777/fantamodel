@@ -170,12 +170,12 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
             Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
             #OPPONENT TEAM DATA
-            opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
-            xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
+            opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+            xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams_curr)
 
             #PLAYER TEAM DATA
-            team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
-            xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
+            team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+            xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams_curr)
         
     # 5️⃣ Calcola statistiche base del giocatore. Media delle ultime 12, che poi viene pesata esponenzialmente
     sum_xA = df["sum_xA"].tail(12).to_list()
@@ -234,6 +234,9 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
             config.DATASET_DATA_DIR, config.GOALS_DATA_FILE_ALL_LEAGUES,
             config.CURRENT_SEASON
         )
+    if "rabiot" in player.lower():
+        print("DEBUG: Rabiot data after adding other leagues:")
+    
 
     numeric_features, categorical_features = split_features_by_type(df, features_names)
 
@@ -318,12 +321,12 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
         Goal_last5_team   = 0.7 * Goal_overall_team + 0.3 * Goal_split_team
     else:
         #OPPONENT TEAM DATA
-        opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
-        xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams)
+        opponent_xGA_last5_per90 = get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+        xGA_last5_opp, GA_last5_opp = get_def_data_last5_team_h_a(opponent,"", df_teams_curr)
 
         #PLAYER TEAM DATA
-        team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams)
-        xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams)
+        team_xG_90_min_last5 = get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+        xG_last5_team, Goal_last5_team = get_att_data_last5_team_h_a(team, "", df_teams_curr)
     
     if player == "nico paz" or player == "odgaard":
         main_role = "FM"
@@ -336,6 +339,7 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
+    #COMMENTO IN ATTESA DI SISTEMARE SCRAPING TEAMS
     sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team) 
 
     sum_xG_new = adjust_xg_by_minutes(sum_xG_new,df["minutes_played"].rolling(window=5, min_periods=1).mean())
