@@ -18,7 +18,7 @@ MATCH_DATA_FILE = "matches_df.csv"
 PROD_DATA_FILE_GOALS = "PROD_goals_2026_preproc_Serie_A.csv"
 PLAYERS_ALL_SEASON_FILE = "players_all_seasons.csv"
 GOALS_DATA_FILE = "goals_2026.csv"
-TEAMS_DATA_FILE = "teams_2014_2026.csv"
+TEAMS_DATA_FILE = "teams_2014_2025.csv"
 ASSIST_DATA_FILE = "assists_2026.csv"
 PROD_DATA_FILE_ASSIST = "PROD_assists_2026_preproc_Serie_A.csv"
 RAW_DATA_FILE = "raw_data.csv"
@@ -300,7 +300,7 @@ PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du'
 
 #GONE_PLAYERS_NOT_TOP5_LEAGUES = {"noa lang", "edin dzeko", "matteo guendouzi","dennis johnsen", "albert gronbaek", "franco vazquez"}
 
-POSTPONED_TEAMS_2025 = {
+POSTPONED_TEAMS_2026 = {
    
 }
 
