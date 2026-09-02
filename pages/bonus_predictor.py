@@ -91,8 +91,11 @@ def main():
             squadra, avversario, ha = utils.get_team_opponent_ha(player, df_voti, next_games_df)
             opponent = st.text_input("⚔️ Avversario", value=avversario.title(), disabled=False)
 
+    # Valori di default, sempre validi anche se num_giornate < 10
+    is_home = False
+    is_away = False
+
     if num_giornate >= 10:
-        # Imposta is_home e is_away direttamente in base a 'ha'
         is_home = ha == 'h'
         is_away = ha == 'a'
         if ha == 'h':
