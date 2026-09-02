@@ -197,9 +197,9 @@ def main():
         return {
             "player": player,
             "sum_xG": curr_season_df["sum_xG"].mean(),
-            "xG_last5": curr_season_df["sum_xG"].rolling(5).mean().iloc[-1],
+            "xG_last5": curr_season_df["sum_xG"].rolling(5,min_periods=1).mean().iloc[-1],
             "sum_xA": curr_season_df_assist["sum_xA"].mean(),
-            "xA_last5": curr_season_df_assist["sum_xA"].rolling(5).mean().iloc[-1],
+            "xA_last5": curr_season_df_assist["sum_xA"].rolling(5,min_periods=1).mean().iloc[-1],
             "goals": curr_season_df["goals"].sum(),
             "assists": curr_season_df_assist["assists"].sum(),
             "appearances": curr_season_df.shape[0],
@@ -211,6 +211,19 @@ def main():
     # ======================================================
     # ⚔️ MOSTRA CONFRONTO
     # ======================================================
+    #DEBUG
+    compare_btn = True
+    player1 = "Cancellieri"
+    team1 = "Lazio"
+    opponent1 = "Venezia"
+    player2 = "Malen"
+    team2 = "Roma"
+    opponent2 = "Napoli"
+    is_home1 = True
+    is_away1 = False
+    is_home2 = False
+    is_away2 = True
+    
     if compare_btn:
         if not player1 or not player2:
             st.warning("⚠️ Seleziona entrambi i giocatori per procedere.")
