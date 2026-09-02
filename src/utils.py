@@ -1173,7 +1173,7 @@ def prepare_voto_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     """
     df = df_raw.copy()
 
-    df = df[df['season'] == config.CURRENT_SEASON]
+    #df = df[df['season'] == config.CURRENT_SEASON] #TOLGO PER ORA NON HO ABBASTANZA DATI DI QUESTA STAGIONE
     df['date'] = pd.to_datetime(df['date'])
 
     # rimuovo senza voto

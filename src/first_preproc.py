@@ -1227,13 +1227,13 @@ class Preprocessor:
         # ==========================
         df2_player["match_order"] = df2_player["giornata"].astype(float)
 
-        df2_player = add_virtual_postponed_matches(
-            df2_player,
-            player,
-            config.POSTPONED_TEAMS_2025,
-            season="2025-2026",
-            debug=True
-        )
+        #df2_player = add_virtual_postponed_matches(
+            #df2_player,
+           # player,
+            #config.POSTPONED_TEAMS_2025,
+           # season="2025-2026",
+            #debug=True
+        #)
 
         # ==========================
         # 📊 confronto con df1

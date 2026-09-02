@@ -293,7 +293,8 @@ manual_roles = {
     "davide zappacosta": "D",
     "davide frattesi":"C",
     "alisson santos":"C",
-    "kieron bowie": "A"
+    "kieron bowie": "A",
+    "goncalo ramos": "A",
 }
 
 PREFIXES = {'de','da','di','del','do','van','von','der','le','la','el','al','du','ze'}

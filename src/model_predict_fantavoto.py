@@ -86,7 +86,83 @@ def clean_position(pos):
         return "SUB"
     return pos
 
-def get_player_data(df: pd.DataFrame, player_name: str):
+def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = None,
+                     min_matches: int = 5, prev_season_weight: float = 0.5):
+    """
+    Cerca i dati di un giocatore nel dataframe, gestendo:
+    - accenti (Martínez -> Martinez)
+    - case-insensitivity
+    - match esatto o parola intera
+    - ambiguità se esistono più giocatori con lo stesso nome
+
+    Se current_season è specificata e il giocatore ha meno di `min_matches`
+    partite in quella stagione, integra le partite mancanti prendendole
+    dalla fine della stagione precedente, con un peso ridotto
+    (prev_season_weight) per riflettere la minore rilevanza temporale.
+    """
+    df = df.copy()
+
+    player_norm = unidecode(player_name).lower()
+    chosen_player = player_norm
+
+    # 1️⃣ Match esatto
+    player_df = df[df["player_norm"] == player_norm]
+
+    # 2️⃣ Se non trovato, prova con parola intera (regex)
+    if player_df.empty:
+        player_df = df[df["player_norm"].str.contains(rf"\b{re.escape(player_norm)}\b", case=False, na=False)]
+
+    # 3️⃣ Se ancora vuoto
+    if player_df.empty:
+        print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
+        return pd.DataFrame(), None
+
+    # 4️⃣ Se più giocatori hanno lo stesso nome
+    matching_players = player_df["player"].unique()
+    if len(matching_players) > 1:
+        print(f"⚠️ Trovati più giocatori con nome simile a '{player_name}':")
+        for i, p in enumerate(matching_players, 1):
+            teams = ", ".join(df[df["player"] == p]["player_team"].dropna().unique())
+            print(f"   {i}. {p} ({teams})")
+
+        try:
+            choice = int(input("👉 Inserisci il numero del giocatore desiderato: ")) - 1
+            chosen_player = matching_players[choice]
+            player_df = df[df["player"] == chosen_player]
+        except (ValueError, IndexError):
+            print("❌ Scelta non valida, interrotto.")
+            return pd.DataFrame(), None
+    else:
+        chosen_player = matching_players[0]
+
+    player_df = player_df.sort_values("date").reset_index(drop=True)
+    player_df["weight"] = 1.0  # peso pieno di default
+
+    # 🔹 Integrazione con la stagione precedente se ho pochi dati
+    if current_season is not None:
+        curr_df = player_df[player_df["season"] == current_season]
+
+        if len(curr_df) < min_matches:
+            missing = min_matches - len(curr_df)
+            print(f"ℹ️ '{chosen_player}' ha solo {len(curr_df)} partite in {current_season}, "
+                  f"integro {missing} partite dalla stagione precedente.")
+
+            past_df = player_df[player_df["season"] != current_season]
+
+            if not past_df.empty:
+                prev_matches = past_df.sort_values("date").tail(missing).copy()
+                prev_matches["weight"] = prev_season_weight
+
+                player_df = pd.concat([prev_matches, curr_df], ignore_index=True)
+                player_df = player_df.sort_values("date").reset_index(drop=True)
+            else:
+                player_df = curr_df.reset_index(drop=True)
+        else:
+            player_df = curr_df.reset_index(drop=True)
+
+    return player_df, chosen_player
+
+def get_player_data_old(df: pd.DataFrame, player_name: str):
     """
     Cerca i dati di un giocatore nel dataframe, gestendo:
     - accenti (Martínez -> Martinez)
@@ -233,7 +309,7 @@ def pred_voto_prod(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player)
+        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=0.5)
         if player_df.empty:
             continue
         
@@ -254,9 +330,6 @@ def pred_voto_prod(
         
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
-
-        if "cambiaghi" in player:
-            print("a")
         
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
@@ -480,7 +553,7 @@ def pred_voto_prod_gk(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player)
+        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=0.5)
         if player_df.empty:
             continue
 
