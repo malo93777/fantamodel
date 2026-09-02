@@ -111,7 +111,7 @@ def main():
     #submitted = True
     #player = "Cancellieri"
     #team = "Lazio"
-    #opponent = "Cremonese"
+    #opponent = "venezia"
     #is_home = True
     #is_away = False
     
