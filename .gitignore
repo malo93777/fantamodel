@@ -9,3 +9,6 @@ src/catboost_info/test/events.out.tfevents
 src/catboost_info/test_error.tsv
 src/catboost_info/time_left.tsv
 src/__pycache__/config.cpython-311.pyc
+backend/fantamodel/src/__pycache__/config.cpython-311.pyc
+backend/fantamodel/src/__pycache__/fbref_nextgames_scraper.cpython-311.pyc
+/backend/fantamodel/src/__pycache__
