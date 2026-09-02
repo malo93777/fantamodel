@@ -565,16 +565,16 @@ def pred_voto_prod_gk(
 
             Goal_last5_opponent_per90 = Goal_last5_opponent / 5
 
-            Goal_last5_team_per90_final = Goal_last5_opponent_per90
-                    
+            Goal_last5_team_per90_final = Goal_last5_opponent_per90               
         else:
-            #PLAYER TEAM DATA home/away
+            # PLAYER TEAM DATA home/away
             xGA_last5, GA_last5 = utils.get_def_data_last5_team_h_a(team, "", df_teams_curr_season)
-            GA_last5_per90_final= GA_last5/num_giornate
+            GA_last5_per90_final = GA_last5 / num_giornate
 
-            #OPPONENT TEAM DATA
+            # OPPONENT TEAM DATA
             xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(opponent, "", df_teams_curr_season)
-            Goal_last5_team_per90_final = Goal_last5_team/5
+            Goal_last5_opponent_per90 = Goal_last5_team / num_giornate
+            Goal_last5_team_per90_final = Goal_last5_opponent_per90
 
         bonus_defensive_adj = utils.compute_defensive_xga_bonus(
             fanta_role,
@@ -1012,7 +1012,7 @@ def main():
     train_gk = False
 
     test = True
-    test_gk = False
+    test_gk = True
 
     csv_path = config.DATASET_DATA_DIR / config.PROD_DATA_FILE_VOTI
     next_games_path = config.DATASET_DATA_DIR / config.NEXT_GAMES_FILE
