@@ -197,6 +197,9 @@ def main():
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['sum_xA'].tail(5).mean():.2f}")
                     st.metric("👟  Media tiri a partita", f"{curr_season_df['shots_perMatch'].mean():.1f}")
                     st.metric("📉  Media tiri ultime 5", f"{curr_season_df['shots_perMatch'].tail(5).mean():.1f}")
+                    st.metric("🎯 xG per tiro", f"{curr_season_df['xG_per_shot'].mean():.2f}")
+                    st.metric("📊 xA per tiro ultime 5", f"{curr_season_df_assist['xG_per_shot'].tail(5).mean():.2f}")
+
 
             with col2:
                 # GRAFICI xG e xA
@@ -253,6 +256,8 @@ def main():
                 st.plotly_chart(fig2, use_container_width=True)
 
             st.markdown("---")
+            #aggiungi nota su medie che sono calcolate sulla stagione
+            st.caption("📌 Le medie sono calcolate solo sulla stagione corrente")
             st.caption("🧠 Basato su xG, xA, forma recente, qualità di tiro, forza offensiva della squadra e forza difensiva avversaria.")
 
 

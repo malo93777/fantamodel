@@ -212,17 +212,17 @@ def main():
     # ⚔️ MOSTRA CONFRONTO
     # ======================================================
     #DEBUG
-    #compare_btn = True
-    #player1 = "Cancellieri"
-    #team1 = "Lazio"
-    #opponent1 = "Venezia"
-    #player2 = "Malen"
-    #team2 = "Roma"
-    #opponent2 = "Napoli"
-    #is_home1 = True
-    #is_away1 = False
-    #is_home2 = False
-    #is_away2 = True
+    compare_btn = True
+    player1 = "Cancellieri"
+    team1 = "Lazio"
+    opponent1 = "Venezia"
+    player2 = "Malen"
+    team2 = "Roma"
+    opponent2 = "Napoli"
+    is_home1 = True
+    is_away1 = False
+    is_home2 = False
+    is_away2 = True
     
     if compare_btn:
         if not player1 or not player2:
@@ -317,6 +317,32 @@ def main():
                         st.metric("📅 Presenze", f"{p1['appearances']}")
                         st.metric("⚽ Gol segnati", f"{int(p1['goals'])}")
                         st.metric("👟 Assist forniti", f"{int(p1['assists'])}")
+                        
+                         #calcola overperformance goals e assist rispetto a xG e xA nelle last 5 partite
+                        #metti numero rosso se  negativo, verde se positivo
+                        overperformance_goals = p2['goals'].tail(5).mean() - p2['xG_last5']
+                        overperformance_assists = p2['assists'].tail(5).mean() - p2['xA_last5']
+ 
+                        if overperformance_goals < 0:
+                            st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="inverse")
+                        else:
+                            st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="normal")
+                        
+                        if overperformance_assists < 0:
+                            st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="inverse")
+                        else:
+                            st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="normal")
+
+                        st.metric("👟  Media tiri a partita", f"{p1['shots_perMatch'].mean():.1f}")
+                        st.metric("📉  Media tiri ultime 5", f"{p1['shots_perMatch'].tail(5).mean():.1f}")
+                        st.metric("👟 xG per tiro", f"{p1['xG_per_shot'].mean():.2f}")
+                        st.metric("📊 xG per tiro ultime 5", f"{p1['xG_per_shot'].tail(5).mean():.2f}")
+
+                        st.metric("⚽ Goal per tiro", f"{p1['goals_per_shot'].mean():.2f}")
+                        st.metric("📊 Goal per tiro ultime 5", f"{p1['goals_per_shot'].tail(5).mean():.2f}")
+
+                        #aggiungi nota su medie che sono calcolate sulla stagione
+                        st.caption("📌 Le medie sono calcolate solo sulla stagione corrente")
 
                     # -----------------------
                     # 📍 COLONNA DESTRA (PROBABILITÀ)
@@ -357,6 +383,31 @@ def main():
                         st.metric("📅 Presenze", f"{p2['appearances']}")
                         st.metric("⚽ Gol segnati", f"{int(p2['goals'])}")
                         st.metric("👟 Assist forniti", f"{int(p2['assists'])}")
+
+                        #calcola overperformance goals e assist rispetto a xG e xA nelle last 5 partite
+                        #metti numero rosso se  negativo, verde se positivo
+                        overperformance_goals = p2['goals'].tail(5).mean() - p2['xG_last5']
+                        overperformance_assists = p2['assists'].tail(5).mean() - p2['xA_last5']
+
+                        if overperformance_goals < 0:
+                            st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="inverse")
+                        else:
+                            st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="normal")
+
+                        if overperformance_assists < 0:
+                            st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="inverse")
+                        else:
+                            st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="normal")
+
+                        st.metric("👟  Media tiri a partita", f"{p2['shots_perMatch'].mean():.1f}")
+                        st.metric("📉  Media tiri ultime 5", f"{p2['shots_perMatch'].tail(5).mean():.1f}")
+
+                        st.metric("👟 xG per tiro", f"{p2['xG_per_shot'].mean():.2f}")
+                        st.metric("📊 xG per tiro ultime 5", f"{p2['xG_per_shot'].tail(5).mean():.2f}")
+
+                        st.metric("⚽ Goal per tiro", f"{p2['goals_per_shot'].mean():.2f}")
+                        st.metric("📊 Goal per tiro ultime 5", f"{p2['goals_per_shot'].tail(5).mean():.2f}")
+
 
                     # -----------------------
                     # 📍 COLONNA DESTRA (PROBABILITÀ)
