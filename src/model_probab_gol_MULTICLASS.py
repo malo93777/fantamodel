@@ -568,12 +568,12 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
 
         else:
             #OPPONENT TEAM DATA
-            opponent_xGA_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams)
-            xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent,"", df_teams)
+            opponent_xGA_last5_per90 = utils.get_xGA_last5_team_h_a_mean(opponent, "", df_teams_curr)
+            xGA_last5_opp, GA_last5_opp = utils.get_def_data_last5_team_h_a(opponent,"", df_teams_curr)
 
             #PLAYER TEAM DATA
-            team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams)
-            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams)
+            team_xG_90_min_last5 = utils.get_xG_last5_team_h_a_mean(team, "", df_teams_curr)
+            xG_last5_team, Goal_last5_team = utils.get_att_data_last5_team_h_a(team, "", df_teams_curr)
         
         # ************  PREDIZIONE XG futuro  ************
         opponent_strength = utils.map_strength(opponent) 
@@ -641,7 +641,7 @@ def main():
     parser = argparse.ArgumentParser(description="FantaModel")
     parser.add_argument("--fit", action="store_true", help="Vuoi riaddestrare il modello?")
     args = parser.parse_args()
-    args.fit = False
+    args.fit = True
 
     players = INPUT["players"]
     teams = INPUT["teams"]

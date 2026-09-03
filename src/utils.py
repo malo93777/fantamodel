@@ -339,7 +339,6 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     # 5️⃣ Calcolo sum_xG corretto in base all’avversario e alla produzione offensiva della squadra
     sum_xG_new = weighted_xg_vs_opponent_mixed(sum_xG_new, df, opponent_xGA_last5_per90, xGA_last5_opp, GA_last5_opp)
 
-    #COMMENTO IN ATTESA DI SISTEMARE SCRAPING TEAMS
     sum_xG_new = weighted_xg_team_mixed(sum_xG_new, df_teams, team_xG_90_min_last5,xG_last5_team,Goal_last5_team) 
 
     sum_xG_new = adjust_xg_by_minutes(sum_xG_new,df["minutes_played"].rolling(window=5, min_periods=1).mean())
@@ -2644,25 +2643,29 @@ def compute_shot_quality_index_per_shot(
     # ---------------------------
     # 2) Rolling mean (anti-leak)
     # ---------------------------
-    grouped = df.groupby(player_col)["shot_quality_raw"]
-
     if prod:
-        roll = grouped.rolling(window, min_periods=3).mean()
+        roll = df.groupby(player_col)["shot_quality_raw"].rolling(window, min_periods=3).mean()
+        roll = roll.reset_index(level=0, drop=True)
     else:
-        roll = grouped.shift(1).rolling(window, min_periods=3).mean()
+        shifted = df.groupby(player_col)["shot_quality_raw"].shift(1)
+        roll = shifted.groupby(df[player_col]).rolling(window, min_periods=3).mean()
+        roll = roll.reset_index(level=0, drop=True)
 
-    df["shot_quality_roll"] = roll.reset_index(level=0, drop=True)
+    df["shot_quality_roll"] = roll
     df["shot_quality_roll"] = df["shot_quality_roll"].fillna(df["shot_quality_raw"])
 
     # ---------------------------
     # 3) Shrink semplice su volume
     # ---------------------------
     if prod:
-        shot_count = df.groupby(player_col)[shots_col].rolling(window).sum()
+        shot_count = df.groupby(player_col)[shots_col].rolling(window, min_periods=1).sum()
+        shot_count = shot_count.reset_index(level=0, drop=True)
     else:
-        shot_count = df.groupby(player_col)[shots_col].shift(1).rolling(window).sum()
+        shifted_shots = df.groupby(player_col)[shots_col].shift(1)
+        shot_count = shifted_shots.groupby(df[player_col]).rolling(window, min_periods=1).sum()
+        shot_count = shot_count.reset_index(level=0, drop=True)
 
-    shot_count = shot_count.reset_index(level=0, drop=True).fillna(0)
+    shot_count = shot_count.fillna(0)
 
     # peso 0–1: pochi tiri → poco peso
     weight = (shot_count / (shot_count + 10)).clip(0, 1)

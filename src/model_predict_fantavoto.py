@@ -116,7 +116,6 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
     if player_df.empty:
         print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
         return pd.DataFrame(), None
-
     # 4️⃣ Se più giocatori hanno lo stesso nome
     matching_players = player_df["player"].unique()
     if len(matching_players) > 1:
@@ -309,7 +308,7 @@ def pred_voto_prod(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=0.5)
+        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=1)
         if player_df.empty:
             continue
         
@@ -330,7 +329,9 @@ def pred_voto_prod(
         
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
-        
+        if "scott" in player_full_name.lower():
+            print(f"ℹ️ Debug: rolling_15 per '{player_full_name}':")
+            
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
             role=fanta_role
@@ -553,7 +554,7 @@ def pred_voto_prod_gk(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=0.5)
+        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=1)
         if player_df.empty:
             continue
 
