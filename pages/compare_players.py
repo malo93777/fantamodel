@@ -220,18 +220,18 @@ def main():
     # ⚔️ MOSTRA CONFRONTO
     # ======================================================
     #DEBUG
-    compare_btn = True
-    player1 = "Cancellieri"
-    team1 = "Lazio"
-    opponent1 = "Venezia"
-    player2 = "Malen"
-    team2 = "Roma"
-    opponent2 = "Napoli"
-    is_home1 = True
-    is_away1 = False
-    is_home2 = False
-    is_away2 = True
-    
+    #compare_btn = True
+    #player1 = "Cancellieri"
+    #team1 = "Lazio"
+    #opponent1 = "Venezia"
+    #player2 = "Malen"
+    #team2 = "Roma"
+    #opponent2 = "Napoli"
+    #is_home1 = True
+    #is_away1 = False
+    #is_home2 = False
+    #is_away2 = True
+
     if compare_btn:
         if not player1 or not player2:
             st.warning("⚠️ Seleziona entrambi i giocatori per procedere.")
@@ -341,7 +341,7 @@ def main():
                         else:
                             st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="normal")
 
-                        st.metric("👟  Media tiri a partita", f"{p1['shots_perMatch']:.1f}")
+                        st.metric("👟  Media tiri/partita", f"{p1['shots_perMatch']:.1f}")
                         st.metric("📉  Media tiri ultime 5", f"{p1['shots_perMatch_last5']:.1f}")
                         st.metric("👟 xG per tiro", f"{p1['xg_per_shot']:.2f}")
                         st.metric("📊 xG per tiro ultime 5", f"{p1['xg_per_shot_last5']:.2f}")
