@@ -202,10 +202,18 @@ def main():
             "xA_last5": curr_season_df_assist["sum_xA"].rolling(5,min_periods=1).mean().iloc[-1],
             "goals": curr_season_df["goals"].sum(),
             "assists": curr_season_df_assist["assists"].sum(),
+            "goals_mean_last5": curr_season_df["goals"].tail(5).mean(),
+            "assists_mean_last5": curr_season_df_assist["assists"].tail(5).mean(),
             "appearances": curr_season_df.shape[0],
             "prob_goal": goal_proba,
             "prob_assist": assist_proba,
-            "prob_bonus": prob_bonus
+            "prob_bonus": prob_bonus,
+            "shots_perMatch": curr_season_df["shots_perMatch"].mean(),
+            "shots_perMatch_last5": curr_season_df["shots_perMatch"].tail(5).mean(),
+            "xg_per_shot": curr_season_df["xg_per_shot"].mean(),
+            "xg_per_shot_last5": curr_season_df["xg_per_shot"].tail(5).mean(),
+            "goals_per_shot": curr_season_df["goals_per_shot"].mean(),
+            "goals_per_shot_last5": curr_season_df["goals_per_shot"].tail(5).mean()
         }
 
     # ======================================================
@@ -318,10 +326,10 @@ def main():
                         st.metric("⚽ Gol segnati", f"{int(p1['goals'])}")
                         st.metric("👟 Assist forniti", f"{int(p1['assists'])}")
                         
-                         #calcola overperformance goals e assist rispetto a xG e xA nelle last 5 partite
+                        #calcola overperformance goals e assist rispetto a xG e xA nelle last 5 partite
                         #metti numero rosso se  negativo, verde se positivo
-                        overperformance_goals = p2['goals'].tail(5).mean() - p2['xG_last5']
-                        overperformance_assists = p2['assists'].tail(5).mean() - p2['xA_last5']
+                        overperformance_goals = p1['goals_mean_last5'] - p1['xG_last5']
+                        overperformance_assists = p1['assists_mean_last5'] - p1['xA_last5']
  
                         if overperformance_goals < 0:
                             st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="inverse")
@@ -333,13 +341,13 @@ def main():
                         else:
                             st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="normal")
 
-                        st.metric("👟  Media tiri a partita", f"{p1['shots_perMatch'].mean():.1f}")
-                        st.metric("📉  Media tiri ultime 5", f"{p1['shots_perMatch'].tail(5).mean():.1f}")
-                        st.metric("👟 xG per tiro", f"{p1['xG_per_shot'].mean():.2f}")
-                        st.metric("📊 xG per tiro ultime 5", f"{p1['xG_per_shot'].tail(5).mean():.2f}")
+                        st.metric("👟  Media tiri a partita", f"{p1['shots_perMatch']:.1f}")
+                        st.metric("📉  Media tiri ultime 5", f"{p1['shots_perMatch_last5']:.1f}")
+                        st.metric("👟 xG per tiro", f"{p1['xg_per_shot']:.2f}")
+                        st.metric("📊 xG per tiro ultime 5", f"{p1['xg_per_shot_last5']:.2f}")
 
-                        st.metric("⚽ Goal per tiro", f"{p1['goals_per_shot'].mean():.2f}")
-                        st.metric("📊 Goal per tiro ultime 5", f"{p1['goals_per_shot'].tail(5).mean():.2f}")
+                        st.metric("⚽ Goal per tiro", f"{p1['goals_per_shot']:.2f}")
+                        st.metric("📊 Goal per tiro ultime 5", f"{p1['goals_per_shot_last5']:.2f}")
 
                         #aggiungi nota su medie che sono calcolate sulla stagione
                         st.caption("📌 Le medie sono calcolate solo sulla stagione corrente")
@@ -386,8 +394,8 @@ def main():
 
                         #calcola overperformance goals e assist rispetto a xG e xA nelle last 5 partite
                         #metti numero rosso se  negativo, verde se positivo
-                        overperformance_goals = p2['goals'].tail(5).mean() - p2['xG_last5']
-                        overperformance_assists = p2['assists'].tail(5).mean() - p2['xA_last5']
+                        overperformance_goals = p2['goals_mean_last5'] - p2['xG_last5']
+                        overperformance_assists = p2['assists_mean_last5'] - p2['xA_last5']
 
                         if overperformance_goals < 0:
                             st.metric("⚽ Overperformance Goals", f"{overperformance_goals:.2f}", delta_color="inverse")
@@ -399,14 +407,14 @@ def main():
                         else:
                             st.metric("👟 Overperformance Assists", f"{overperformance_assists:.2f}", delta_color="normal")
 
-                        st.metric("👟  Media tiri a partita", f"{p2['shots_perMatch'].mean():.1f}")
-                        st.metric("📉  Media tiri ultime 5", f"{p2['shots_perMatch'].tail(5).mean():.1f}")
+                        st.metric("👟  Media tiri a partita", f"{p2['shots_perMatch']:.1f}")
+                        st.metric("📉  Media tiri ultime 5", f"{p2['shots_perMatch_last5']:.1f}")
 
-                        st.metric("👟 xG per tiro", f"{p2['xG_per_shot'].mean():.2f}")
-                        st.metric("📊 xG per tiro ultime 5", f"{p2['xG_per_shot'].tail(5).mean():.2f}")
+                        st.metric("👟 xG per tiro", f"{p2['xg_per_shot']:.2f}")
+                        st.metric("📊 xG per tiro ultime 5", f"{p2['xg_per_shot_last5']:.2f}")
 
-                        st.metric("⚽ Goal per tiro", f"{p2['goals_per_shot'].mean():.2f}")
-                        st.metric("📊 Goal per tiro ultime 5", f"{p2['goals_per_shot'].tail(5).mean():.2f}")
+                        st.metric("⚽ Goal per tiro", f"{p2['goals_per_shot']:.2f}")
+                        st.metric("📊 Goal per tiro ultime 5", f"{p2['goals_per_shot_last5']:.2f}")
 
 
                     # -----------------------
