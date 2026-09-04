@@ -182,6 +182,11 @@ def main():
                                                         df_teams_curr_season,                                             
                                                         h_a_player)
 
+        #se None metto 0 per non dare bug
+        if goal_proba is None:
+            goal_proba = 0.0
+        if assist_proba is None:
+            assist_proba = 0.0
    
         # Probabilità combinate — Goal O Assist
         prob_bonus = goal_proba + assist_proba - (goal_proba * assist_proba)
@@ -220,17 +225,17 @@ def main():
     # ⚔️ MOSTRA CONFRONTO
     # ======================================================
     #DEBUG
-    #compare_btn = True
-    #player1 = "Cancellieri"
-    #team1 = "Lazio"
-    #opponent1 = "Venezia"
-    #player2 = "Malen"
-    #team2 = "Roma"
-    #opponent2 = "Napoli"
-    #is_home1 = True
-    #is_away1 = False
-    #is_home2 = False
-    #is_away2 = True
+    compare_btn = True
+    player1 = "el toure"
+    team1 = "Parma"
+    opponent1 = "Venezia"
+    player2 = "de ketelaere"
+    team2 = "Atalanta"
+    opponent2 = "Napoli"
+    is_home1 = True
+    is_away1 = False
+    is_home2 = False
+    is_away2 = True
 
     if compare_btn:
         if not player1 or not player2:

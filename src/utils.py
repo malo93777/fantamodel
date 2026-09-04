@@ -89,16 +89,16 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
      # 1️⃣ Filtra storico giocatore
     df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
     if df.empty:
-        print(f"⚠️ Nessun dato disponibile per {player}")
-        return None
+        print(f"⚠️ Nessun dato disponibile per {player} nel dataset assist")
+        return 0
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
 
     if df.empty:
-        print(f"⚠️ Nessuna partita valida (tutte future) per {player}")
-        return None
+        print(f"⚠️ Nessuna partita valida (tutte future) per {player} nel dataset assist")
+        return 0
     
     season = config.CURRENT_SEASON
 
@@ -222,8 +222,8 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     # 1️⃣ Filtra storico giocatore
     df = df_orig[df_orig["player"].str.contains(player, case=False, na=False)].sort_values("date")
     if df.empty:
-        print(f"⚠️ Nessun dato disponibile per {player}")
-        return None
+        print(f"⚠️ Nessun dato disponibile per {player} nel dataset goal")
+        return 0
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
@@ -234,8 +234,8 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
             config.DATASET_DATA_DIR, config.GOALS_DATA_FILE_ALL_LEAGUES,
             config.CURRENT_SEASON
         )
-    if "rabiot" in player.lower():
-        print("DEBUG: Rabiot data after adding other leagues:")
+    #if "rabiot" in player.lower():
+        #print("DEBUG: Rabiot data after adding other leagues:")
     
 
     numeric_features, categorical_features = split_features_by_type(df, features_names)
@@ -264,8 +264,8 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     df = compute_finishing_form(df, window=12, use_rank=True, prod=True)
 
     if df.empty:
-        print(f"⚠️ Nessun dato valido dopo preprocessing per {player}")
-        return None
+        print(f"⚠️ Nessun dato valido dopo preprocessing per {player} nel dataset goal")
+        return 0
 
     # 2️⃣ Calcolo residuo lineare della finishing_form
     pred_lin = lin_model.predict(df[["xg_mean_12"]])

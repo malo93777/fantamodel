@@ -217,7 +217,7 @@ def main():
                     st.metric("🔥 xG medio ultime 5", f"{curr_season_df['sum_xG'].tail(5).mean():.2f}")
                     st.metric("📈 xA medio stagione", f"{curr_season_df_assist['sum_xA'].mean():.2f}")
                     st.metric("✨ xA medio ultime 5", f"{curr_season_df_assist['sum_xA'].tail(5).mean():.2f}")
-                    st.metric("👟  Media tiri a partita", f"{curr_season_df['shots_perMatch'].mean():.1f}")
+                    st.metric("👟  Media tiri/partita", f"{curr_season_df['shots_perMatch'].mean():.1f}")
                     st.metric("📉  Media tiri ultime 5", f"{curr_season_df['shots_perMatch'].tail(5).mean():.1f}")
 
                     st.metric("👟 xG per tiro", f"{curr_season_df['xg_per_shot'].mean():.2f}")
