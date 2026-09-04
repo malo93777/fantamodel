@@ -225,17 +225,17 @@ def main():
     # ⚔️ MOSTRA CONFRONTO
     # ======================================================
     #DEBUG
-    compare_btn = True
-    player1 = "el toure"
-    team1 = "Parma"
-    opponent1 = "Venezia"
-    player2 = "de ketelaere"
-    team2 = "Atalanta"
-    opponent2 = "Napoli"
-    is_home1 = True
-    is_away1 = False
-    is_home2 = False
-    is_away2 = True
+    #compare_btn = True
+    #player1 = "el toure"
+    #team1 = "Parma"
+    #opponent1 = "Venezia"
+    #player2 = "de ketelaere"
+    #team2 = "Atalanta"
+    #opponent2 = "Napoli"
+    #is_home1 = True
+    #is_away1 = False
+    #is_home2 = False
+    #is_away2 = True
 
     if compare_btn:
         if not player1 or not player2:
