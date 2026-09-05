@@ -552,7 +552,7 @@ def pred_voto_prod_gk(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5, prev_season_weight=1)
+        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5)
         if player_df.empty:
             continue
 
