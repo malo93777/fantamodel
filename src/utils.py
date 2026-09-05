@@ -82,6 +82,43 @@ def get_latest_team(df_orig, player_name, team_col):
 
     return latest_team
 
+def integrate_prev_season_if_needed(
+    df: pd.DataFrame,
+    current_season,
+    min_matches: int = 10,
+    season_col: str = "season",
+    date_col: str = "date",
+    label: str = "",
+) -> pd.DataFrame:
+    """
+    Se il giocatore/squadra ha meno di `min_matches` partite nella stagione
+    corrente, integra le partite mancanti prendendole dalla fine della
+    stagione precedente (le più recenti), senza alcuna pesatura.
+
+    Ritorna il df filtrato/integrato, ordinato per data.
+    """
+    df = df.copy()
+
+    curr_df = df[df[season_col] == current_season]
+
+    if len(curr_df) >= min_matches:
+        return curr_df.sort_values(date_col).reset_index(drop=True)
+
+    missing = min_matches - len(curr_df)
+    prev_df = df[df[season_col] != current_season].sort_values(date_col)
+
+    if prev_df.empty:
+        return curr_df.sort_values(date_col).reset_index(drop=True)
+
+    prev_matches = prev_df.tail(missing)
+
+    tag = f"{label}: " if label else ""
+    print(f"ℹ️ {tag}solo {len(curr_df)} partite in {current_season}, "
+          f"integro {len(prev_matches)} partite dalla stagione precedente.")
+
+    result = pd.concat([prev_matches, curr_df], ignore_index=True)
+    return result.sort_values(date_col).reset_index(drop=True)
+
 def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_teams,df_teams_curr, h_a_player):
 
     """Prepara le feature per la predizione goal probability con modello CatBoost Reg."""
@@ -95,6 +132,12 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
+    df = integrate_prev_season_if_needed(
+        df,
+        current_season=config.CURRENT_SEASON,
+        min_matches=10,
+        label=player,
+    )
 
     if df.empty:
         print(f"⚠️ Nessuna partita valida (tutte future) per {player} nel dataset assist")
@@ -227,6 +270,13 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
+
+    df = integrate_prev_season_if_needed(
+        df,
+        current_season=config.CURRENT_SEASON,
+        min_matches=10,
+        label=player,
+    )
 
     if df["season"].min() == config.CURRENT_SEASON:
         df = add_other_leagues_data(
@@ -3397,7 +3447,7 @@ def compute_form_index(
 def compute_player_vs_strength_xg_adjustment(
     player_df,
     target_opponent_strength,
-    min_matches=10,
+    min_matches=5,
     max_pct=0.25,
     neutral_value=0.0
 ):

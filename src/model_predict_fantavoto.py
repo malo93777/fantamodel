@@ -87,7 +87,7 @@ def clean_position(pos):
     return pos
 
 def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = None,
-                     min_matches: int = 5, prev_season_weight: float = 0.5):
+                     min_matches: int = 10):
     """
     Cerca i dati di un giocatore nel dataframe, gestendo:
     - accenti (Martínez -> Martinez)
@@ -97,8 +97,7 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
 
     Se current_season è specificata e il giocatore ha meno di `min_matches`
     partite in quella stagione, integra le partite mancanti prendendole
-    dalla fine della stagione precedente, con un peso ridotto
-    (prev_season_weight) per riflettere la minore rilevanza temporale.
+    dalla fine della stagione precedente.
     """
     df = df.copy()
 
@@ -116,6 +115,7 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
     if player_df.empty:
         print(f"⚠️ Nessun giocatore trovato per '{player_name}'.")
         return pd.DataFrame(), None
+
     # 4️⃣ Se più giocatori hanno lo stesso nome
     matching_players = player_df["player"].unique()
     if len(matching_players) > 1:
@@ -135,7 +135,6 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
         chosen_player = matching_players[0]
 
     player_df = player_df.sort_values("date").reset_index(drop=True)
-    player_df["weight"] = 1.0  # peso pieno di default
 
     # 🔹 Integrazione con la stagione precedente se ho pochi dati
     if current_season is not None:
@@ -143,14 +142,13 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
 
         if len(curr_df) < min_matches:
             missing = min_matches - len(curr_df)
-            print(f"ℹ️ '{chosen_player}' ha solo {len(curr_df)} partite in {current_season}, "
-                  f"integro {missing} partite dalla stagione precedente.")
-
             past_df = player_df[player_df["season"] != current_season]
 
             if not past_df.empty:
-                prev_matches = past_df.sort_values("date").tail(missing).copy()
-                prev_matches["weight"] = prev_season_weight
+                prev_matches = past_df.sort_values("date").tail(missing)
+
+                print(f"ℹ️ '{chosen_player}' ha solo {len(curr_df)} partite in {current_season}, "
+                      f"integro {len(prev_matches)} partite dalla stagione precedente.")
 
                 player_df = pd.concat([prev_matches, curr_df], ignore_index=True)
                 player_df = player_df.sort_values("date").reset_index(drop=True)
