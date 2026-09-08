@@ -132,12 +132,12 @@ def get_assist_prob(model, features_names, player, team, opponent, df_orig, df_t
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
-    df = integrate_prev_season_if_needed(
-        df,
-        current_season=config.CURRENT_SEASON,
-        min_matches=10,
-        label=player,
-    )
+    #df = integrate_prev_season_if_needed(
+        #df,
+        #current_season=config.CURRENT_SEASON,
+        #min_matches=10,
+        #label=player,
+    #)
 
     if df.empty:
         print(f"⚠️ Nessuna partita valida (tutte future) per {player} nel dataset assist")
@@ -271,12 +271,12 @@ def get_goal_prob(model_xg, model, features_names, player, team, opponent, df_or
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df[df["date"] <= datetime.now()].reset_index(drop=True)
 
-    df = integrate_prev_season_if_needed(
-        df,
-        current_season=config.CURRENT_SEASON,
-        min_matches=10,
-        label=player,
-    )
+   # df = integrate_prev_season_if_needed(
+        #df,
+       # current_season=config.CURRENT_SEASON,
+        #min_matches=10,
+        #label=player,
+    #)
 
     if df["season"].min() == config.CURRENT_SEASON:
         df = add_other_leagues_data(
