@@ -108,12 +108,12 @@ def main():
     submitted = st.button("⚡ Prevedi Bonus ")
 
     #DEBUG
-    submitted = True
-    player = "Ederson"
-    team = "Atalanta"
-    opponent = "Venezia"
-    is_home = True
-    is_away = False
+    #submitted = True
+    #player = "Bonny"
+    #team = "inter"
+    #opponent = "udinese"
+    #is_home = True
+    #is_away = False
     
     # --- Logica di predizione
     if submitted:
