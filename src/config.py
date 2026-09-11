@@ -66,7 +66,7 @@ BOOST_FACTORS_XGB = {
 BOOST_RESID = 1.0
 
 INPUT = {
-    "players": ["Vojvoda","Dimarco","bowie","lukaku","gutierrez","pavlovic","nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
+    "players": ["bonny","Vojvoda","Dimarco","bowie","lukaku","gutierrez","pavlovic","nkunku","berardi","berardi","scamacca",'lautaro','doig','miranda','pavlovic',
         "cancellieri","david","odgaard","scamacca","colombo","gudmundsson", "kean","buksa","buksa","orban",
         "yildiz", "yildiz","di lorenzo", "conceicao","simeone","vlahovic",
         "paz","paz","sanabria","Castellanos","Lautaro", "Leao", "Pavlovic",
@@ -75,7 +75,7 @@ INPUT = {
         "gimenez", "bonny", "doig", "krstovic"
     ],
     "teams" : [
-        "como","inter","verona","napoli","milan","napoli","milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
+        "inter","como","inter","verona","napoli","milan","napoli","milan","sassuolo","sassuolo","atalanta","inter","sassuolo","bologna","milan",
         "lazio","juventus","bologna","atalanta","genoa","fiorentina","fiorentina", "udinese","udinese","verona",
         "juventus","juventus","napoli", "juventus","torino","juventus","como",
         "como","cremonese","lazio", "Inter", "AC Milan", "ac Milan", "Bologna",
@@ -83,7 +83,7 @@ INPUT = {
         "verona", "verona", "roma", "sassuolo", "milan", "inter", "sassuolo", "atalanta"
     ],
     "opponents" : [
-        "pisa","verona","torino","torino","cremonese","verona","como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
+        "udinese","pisa","verona","torino","torino","cremonese","verona","como","lecce","lecce","cremonese","pisa","cremonese","genoa","roma","cremonese","torino","lazio","fiorentina","juventus","atalanta", "milan","sassuolo","cagliari", "napoli",
         "udinese","ac milan","juventus","juventus","pisa","cagliari", "juventus",
         "lecce","udinese","atalanta","AC MILAN", "Lazio", "Juventus", "genoa",
         "Sassuolo", "Fiorentina", "Bologna", "Fiorentina", "Bologna", "atalanta",
@@ -308,3 +308,26 @@ POSTPONED_TEAMS_2026 = {
 POSTPONED_MATCHES = {
 
 }
+
+SERIA_TEAMS_CURRENT_SEASON =[
+"atalanta",
+"bologna",
+"cagliari",
+"como",
+"fiorentina",
+"frosinone",
+"genoa",
+"inter",
+"juventus",
+"lazio",
+"lecce",
+"milan",
+"monza",
+"napoli",
+"parma",
+"roma",
+"sassuolo",
+"torino",
+"udinese",
+"venezia"
+]
