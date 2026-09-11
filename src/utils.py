@@ -80,6 +80,10 @@ def get_latest_team(df_orig, player_name, team_col):
         .iloc[-1] if not df[team_col].dropna().empty else None
     )
 
+    #se contiene "," prendo solo l'utlima squadra
+    if latest_team and "," in latest_team:
+        latest_team = latest_team.split(",")[-1].strip()
+
     return latest_team
 
 def integrate_prev_season_if_needed(
