@@ -1235,6 +1235,9 @@ def prepare_voto_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     # pulizia posizione
     df['position_clean'] = df['position'].apply(clean_position)
 
+    #rimuovo tutte le righe che non hanno nella colonna player_team una squadra presente in config.SERIA_TEAMS_CURRENT_SEASON
+    df = df[df['player_team'].isin(config.SERIA_TEAMS_CURRENT_SEASON)]
+
     return df
 
 
