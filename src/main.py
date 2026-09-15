@@ -194,7 +194,7 @@ def main():
     args.assist = True
     args.voti = True
     args.nextgames = True
-    args.infortunati = True
+    args.infortunati = False
     # ==========================
     # ESECUZIONE
     # ==========================

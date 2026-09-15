@@ -446,7 +446,7 @@ def predict_goal_probabilities(model_xg, players, teams, opponents, df_orig, df_
             continue
         
         player_df, player_full_name = get_player_data(df_orig, player)
-
+        
         if player_df["season"].min() == CURRENT_SEASON:
             others_leagues_data = True
             player_df = utils.add_other_leagues_data(
@@ -641,7 +641,7 @@ def main():
     parser = argparse.ArgumentParser(description="FantaModel")
     parser.add_argument("--fit", action="store_true", help="Vuoi riaddestrare il modello?")
     args = parser.parse_args()
-    args.fit = True
+    args.fit = False
 
     players = INPUT["players"]
     teams = INPUT["teams"]

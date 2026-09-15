@@ -86,8 +86,8 @@ def clean_position(pos):
         return "SUB"
     return pos
 
-def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = None,
-                     min_matches: int = 10):
+def get_player_data(df: pd.DataFrame, player_name: str
+                    ):
     """
     Cerca i dati di un giocatore nel dataframe, gestendo:
     - accenti (Martínez -> Martinez)
@@ -135,27 +135,6 @@ def get_player_data(df: pd.DataFrame, player_name: str, current_season: str = No
         chosen_player = matching_players[0]
 
     player_df = player_df.sort_values("date").reset_index(drop=True)
-
-    # 🔹 Integrazione con la stagione precedente se ho pochi dati
-    if current_season is not None:
-        curr_df = player_df[player_df["season"] == current_season]
-
-        if len(curr_df) < min_matches:
-            missing = min_matches - len(curr_df)
-            past_df = player_df[player_df["season"] != current_season]
-
-            if not past_df.empty:
-                prev_matches = past_df.sort_values("date").tail(missing)
-
-                print(f"ℹ️ '{chosen_player}' ha solo {len(curr_df)} partite in {current_season}, "
-                      f"integro {len(prev_matches)} partite dalla stagione precedente.")
-
-                player_df = pd.concat([prev_matches, curr_df], ignore_index=True)
-                player_df = player_df.sort_values("date").reset_index(drop=True)
-            else:
-                player_df = curr_df.reset_index(drop=True)
-        else:
-            player_df = curr_df.reset_index(drop=True)
 
     return player_df, chosen_player
 
@@ -306,7 +285,7 @@ def pred_voto_prod(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5)
+        player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
             continue
         
@@ -327,8 +306,7 @@ def pred_voto_prod(
         
         # ---- rolling stats ultime 15 ----
         rolling_15 = player_df.tail(15)
-        if "scott" in player_full_name.lower():
-            print(f"ℹ️ Debug: rolling_15 per '{player_full_name}':")
+
             
         voto_base = utils.compute_base_voto_by_role(
            player_df=player_df,
@@ -437,7 +415,7 @@ def pred_voto_prod(
 
         voto_base += yellowcard_adj
 
-         # ************  MALUS GIOCATORI INATTIVI DA TEMPO  **********
+        # ************  MALUS GIOCATORI INATTIVI DA TEMPO  **********
         malus_tempo = utils.malus = utils.calculate_inactivity_malus(
                             player_df['date'],
                             reference_date=None
@@ -552,7 +530,7 @@ def pred_voto_prod_gk(
 
     for player, team, opponent, h_a in zip(players, teams, opponents, h_a_players):
 
-        player_df, player_full_name = get_player_data(df_voti, player, config.CURRENT_SEASON, min_matches=5)
+        player_df, player_full_name = get_player_data(df_voti, player)
         if player_df.empty:
             continue
 
@@ -988,6 +966,9 @@ def predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, 
 
             team = utils.normalize_team_name(team)
             teams_role.append(team)
+
+            if "verona" in team.lower():
+                print(f"ℹ️ Debug: team normalizzato per {player}: {team}")
             
             # cerca la prossima partita del team
             next_game = next_games_df[(next_games_df['home'] == team) | (next_games_df['away'] == team)]
@@ -1140,21 +1121,23 @@ def main():
     else:
         #carica modello
         pipeline = utils.load_fv_model()
+
+    if test_gk:
+    
+        #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
+        #pipeline['fantavoto_model'])
+        if train_gk:
+            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline, top_n=10)
+        else:
+            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline_gk['fantavoto_model_gk'], top_n=10)
+
+    
     if test:
 
         #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
             #pipeline['fantavoto_model'])
 
         predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=pipeline['fantavoto_model'], pipeline_gk=None, top_n=10)
-
-    if test_gk:
-
-        #pred_df = pred_voto_prod(config.INPUT["players"],config.INPUT["teams"],config.INPUT["opponents"],config.INPUT["h_a"],df_voti,
-            #pipeline['fantavoto_model'])
-        if train_gk:
-            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline, top_n=10)
-        else:
-            predizioni_per_ruolo(df_voti, next_games_df, df_infortunati, pipeline=None, pipeline_gk=pipeline_gk['fantavoto_model_gk'], top_n=10)
 
 if __name__ == "__main__":
     main()
